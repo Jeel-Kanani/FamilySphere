@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "967736331876",
+    "project_id": "familysphere-171285",
+    "storage_bucket": "familysphere-171285.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:967736331876:android:5ea300adb5ffae6aa19971",
+        "android_client_info": {
+          "package_name": "com.example.familysphere_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDkd3rTCg0ICILrYJ_flLVVE0837gif-OA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
