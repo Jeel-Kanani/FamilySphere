@@ -4,23 +4,27 @@
 /// It represents the business concept of a "User" in FamilySphere.
 class User {
   final String id;
-  final String phoneNumber;
+  final String email;
+  final String? phoneNumber;
   final String? displayName;
   final String? photoUrl;
   final String? familyId;
   final UserRole role;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? token; // JWT Token
 
   User({
     required this.id,
-    required this.phoneNumber,
+    required this.email,
+    this.phoneNumber,
     this.displayName,
     this.photoUrl,
     this.familyId,
     required this.role,
     required this.createdAt,
     required this.updatedAt,
+    this.token,
   });
 
   /// Check if user has completed profile setup
@@ -35,6 +39,7 @@ class User {
   /// Copy user with updated fields
   User copyWith({
     String? id,
+    String? email,
     String? phoneNumber,
     String? displayName,
     String? photoUrl,
@@ -42,9 +47,11 @@ class User {
     UserRole? role,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? token,
   }) {
     return User(
       id: id ?? this.id,
+      email: email ?? this.email,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       displayName: displayName ?? this.displayName,
       photoUrl: photoUrl ?? this.photoUrl,
@@ -52,12 +59,13 @@ class User {
       role: role ?? this.role,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      token: token ?? this.token,
     );
   }
 
   @override
   String toString() {
-    return 'User(id: $id, phoneNumber: $phoneNumber, displayName: $displayName, familyId: $familyId, role: $role)';
+    return 'User(id: $id, email: $email, displayName: $displayName, familyId: $familyId, role: $role)';
   }
 
   @override
@@ -66,6 +74,7 @@ class User {
   
     return other is User &&
       other.id == id &&
+      other.email == email &&
       other.phoneNumber == phoneNumber &&
       other.displayName == displayName &&
       other.photoUrl == photoUrl &&
@@ -76,6 +85,7 @@ class User {
   @override
   int get hashCode {
     return id.hashCode ^
+      email.hashCode ^
       phoneNumber.hashCode ^
       displayName.hashCode ^
       photoUrl.hashCode ^

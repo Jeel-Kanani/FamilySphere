@@ -1,4 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Family;
 import 'package:familysphere_app/features/family/domain/entities/family.dart';
 import 'package:familysphere_app/features/family/domain/entities/family_member.dart';
 import 'package:familysphere_app/features/family/domain/usecases/create_family.dart';
@@ -16,7 +16,8 @@ import 'package:familysphere_app/features/family/data/datasources/family_local_d
 
 // Family Data Sources
 final familyRemoteDataSourceProvider = Provider((ref) {
-  return FamilyRemoteDataSource();
+  final apiClient = ref.read(apiClientProvider);
+  return FamilyRemoteDataSource(apiClient: apiClient);
 });
 
 final familyLocalDataSourceProvider = Provider((ref) {

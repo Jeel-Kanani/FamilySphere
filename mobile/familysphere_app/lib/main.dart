@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
@@ -10,10 +9,7 @@ import 'package:familysphere_app/features/auth/domain/entities/auth_state.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Firebase
-  await Firebase.initializeApp();
-  
-  // Initialize Hive
+  // Initialize Hive for local cache (if needed for documents, etc.)
   await Hive.initFlutter();
   
   runApp(
@@ -54,57 +50,54 @@ class _AuthCheckerState extends ConsumerState<AuthChecker> {
   void initState() {
     super.initState();
     // Check auth status on app start
-    Future.microtask(() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(authProvider.notifier).checkAuthStatus();
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
-
-    // Show splash screen while checking
-    if (authState.isLoading) {
-      return const SplashScreen();
-    }
-
-    // Navigate based on auth status
+  void _navigateBasedOnAuth(AuthState authState) {
+    if (!mounted) return;
+    
+    String targetRoute;
+    
     if (authState.status == AuthStatus.authenticated) {
       final user = authState.user;
       
-      if (user == null) {
-        return const SplashScreen();
-      }
+      if (user == null) return;
       
       // Check if profile is complete
       if (!user.hasCompletedProfile) {
-        // Navigate to profile setup
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          Navigator.pushReplacementNamed(context, AppRoutes.profileSetup);
-        });
-        return const SplashScreen();
+        targetRoute = AppRoutes.profileSetup;
       }
-      
       // Check if user has family
-      if (!user.hasFamily) {
-        // Navigate to family setup
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          Navigator.pushReplacementNamed(context, AppRoutes.familySetup);
-        });
-        return const SplashScreen();
+      else if (!user.hasFamily) {
+        targetRoute = AppRoutes.familySetup;
       }
-      
       // User is fully set up - go to home
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacementNamed(context, AppRoutes.home);
-      });
-      return const SplashScreen();
+      else {
+        targetRoute = AppRoutes.home;
+      }
+    } else if (!authState.isLoading) {
+      // Not authenticated and not loading - go to login
+      targetRoute = AppRoutes.login;
+    } else {
+      // Still loading, don't navigate yet
+      return;
     }
 
-    // Not authenticated - go to login
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Navigator.pushReplacementNamed(context, AppRoutes.login);
+    Navigator.of(context).pushReplacementNamed(targetRoute);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Use listen instead of watch to avoid rebuilding
+    ref.listen(authProvider, (previous, next) {
+      // Only navigate when auth status changes from loading to loaded
+      if (previous?.isLoading == true && !next.isLoading) {
+        _navigateBasedOnAuth(next);
+      }
     });
+
     return const SplashScreen();
   }
 }

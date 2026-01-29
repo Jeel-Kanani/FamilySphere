@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:familysphere_app/features/auth/presentation/screens/phone_login_screen.dart';
-import 'package:familysphere_app/features/auth/presentation/screens/otp_verification_screen.dart';
+import 'package:familysphere_app/features/auth/presentation/screens/login_screen.dart';
+import 'package:familysphere_app/features/auth/presentation/screens/register_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/profile_setup_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/family_setup_screen.dart';
+import 'package:familysphere_app/features/family/presentation/screens/family_details_screen.dart';
+import 'package:familysphere_app/features/family/presentation/screens/invite_member_screen.dart';
 import 'package:familysphere_app/features/home/presentation/screens/home_screen.dart';
+import 'package:familysphere_app/features/documents/presentation/screens/document_list_screen.dart';
+import 'package:familysphere_app/features/documents/presentation/screens/add_document_screen.dart';
 
 /// Application Routes
 /// 
@@ -11,22 +15,24 @@ import 'package:familysphere_app/features/home/presentation/screens/home_screen.
 class AppRoutes {
   // Route names
   static const String login = '/login';
-  static const String otpVerification = '/otp-verification';
+  static const String register = '/register';
   static const String profileSetup = '/profile-setup';
   static const String familySetup = '/family-setup';
   static const String home = '/home';
+  static const String familyDetails = '/family-details';
+  static const String inviteMember = '/invite-member';
+  static const String documents = '/documents';
+  static const String addDocument = '/add-document';
 
   // Route generator
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case login:
-        return MaterialPageRoute(builder: (_) => const PhoneLoginScreen());
+        return MaterialPageRoute(builder: (_) => const LoginScreen());
 
-      case otpVerification:
-        final phoneNumber = settings.arguments as String;
-        return MaterialPageRoute(
-          builder: (_) => OtpVerificationScreen(phoneNumber: phoneNumber),
-        );
+      case register:
+        return MaterialPageRoute(builder: (_) => const RegisterScreen());
+
 
       case profileSetup:
         return MaterialPageRoute(builder: (_) => const ProfileSetupScreen());
@@ -36,6 +42,18 @@ class AppRoutes {
 
       case home:
         return MaterialPageRoute(builder: (_) => const HomeScreen());
+
+      case familyDetails:
+        return MaterialPageRoute(builder: (_) => const FamilyDetailsScreen());
+
+      case inviteMember:
+        return MaterialPageRoute(builder: (_) => const InviteMemberScreen());
+
+      case documents:
+        return MaterialPageRoute(builder: (_) => const DocumentListScreen());
+
+      case addDocument:
+        return MaterialPageRoute(builder: (_) => const AddDocumentScreen());
 
       default:
         return MaterialPageRoute(

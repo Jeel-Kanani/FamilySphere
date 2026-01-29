@@ -1,45 +1,52 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:familysphere_app/core/network/api_client.dart';
+import 'package:familysphere_app/core/services/token_service.dart';
 import 'package:familysphere_app/features/auth/domain/entities/auth_state.dart';
 import 'package:familysphere_app/features/auth/domain/entities/user.dart';
-import 'package:familysphere_app/features/auth/domain/usecases/send_otp.dart';
-import 'package:familysphere_app/features/auth/domain/usecases/verify_otp.dart';
+import 'package:familysphere_app/features/auth/domain/usecases/login.dart';
+import 'package:familysphere_app/features/auth/domain/usecases/register.dart';
 import 'package:familysphere_app/features/auth/domain/usecases/get_current_user.dart';
 import 'package:familysphere_app/features/auth/domain/usecases/sign_out.dart';
-import 'package:familysphere_app/features/auth/domain/usecases/update_profile.dart';
-import 'package:familysphere_app/features/auth/domain/usecases/sign_in_with_google.dart';
 import 'package:familysphere_app/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:familysphere_app/features/auth/data/datasources/auth_remote_datasource.dart';
-import 'package:familysphere_app/features/auth/data/datasources/auth_local_datasource.dart';
 
-/// Dependency Injection - Providers
-/// 
-/// These providers create and manage instances of our classes.
-/// Riverpod handles the lifecycle and dependencies automatically.
+/// Dependency Injection - Core Services
 
-// Data Sources
-final authRemoteDataSourceProvider = Provider((ref) {
-  return AuthRemoteDataSource();
+// Token Service Provider
+final tokenServiceProvider = Provider<TokenService>((ref) {
+  return TokenService();
 });
 
-final authLocalDataSourceProvider = Provider((ref) {
-  return AuthLocalDataSource();
+// API Client Provider
+final apiClientProvider = Provider<ApiClient>((ref) {
+  final tokenService = ref.read(tokenServiceProvider);
+  return ApiClient(tokenService: tokenService);
+});
+
+// Data Sources
+final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>((ref) {
+  final apiClient = ref.read(apiClientProvider);
+  final tokenService = ref.read(tokenServiceProvider);
+  return AuthRemoteDataSource(
+    apiClient: apiClient,
+    tokenService: tokenService,
+  );
 });
 
 // Repository
 final authRepositoryProvider = Provider((ref) {
   return AuthRepositoryImpl(
     remoteDataSource: ref.read(authRemoteDataSourceProvider),
-    localDataSource: ref.read(authLocalDataSourceProvider),
   );
 });
 
 // Use Cases
-final sendOtpUseCaseProvider = Provider((ref) {
-  return SendOtp(ref.read(authRepositoryProvider));
+final loginUseCaseProvider = Provider((ref) {
+  return Login(ref.read(authRepositoryProvider));
 });
 
-final verifyOtpUseCaseProvider = Provider((ref) {
-  return VerifyOtp(ref.read(authRepositoryProvider));
+final registerUseCaseProvider = Provider((ref) {
+  return Register(ref.read(authRepositoryProvider));
 });
 
 final getCurrentUserUseCaseProvider = Provider((ref) {
@@ -50,135 +57,59 @@ final signOutUseCaseProvider = Provider((ref) {
   return SignOut(ref.read(authRepositoryProvider));
 });
 
-final updateProfileUseCaseProvider = Provider((ref) {
-  return UpdateProfile(ref.read(authRepositoryProvider));
-});
-
-final signInWithGoogleUseCaseProvider = Provider((ref) {
-  return SignInWithGoogle(ref.read(authRepositoryProvider));
-});
-
 /// Authentication State Notifier
-/// 
-/// This class manages the authentication state and provides methods
-/// for UI to trigger auth operations.
 class AuthNotifier extends StateNotifier<AuthState> {
-  final SendOtp _sendOtp;
-  final VerifyOtp _verifyOtp;
+  final Login _login;
+  final Register _register;
   final GetCurrentUser _getCurrentUser;
   final SignOut _signOut;
-  final UpdateProfile _updateProfile;
-  final SignInWithGoogle _signInWithGoogle;
 
   AuthNotifier({
-    required SendOtp sendOtp,
-    required VerifyOtp verifyOtp,
+    required Login login,
+    required Register register,
     required GetCurrentUser getCurrentUser,
     required SignOut signOut,
-    required UpdateProfile updateProfile,
-    required SignInWithGoogle signInWithGoogle,
-  })  : _sendOtp = sendOtp,
-        _verifyOtp = verifyOtp,
+  })  : _login = login,
+        _register = register,
         _getCurrentUser = getCurrentUser,
         _signOut = signOut,
-        _updateProfile = updateProfile,
-        _signInWithGoogle = signInWithGoogle,
         super(AuthState.initial());
-
-  /// Send OTP to phone number
-  Future<void> sendOtp(String phoneNumber) async {
-    try {
-      print('📱 Sending OTP to: $phoneNumber');
-      state = state.copyWith(
-        status: AuthStatus.sendingOtp,
-        isLoading: true,
-        error: null,
-      );
-
-      final verificationId = await _sendOtp.call(phoneNumber);
-      print('✅ OTP sent! Verification ID: $verificationId');
-
-      state = AuthState.otpSent(verificationId);
-      print('📊 State updated. Verification ID in state: ${state.verificationId}');
-    } catch (e) {
-      print('❌ Send OTP error: $e');
-      state = AuthState.error(e.toString());
-    }
-  }
-
-  /// Verify OTP code
-  Future<void> verifyOtp(String otpCode) async {
-    try {
-      print('🔐 Verifying OTP: $otpCode');
-      print('📊 Current state verification ID: ${state.verificationId}');
-      
-      if (state.verificationId == null) {
-        print('❌ No verification ID in state!');
-        state = AuthState.error('No verification ID found. Please request OTP again.');
-        return;
-      }
-
-      state = state.copyWith(
-        status: AuthStatus.verifyingOtp,
-        isLoading: true,
-        error: null,
-      );
-
-      final user = await _verifyOtp.call(
-        verificationId: state.verificationId!,
-        otpCode: otpCode,
-      );
-
-      print('✅ OTP verified! User: ${user.phoneNumber}');
-      state = AuthState.authenticated(user);
-    } catch (e) {
-      print('❌ Verify OTP error: $e');
-      state = AuthState.error(e.toString());
-    }
-  }
 
   /// Check if user is already logged in
   Future<void> checkAuthStatus() async {
     try {
       state = AuthState.loading();
-
       final user = await _getCurrentUser.call();
-
       if (user != null) {
         state = AuthState.authenticated(user);
       } else {
         state = AuthState.initial();
       }
     } catch (e) {
+      print('Auth check error: $e');
       state = AuthState.initial();
     }
   }
 
-  /// Update user profile
-  Future<void> updateProfile({
-    required String displayName,
-    String? photoUrl,
-  }) async {
+  /// Login with email/password
+  Future<void> login(String email, String password) async {
     try {
-      if (state.user == null) {
-        state = AuthState.error('No user logged in');
-        return;
-      }
-
       state = state.copyWith(isLoading: true, error: null);
-
-      final updatedUser = await _updateProfile.call(
-        userId: state.user!.id,
-        displayName: displayName,
-        photoUrl: photoUrl,
-      );
-
-      state = AuthState.authenticated(updatedUser);
+      final user = await _login.call(email: email, password: password);
+      state = AuthState.authenticated(user);
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  /// Register new user
+  Future<void> register(String name, String email, String password) async {
+    try {
+      state = state.copyWith(isLoading: true, error: null);
+      final user = await _register.call(name: name, email: email, password: password);
+      state = AuthState.authenticated(user);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
@@ -192,64 +123,68 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Sign in with Google
-  Future<void> signInWithGoogle() async {
+  /// Update user profile (name, photo)
+  Future<void> updateProfile({
+    String? displayName,
+    String? photoUrl,
+  }) async {
     try {
-      print('🔐 Starting Google Sign-In from provider...');
-      state = state.copyWith(
-        status: AuthStatus.sendingOtp, // Reusing this for loading state
-        isLoading: true,
-        error: null,
-      );
-
-      // Call use case
-      final user = await _signInWithGoogle.call();
+      state = state.copyWith(isLoading: true, error: null);
+      // TODO: Implement updateProfile API call
+      // For now, just update local state
+      print('Update profile called: displayName=$displayName, photoUrl=$photoUrl');
       
-      print('✅ Google Sign-In successful! User: ${user.displayName}');
-      state = AuthState.authenticated(user);
-    } catch (e) {
-      print('❌ Google Sign-In error in provider: $e');
-      if (e.toString().contains('canceled')) {
-        // User canceled - just reset to initial, don't show error
-        state = AuthState.initial();
+      // Simulate API call delay
+      await Future.delayed(const Duration(seconds: 1));
+      
+      // Update user with new profile data
+      final updatedUser = state.user?.copyWith(
+        displayName: displayName ?? state.user?.displayName,
+        photoUrl: photoUrl ?? state.user?.photoUrl,
+      );
+      
+      if (updatedUser != null) {
+        state = state.copyWith(user: updatedUser, isLoading: false);
       } else {
-        state = AuthState.error(e.toString());
+        state = state.copyWith(isLoading: false);
       }
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
-  /// Clear error
+  /// Refresh user data from backend
+  Future<void> refreshUser() async {
+    try {
+      final user = await _getCurrentUser.call();
+      if (user != null) {
+        state = state.copyWith(user: user);
+      }
+    } catch (e) {
+      print('Refresh user error: $e');
+      // Don't update error state for background refresh
+    }
+  }
+
   void clearError() {
     state = state.copyWith(error: null);
   }
 }
 
 /// Auth State Provider
-/// 
-/// This is the main provider that UI will use to:
-/// 1. Read auth state
-/// 2. Trigger auth operations
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   return AuthNotifier(
-    sendOtp: ref.read(sendOtpUseCaseProvider),
-    verifyOtp: ref.read(verifyOtpUseCaseProvider),
+    login: ref.read(loginUseCaseProvider),
+    register: ref.read(registerUseCaseProvider),
     getCurrentUser: ref.read(getCurrentUserUseCaseProvider),
     signOut: ref.read(signOutUseCaseProvider),
-    updateProfile: ref.read(updateProfileUseCaseProvider),
-    signInWithGoogle: ref.read(signInWithGoogleUseCaseProvider),
   );
 });
 
-/// Current User Provider
-/// 
-/// Convenient provider to get just the current user
 final currentUserProvider = Provider<User?>((ref) {
   return ref.watch(authProvider).user;
 });
 
-/// Is Authenticated Provider
-/// 
-/// Convenient provider to check if user is logged in
 final isAuthenticatedProvider = Provider<bool>((ref) {
   return ref.watch(authProvider).status == AuthStatus.authenticated;
 });

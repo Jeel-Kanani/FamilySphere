@@ -1,335 +1,142 @@
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:familysphere_app/core/config/api_config.dart';
+import 'package:familysphere_app/core/network/api_client.dart';
+import 'package:familysphere_app/core/services/token_service.dart';
 import 'package:familysphere_app/features/auth/data/models/user_model.dart';
+import 'package:familysphere_app/features/auth/data/models/login_request.dart';
+import 'package:familysphere_app/features/auth/data/models/register_request.dart';
 
-/// Remote Data Source - Firebase Operations
-/// 
-/// This class handles all Firebase Auth and Firestore operations.
-/// It's the only place that directly talks to Firebase.
-/// 
-/// Why separate?
-/// - Single place for all Firebase code
-/// - Easy to mock for testing
-/// - Can be replaced with different backend
 class AuthRemoteDataSource {
-  final firebase_auth.FirebaseAuth _firebaseAuth;
-  final FirebaseFirestore _firestore;
-  final GoogleSignIn _googleSignIn;
+  final ApiClient _apiClient;
+  final TokenService _tokenService;
 
   AuthRemoteDataSource({
-    firebase_auth.FirebaseAuth? firebaseAuth,
-    FirebaseFirestore? firestore,
-    GoogleSignIn? googleSignIn,
-  })  : _firebaseAuth = firebaseAuth ?? firebase_auth.FirebaseAuth.instance,
-        _firestore = firestore ?? FirebaseFirestore.instance,
-        _googleSignIn = googleSignIn ?? GoogleSignIn();
+    required ApiClient apiClient,
+    required TokenService tokenService,
+  })  : _apiClient = apiClient,
+        _tokenService = tokenService;
 
-  /// Send OTP to phone number
-  /// 
-  /// Returns verification ID for later verification
-  /// Throws exception if sending fails
-  Future<String> sendOtp(String phoneNumber) async {
-    String? verificationId;
-    Exception? error;
-    bool codeSentSuccessfully = false;
-
+  /// Register new user
+  Future<UserModel> register(String name, String email, String password) async {
     try {
-      await _firebaseAuth.verifyPhoneNumber(
-        phoneNumber: phoneNumber,
-        timeout: const Duration(seconds: 120),
-        
-        // Called when verification is completed automatically (Android)
-        verificationCompleted: (firebase_auth.PhoneAuthCredential credential) async {
-          print('✅ Auto-verification completed');
-          try {
-            await _firebaseAuth.signInWithCredential(credential);
-          } catch (e) {
-            print('Auto-sign in error (can ignore): $e');
-          }
-        },
-        
-        // Called when verification fails
-        verificationFailed: (firebase_auth.FirebaseAuthException e) {
-          // Only set error if code wasn't already sent successfully
-          if (!codeSentSuccessfully) {
-            print('❌ Firebase Auth Error: ${e.code} - ${e.message}');
-            if (e.code == 'invalid-phone-number') {
-              error = Exception('Invalid phone number format');
-            } else if (e.code == 'too-many-requests') {
-              error = Exception('Too many requests. Please try again later');
-            } else if (e.code == 'network-request-failed') {
-              error = Exception('Network error. Please check your connection');
-            } else {
-              error = Exception(e.message ?? 'Failed to send OTP. Please try again');
-            }
-          } else {
-            print('⚠️ Verification failed callback fired but code was already sent - ignoring');
-          }
-        },
-        
-        // Called when OTP is sent successfully
-        codeSent: (String verId, int? resendToken) {
-          print('✅ OTP sent successfully. Verification ID: $verId');
-          verificationId = verId;
-          codeSentSuccessfully = true;
-          // Clear any previous errors since code was sent successfully
-          error = null;
-        },
-        
-        // Called when auto-retrieval timeout
-        codeAutoRetrievalTimeout: (String verId) {
-          print('⏱️ Auto-retrieval timeout. Verification ID: $verId');
-          if (verificationId == null) {
-            verificationId = verId;
-            codeSentSuccessfully = true;
-          }
-        },
+      final request = RegisterRequest(
+        name: name,
+        email: email,
+        password: password,
       );
 
-      // Wait for callbacks to complete
-      await Future.delayed(const Duration(seconds: 3));
-
-      // Check if code was sent successfully (priority over error)
-      if (codeSentSuccessfully && verificationId != null) {
-        print('✅ Returning verification ID: $verificationId');
-        return verificationId!;
-      }
-
-      // If we have an error and code wasn't sent, throw it
-      if (error != null) {
-        print('❌ Throwing error: $error');
-        throw error!;
-      }
-
-      // No verification ID and no specific error
-      throw Exception('Failed to send OTP. Please try again.');
-    } catch (e) {
-      print('❌ SendOTP Error: $e');
-      if (e is Exception) rethrow;
-      throw Exception('Failed to send OTP: ${e.toString()}');
-    }
-  }
-
-  /// Verify OTP code
-  /// 
-  /// Returns UserModel if verification successful
-  /// Throws exception if verification fails
-  Future<UserModel> verifyOtp(String verificationId, String otpCode) async {
-    try {
-      // Create credential
-      final credential = firebase_auth.PhoneAuthProvider.credential(
-        verificationId: verificationId,
-        smsCode: otpCode,
+      final response = await _apiClient.post(
+        ApiConfig.registerEndpoint,
+        data: request.toJson(),
       );
 
-      // Sign in with credential
-      final userCredential = await _firebaseAuth.signInWithCredential(credential);
-      
-      if (userCredential.user == null) {
-        throw Exception('Authentication failed');
-      }
+      // Parse response
+      final userModel = UserModel.fromJson(response.data);
 
-      final firebaseUser = userCredential.user!;
-
-      // Check if user exists in Firestore
-      final userDoc = await _firestore
-          .collection('users')
-          .doc(firebaseUser.uid)
-          .get();
-
-      if (userDoc.exists) {
-        // Existing user - return from Firestore
-        return UserModel.fromFirestore(userDoc);
-      } else {
-        // New user - create in Firestore
-        final newUser = UserModel.create(
-          id: firebaseUser.uid,
-          phoneNumber: firebaseUser.phoneNumber!,
+      // Save token and user data to secure storage
+      if (userModel.token != null) {
+        await _tokenService.saveToken(userModel.token!);
+        await _tokenService.saveUserData(
+          userId: userModel.id,
+          email: userModel.email,
+          name: userModel.displayName ?? name,
         );
-
-        await _firestore
-            .collection('users')
-            .doc(newUser.id)
-            .set(newUser.toFirestore());
-
-        return newUser;
       }
-    } on firebase_auth.FirebaseAuthException catch (e) {
-      if (e.code == 'invalid-verification-code') {
-        throw Exception('Invalid OTP code. Please check and try again.');
-      } else if (e.code == 'session-expired') {
-        throw Exception('OTP expired. Please request a new code.');
-      } else {
-        throw Exception(e.message ?? 'Verification failed');
-      }
+
+      return userModel;
     } catch (e) {
-      throw Exception('Verification failed: ${e.toString()}');
+      throw Exception('Registration failed: ${e.toString()}');
     }
   }
 
-  /// Get current user from Firebase and Firestore
-  /// 
-  /// Returns UserModel if logged in, null otherwise
+  /// Login user
+  Future<UserModel> login(String email, String password) async {
+    try {
+      final request = LoginRequest(
+        email: email,
+        password: password,
+      );
+
+      final response = await _apiClient.post(
+        ApiConfig.loginEndpoint,
+        data: request.toJson(),
+      );
+
+      // Parse response
+      final userModel = UserModel.fromJson(response.data);
+
+      // Save token and user data to secure storage
+      if (userModel.token != null) {
+        await _tokenService.saveToken(userModel.token!);
+        await _tokenService.saveUserData(
+          userId: userModel.id,
+          email: userModel.email,
+          name: userModel.displayName ?? email,
+        );
+      }
+
+      return userModel;
+    } catch (e) {
+      throw Exception('Login failed: ${e.toString()}');
+    }
+  }
+
+  /// Get current user from backend (requires valid token)
   Future<UserModel?> getCurrentUser() async {
     try {
-      final firebaseUser = _firebaseAuth.currentUser;
-      
-      if (firebaseUser == null) return null;
+      // Check if token exists
+      final isLoggedIn = await _tokenService.isLoggedIn();
+      if (!isLoggedIn) {
+        return null;
+      }
 
-      // Get user data from Firestore
-      final userDoc = await _firestore
-          .collection('users')
-          .doc(firebaseUser.uid)
-          .get();
+      // Fetch current user from backend
+      final response = await _apiClient.get(ApiConfig.currentUserEndpoint);
 
-      if (!userDoc.exists) return null;
-
-      return UserModel.fromFirestore(userDoc);
+      // Parse response
+      final userModel = UserModel.fromJson(response.data);
+      return userModel;
     } catch (e) {
+      // If token is invalid, clear storage
+      await _tokenService.clearUserData();
       return null;
     }
   }
 
-  /// Update user profile in Firestore
-  /// 
-  /// Returns updated UserModel
-  Future<UserModel> updateProfile({
-    required String userId,
-    String? displayName,
-    String? photoUrl,
-  }) async {
+  /// Sign out user
+  Future<void> signOut() async {
     try {
-      final updates = <String, dynamic>{
-        'updatedAt': Timestamp.now(),
-      };
-
-      if (displayName != null) {
-        updates['displayName'] = displayName;
-      }
-      if (photoUrl != null) {
-        updates['photoUrl'] = photoUrl;
-      }
-
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .update(updates);
-
-      // Get updated user
-      final userDoc = await _firestore
-          .collection('users')
-          .doc(userId)
-          .get();
-
-      return UserModel.fromFirestore(userDoc);
+      // Clear all user data from secure storage
+      await _tokenService.clearUserData();
     } catch (e) {
-      throw Exception('Failed to update profile: ${e.toString()}');
+      throw Exception('Sign out failed: ${e.toString()}');
     }
   }
 
-  /// Sign out current user
-  Future<void> signOut() async {
-    await Future.wait([
-      _firebaseAuth.signOut(),
-      _googleSignIn.signOut(),
-    ]);
-  }
-
-  /// Sign in with Google
-  /// 
-  /// Returns UserModel if sign-in successful
-  /// Throws exception if sign-in fails
-  Future<UserModel> signInWithGoogle() async {
+  /// Update user profile
+  Future<UserModel> updateProfile({String? name, String? email}) async {
     try {
-      print('🔐 Starting Google Sign-In...');
-      
-      // Trigger the authentication flow
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      
-      if (googleUser == null) {
-        // User canceled the sign-in
-        throw Exception('Google Sign-In canceled');
-      }
+      final data = <String, dynamic>{};
+      if (name != null) data['name'] = name;
+      if (email != null) data['email'] = email;
 
-      print('✅ Google user selected: ${googleUser.email}');
-
-      // Obtain the auth details from the request
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-
-      // Create a new credential
-      final credential = firebase_auth.GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
+      final response = await _apiClient.put(
+        ApiConfig.updateProfileEndpoint,
+        data: data,
       );
 
-      // Sign in to Firebase with the Google credential
-      final userCredential = await _firebaseAuth.signInWithCredential(credential);
-      
-      if (userCredential.user == null) {
-        throw Exception('Google Sign-In failed');
-      }
+      // Parse updated user
+      final userModel = UserModel.fromJson(response.data);
 
-      final firebaseUser = userCredential.user!;
-      print('✅ Firebase sign-in successful: ${firebaseUser.uid}');
+      // Update local storage
+      await _tokenService.saveUserData(
+        userId: userModel.id,
+        email: userModel.email,
+        name: userModel.displayName ?? '',
+      );
 
-      // Check if user exists in Firestore
-      final userDoc = await _firestore
-          .collection('users')
-          .doc(firebaseUser.uid)
-          .get();
-
-      if (userDoc.exists) {
-        // Existing user - return from Firestore
-        print('✅ Existing user found');
-        return UserModel.fromFirestore(userDoc);
-      } else {
-        // New user - create in Firestore
-        print('📝 Creating new user in Firestore');
-        final newUser = UserModel.create(
-          id: firebaseUser.uid,
-          phoneNumber: firebaseUser.phoneNumber ?? '',
-          displayName: firebaseUser.displayName,
-          photoUrl: firebaseUser.photoURL,
-        );
-
-        await _firestore
-            .collection('users')
-            .doc(newUser.id)
-            .set(newUser.toFirestore());
-
-        print('✅ New user created');
-        return newUser;
-      }
+      return userModel;
     } catch (e) {
-      print('❌ Google Sign-In error: $e');
-      if (e.toString().contains('canceled')) {
-        throw Exception('Sign-in canceled');
-      }
-      throw Exception('Google Sign-In failed: ${e.toString()}');
+      throw Exception('Profile update failed: ${e.toString()}');
     }
-  }
-
-  /// Stream of auth state changes
-  /// 
-  /// Emits UserModel when user signs in
-  /// Emits null when user signs out
-  Stream<UserModel?> get authStateChanges {
-    return _firebaseAuth.authStateChanges().asyncMap((firebaseUser) async {
-      if (firebaseUser == null) return null;
-
-      try {
-        final userDoc = await _firestore
-            .collection('users')
-            .doc(firebaseUser.uid)
-            .get();
-
-        if (!userDoc.exists) return null;
-
-        return UserModel.fromFirestore(userDoc);
-      } catch (e) {
-        return null;
-      }
-    });
   }
 }

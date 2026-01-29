@@ -2,22 +2,44 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:familysphere_app/features/family/presentation/providers/family_provider.dart';
 
-/// Home Screen - Placeholder
+/// Home Screen
 /// 
-/// Main dashboard after authentication.
-/// This is a simple placeholder - will be enhanced later.
-class HomeScreen extends ConsumerWidget {
+/// Main dashboard displaying family overview and quick actions.
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider);
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Load family data once the widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(familyProvider.notifier).loadFamily();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = ref.watch(authProvider).user;
+    final familyState = ref.watch(familyProvider);
+    final family = familyState.family;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('FamilySphere'),
+        title: Text(family?.name ?? 'FamilySphere'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.pushNamed(context, '/family-details');
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
@@ -29,62 +51,199 @@ class HomeScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.family_restroom,
-                size: 100,
-                color: AppTheme.primaryColor,
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Welcome, ${user?.displayName ?? "User"}!',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Your family hub is ready',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
-              ),
-              const SizedBox(height: 48),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
+      body: RefreshIndicator(
+        onRefresh: () => ref.read(familyProvider.notifier).loadFamily(),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Welcome Section
+                Text(
+                  'Hello, ${user?.displayName?.split(' ')[0] ?? "User"}! 👋',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textSecondary,
+                      ),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Family Members (Face Bubbles)
+                if (family != null) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Icon(
-                        Icons.construction,
-                        size: 48,
-                        color: AppTheme.warningColor,
-                      ),
-                      const SizedBox(height: 16),
                       Text(
-                        'Dashboard Coming Soon!',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'We\'re building amazing features for your family',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppTheme.textSecondary,
+                        'Family Members',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
                             ),
-                        textAlign: TextAlign.center,
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pushNamed(context, '/family-details'),
+                        child: const Text('View All'),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 90,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: familyState.members.length + 1, // +1 for Add button
+                      separatorBuilder: (context, index) => const SizedBox(width: 16),
+                      itemBuilder: (context, index) {
+                        if (index == familyState.members.length) {
+                          // Add Member Button
+                          return GestureDetector(
+                            onTap: () => Navigator.pushNamed(context, '/invite-member'),
+                            child: Column(
+                              children: [
+                                CircleAvatar(
+                                  radius: 30,
+                                  backgroundColor: Colors.grey.shade200,
+                                  child: const Icon(Icons.add, color: AppTheme.primaryColor),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text('Invite', style: TextStyle(fontSize: 12)),
+                              ],
+                            ),
+                          );
+                        }
+
+                        final member = familyState.members[index];
+                        final isMe = member.userId == user?.id;
+
+                        return Column(
+                          children: [
+                            CircleAvatar(
+                              radius: 30,
+                              backgroundColor: isMe ? AppTheme.primaryColor.withOpacity(0.1) : Colors.grey.shade200,
+                              backgroundImage: member.photoUrl != null 
+                                  ? NetworkImage(member.photoUrl!) 
+                                  : null,
+                              child: member.photoUrl == null
+                                  ? Text(
+                                      member.displayName.isNotEmpty 
+                                          ? member.displayName[0].toUpperCase() 
+                                          : '?',
+                                      style: TextStyle(
+                                        color: isMe ? AppTheme.primaryColor : Colors.grey,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              isMe ? 'You' : member.displayName.split(' ')[0],
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: isMe ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ] else if (familyState.isLoading) ...[
+                   const SizedBox(height: 40, child: Center(child: CircularProgressIndicator())),
+                ],
+
+                const SizedBox(height: 32),
+                
+                // Quick Actions / Features Placeholder
+                Text(
+                  'Quick Actions',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 1.5,
+                  children: [
+                    _buildFeatureCard(
+                      context,
+                      icon: Icons.calendar_month,
+                      title: 'Calendar',
+                      color: Colors.blue.shade100,
+                      iconColor: Colors.blue,
+                    ),
+                    _buildFeatureCard(
+                      context,
+                      icon: Icons.check_circle_outline,
+                      title: 'Tasks',
+                      color: Colors.green.shade100,
+                      iconColor: Colors.green,
+                    ),
+                    _buildFeatureCard(
+                      context,
+                      icon: Icons.folder,
+                      title: 'Documents',
+                      color: Colors.amber.shade100,
+                      iconColor: Colors.amber.shade800,
+                      onTap: () => Navigator.pushNamed(context, '/documents'),
+                    ),
+                    _buildFeatureCard(
+                      context,
+                      icon: Icons.attach_money,
+                      title: 'Expenses',
+                      color: Colors.orange.shade100,
+                      iconColor: Colors.orange,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureCard(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required Color color,
+    required Color iconColor,
+    VoidCallback? onTap,
+  }) {
+    return Card(
+      elevation: 0,
+      color: color.withOpacity(0.3),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: InkWell(
+        onTap: onTap ?? () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$title coming soon!')),
+          );
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 32, color: iconColor),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: iconColor,
+              ),
+            ),
+          ],
         ),
       ),
     );
