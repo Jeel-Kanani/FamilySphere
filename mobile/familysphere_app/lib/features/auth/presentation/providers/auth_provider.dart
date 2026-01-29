@@ -78,11 +78,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Check if user is already logged in
   Future<void> checkAuthStatus() async {
     try {
+      print('AuthNotifier: checkAuthStatus called');
       state = AuthState.loading();
       final user = await _getCurrentUser.call();
       if (user != null) {
+        print('AuthNotifier: User found, authenticating');
         state = AuthState.authenticated(user);
       } else {
+        print('AuthNotifier: No user found, initial state');
         state = AuthState.initial();
       }
     } catch (e) {

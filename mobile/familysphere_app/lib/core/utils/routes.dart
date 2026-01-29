@@ -14,6 +14,7 @@ import 'package:familysphere_app/features/documents/presentation/screens/add_doc
 /// Centralized route management for the app.
 class AppRoutes {
   // Route names
+  static const String root = '/';
   static const String login = '/login';
   static const String register = '/register';
   static const String profileSetup = '/profile-setup';
@@ -27,6 +28,9 @@ class AppRoutes {
   // Route generator
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
+      case root:
+        return MaterialPageRoute(builder: (_) => const AuthChecker());
+
       case login:
         return MaterialPageRoute(builder: (_) => const LoginScreen());
 

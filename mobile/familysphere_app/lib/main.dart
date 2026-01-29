@@ -49,8 +49,10 @@ class _AuthCheckerState extends ConsumerState<AuthChecker> {
   @override
   void initState() {
     super.initState();
+    print('AuthChecker: initState called');
     // Check auth status on app start
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      print('AuthChecker: Triggering checkAuthStatus');
       ref.read(authProvider.notifier).checkAuthStatus();
     });
   }
@@ -85,20 +87,55 @@ class _AuthCheckerState extends ConsumerState<AuthChecker> {
       return;
     }
 
-    Navigator.of(context).pushReplacementNamed(targetRoute);
+    print('AuthChecker: Determined targetRoute = $targetRoute');
+    if (mounted) {
+      print('AuthChecker: Executing pushReplacementNamed($targetRoute)');
+      Navigator.of(context).pushReplacementNamed(targetRoute);
+    } else {
+      print('AuthChecker: Not mounted, skipping navigation');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Use listen instead of watch to avoid rebuilding
-    ref.listen(authProvider, (previous, next) {
-      // Only navigate when auth status changes from loading to loaded
-      if (previous?.isLoading == true && !next.isLoading) {
-        _navigateBasedOnAuth(next);
-      }
-    });
+    final authState = ref.watch(authProvider);
+    
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 500),
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+      child: _buildCurrentScreen(authState),
+    );
+  }
 
-    return const SplashScreen();
+  Widget _buildCurrentScreen(AuthState authState) {
+    // If loading, show splash
+    if (authState.isLoading) {
+      return const SplashScreen(key: ValueKey('splash'));
+    }
+
+    // If authenticated, determine setup step
+    if (authState.status == AuthStatus.authenticated) {
+      final user = authState.user;
+      
+      if (user == null) {
+        return const LoginScreen(key: ValueKey('login'));
+      }
+      
+      if (!user.hasCompletedProfile) {
+        return const ProfileSetupScreen(key: ValueKey('profile-setup'));
+      }
+      
+      if (!user.hasFamily) {
+        return const FamilySetupScreen(key: ValueKey('family-setup'));
+      }
+      
+      return const HomeScreen(key: ValueKey('home'));
+    }
+
+    // Default to login
+    return const LoginScreen(key: ValueKey('login'));
   }
 }
 
@@ -109,36 +146,51 @@ class SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.primaryColor,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.family_restroom,
-              size: 100,
-              color: Colors.white,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'FamilySphere',
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Your Family, Connected',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white.withAlpha((255 * 0.9).round()),
-                  ),
-            ),
-            const SizedBox(height: 48),
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
-          ],
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppTheme.primaryColor,
+              AppTheme.primaryColor.withOpacity(0.8),
+              AppTheme.secondaryColor.withOpacity(0.9),
+            ],
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Animated Icon or pulsing effect could go here
+              const Icon(
+                Icons.family_restroom,
+                size: 100,
+                color: Colors.white,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'FamilySphere',
+                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Your Family, Connected',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+              ),
+              const SizedBox(height: 60),
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                strokeWidth: 3,
+              ),
+            ],
+          ),
         ),
       ),
     );
