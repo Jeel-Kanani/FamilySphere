@@ -35,4 +35,31 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> signOut() async {
     await remoteDataSource.signOut();
   }
+
+  @override
+  Future<String> sendOtp({required String phoneNumber}) async {
+    return await remoteDataSource.sendOtp(phoneNumber);
+  }
+
+  @override
+  Future<User> verifyOtp({
+    required String verificationId,
+    required String otp,
+  }) async {
+    return await remoteDataSource.verifyOtp(verificationId, otp);
+  }
+
+  @override
+  Future<User> signInWithGoogle() async {
+    return await remoteDataSource.signInWithGoogle();
+  }
+
+  @override
+  Future<User> updateProfile({
+    required String name,
+    String? email,
+    String? photoUrl,
+  }) async {
+    return await remoteDataSource.updateProfile(name, email, photoUrl);
+  }
 }

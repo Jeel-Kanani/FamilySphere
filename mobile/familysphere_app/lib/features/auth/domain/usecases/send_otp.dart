@@ -35,6 +35,6 @@ class SendOtp {
     }
 
     // Delegate to repository
-    return await repository.sendOtp(phoneNumber);
+    return await repository.sendOtp(phoneNumber: phoneNumber);
   }
 }

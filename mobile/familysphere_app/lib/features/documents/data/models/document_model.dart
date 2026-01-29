@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:familysphere_app/features/documents/domain/entities/document_entity.dart';
 
 class DocumentModel extends DocumentEntity {
@@ -35,37 +35,8 @@ class DocumentModel extends DocumentEntity {
     );
   }
 
-  /// Create from Firestore
-  factory DocumentModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return DocumentModel(
-      id: doc.id,
-      familyId: data['familyId'] ?? '',
-      title: data['title'] ?? '',
-      category: data['category'] ?? 'Uncategorized',
-      fileUrl: data['fileUrl'] ?? '',
-      fileType: data['fileType'] ?? 'unknown',
-      sizeBytes: data['size'] ?? 0,
-      uploadedBy: data['uploadedBy'] ?? '',
-      uploadedAt: (data['uploadedAt'] as Timestamp).toDate(),
-      storagePath: data['storagePath'] ?? '',
-    );
-  }
+  // Firestore methods removed as we are migrating to custom backend
 
-  /// To Firestore Map
-  Map<String, dynamic> toFirestore() {
-    return {
-      'familyId': familyId,
-      'title': title,
-      'category': category,
-      'fileUrl': fileUrl,
-      'fileType': fileType,
-      'size': sizeBytes,
-      'uploadedBy': uploadedBy,
-      'uploadedAt': Timestamp.fromDate(uploadedAt),
-      'storagePath': storagePath,
-    };
-  }
 
   /// Create from JSON (for Hive)
   factory DocumentModel.fromJson(Map<String, dynamic> json) {

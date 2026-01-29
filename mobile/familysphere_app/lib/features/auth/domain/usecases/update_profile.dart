@@ -38,8 +38,8 @@ class UpdateProfile {
 
     // Delegate to repository
     return await repository.updateProfile(
-      userId: userId,
-      displayName: displayName?.trim(),
+      name: displayName?.trim() ?? '',
+      email: null,
       photoUrl: photoUrl,
     );
   }
