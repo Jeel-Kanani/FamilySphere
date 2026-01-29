@@ -113,11 +113,11 @@ class AuthRemoteDataSource {
   }
 
   /// Update user profile
-  Future<UserModel> updateProfile({String? name, String? email}) async {
+  Future<UserModel> updateProfile(String name, String? email, String? photoUrl) async {
     try {
-      final data = <String, dynamic>{};
-      if (name != null) data['name'] = name;
+      final data = <String, dynamic>{'name': name};
       if (email != null) data['email'] = email;
+      if (photoUrl != null) data['photoUrl'] = photoUrl;
 
       final response = await _apiClient.put(
         ApiConfig.updateProfileEndpoint,
@@ -137,6 +137,75 @@ class AuthRemoteDataSource {
       return userModel;
     } catch (e) {
       throw Exception('Profile update failed: ${e.toString()}');
+    }
+  }
+
+  /// Send OTP to phone number
+  Future<String> sendOtp(String phoneNumber) async {
+    try {
+      final response = await _apiClient.post(
+        '/api/auth/send-otp',
+        data: {'phoneNumber': phoneNumber},
+      );
+      return response.data['verificationId'] as String;
+    } catch (e) {
+      throw Exception('OTP send failed: ${e.toString()}');
+    }
+  }
+
+  /// Verify OTP code
+  Future<UserModel> verifyOtp(String verificationId, String otp) async {
+    try {
+      final response = await _apiClient.post(
+        '/api/auth/verify-otp',
+        data: {
+          'verificationId': verificationId,
+          'otp': otp,
+        },
+      );
+
+      // Parse response
+      final userModel = UserModel.fromJson(response.data);
+
+      // Save token and user data to secure storage
+      if (userModel.token != null) {
+        await _tokenService.saveToken(userModel.token!);
+        await _tokenService.saveUserData(
+          userId: userModel.id,
+          email: userModel.email,
+          name: userModel.displayName ?? '',
+        );
+      }
+
+      return userModel;
+    } catch (e) {
+      throw Exception('OTP verification failed: ${e.toString()}');
+    }
+  }
+
+  /// Sign in with Google
+  Future<UserModel> signInWithGoogle() async {
+    try {
+      final response = await _apiClient.post(
+        '/api/auth/google',
+      );
+
+      // Parse response
+      final userModel = UserModel.fromJson(response.data);
+
+      // Save token and user data to secure storage
+      if (userModel.token != null) {
+        await _tokenService.saveToken(userModel.token!);
+        await _tokenService.saveUserData(
+          userId: userModel.id,
+          email: userModel.email,
+          name: userModel.displayName ?? '',
+        );
+      }
+
+      return userModel;
+    } catch (e) {
+      throw Exception('Google sign in failed: ${e.toString()}');
     }
   }
 }

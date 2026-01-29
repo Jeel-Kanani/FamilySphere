@@ -3,6 +3,7 @@ import 'package:familysphere_app/core/network/api_client.dart';
 import 'package:familysphere_app/core/services/token_service.dart';
 import 'package:familysphere_app/features/auth/domain/entities/auth_state.dart';
 import 'package:familysphere_app/features/auth/domain/entities/user.dart';
+import 'package:familysphere_app/features/auth/domain/repositories/auth_repository.dart';
 import 'package:familysphere_app/features/auth/domain/usecases/login.dart';
 import 'package:familysphere_app/features/auth/domain/usecases/register.dart';
 import 'package:familysphere_app/features/auth/domain/usecases/get_current_user.dart';
@@ -34,7 +35,7 @@ final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>((ref) {
 });
 
 // Repository
-final authRepositoryProvider = Provider((ref) {
+final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepositoryImpl(
     remoteDataSource: ref.read(authRemoteDataSourceProvider),
   );
@@ -63,16 +64,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final Register _register;
   final GetCurrentUser _getCurrentUser;
   final SignOut _signOut;
+  final AuthRepository _authRepository;
 
   AuthNotifier({
     required Login login,
     required Register register,
     required GetCurrentUser getCurrentUser,
     required SignOut signOut,
+    required AuthRepository authRepository,
   })  : _login = login,
         _register = register,
         _getCurrentUser = getCurrentUser,
         _signOut = signOut,
+        _authRepository = authRepository,
         super(AuthState.initial());
 
   /// Check if user is already logged in
@@ -133,24 +137,51 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }) async {
     try {
       state = state.copyWith(isLoading: true, error: null);
-      // TODO: Implement updateProfile API call
-      // For now, just update local state
-      print('Update profile called: displayName=$displayName, photoUrl=$photoUrl');
-      
-      // Simulate API call delay
-      await Future.delayed(const Duration(seconds: 1));
-      
-      // Update user with new profile data
-      final updatedUser = state.user?.copyWith(
-        displayName: displayName ?? state.user?.displayName,
-        photoUrl: photoUrl ?? state.user?.photoUrl,
+      final user = await _authRepository.updateProfile(
+        name: displayName ?? state.user?.displayName ?? '',
+        email: state.user?.email,
+        photoUrl: photoUrl,
       );
-      
-      if (updatedUser != null) {
-        state = state.copyWith(user: updatedUser, isLoading: false);
-      } else {
-        state = state.copyWith(isLoading: false);
+      state = state.copyWith(user: user, isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  /// Send OTP to phone number
+  Future<void> sendOtp(String phoneNumber) async {
+    try {
+      state = state.copyWith(isLoading: true, error: null);
+      final verificationId = await _authRepository.sendOtp(phoneNumber: phoneNumber);
+      state = state.copyWith(isLoading: false, verificationId: verificationId, status: AuthStatus.otpSent);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  /// Verify OTP code
+  Future<void> verifyOtp(String otp) async {
+    try {
+      if (state.verificationId == null) {
+        throw Exception('No verification ID found');
       }
+      state = state.copyWith(isLoading: true, error: null);
+      final user = await _authRepository.verifyOtp(
+        verificationId: state.verificationId!,
+        otp: otp,
+      );
+      state = AuthState.authenticated(user);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  /// Sign in with Google
+  Future<void> signInWithGoogle() async {
+    try {
+      state = state.copyWith(isLoading: true, error: null);
+      final user = await _authRepository.signInWithGoogle();
+      state = AuthState.authenticated(user);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -181,6 +212,7 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
     register: ref.read(registerUseCaseProvider),
     getCurrentUser: ref.read(getCurrentUserUseCaseProvider),
     signOut: ref.read(signOutUseCaseProvider),
+    authRepository: ref.read(authRepositoryProvider),
   );
 });
 

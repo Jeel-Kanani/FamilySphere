@@ -151,7 +151,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                 ] else if (familyState.isLoading) ...[
-                   const SizedBox(height: 40, child: Center(child: CircularProgressIndicator())),
+                   const SizedBox(
+                     height: 100, 
+                     child: Center(
+                       child: CircularProgressIndicator(strokeWidth: 2)
+                     )
+                   ),
+                ] else ...[
+                  // If no family yet (though AuthChecker handles this)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Text('Connect with your family to get started!'),
+                  ),
                 ],
 
                 const SizedBox(height: 32),
@@ -222,25 +237,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }) {
     return Card(
       elevation: 0,
-      color: color.withOpacity(0.3),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: color.withOpacity(0.1),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: iconColor.withOpacity(0.1), width: 1),
+      ),
       child: InkWell(
         onTap: onTap ?? () {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('$title coming soon!')),
           );
         },
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 32, color: iconColor),
-            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.5),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 28, color: iconColor),
+            ),
+            const SizedBox(height: 12),
             Text(
               title,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: iconColor,
+                fontSize: 14,
+                color: AppTheme.textPrimary,
               ),
             ),
           ],

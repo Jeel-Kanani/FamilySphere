@@ -39,6 +39,9 @@ class VerifyOtp {
     }
 
     // Delegate to repository
-    return await repository.verifyOtp(verificationId, otpCode);
+    return await repository.verifyOtp(
+      verificationId: verificationId,
+      otp: otpCode,
+    );
   }
 }

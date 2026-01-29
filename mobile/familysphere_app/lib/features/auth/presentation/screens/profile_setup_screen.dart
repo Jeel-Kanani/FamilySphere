@@ -3,10 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
 
-/// Profile Setup Screen
-/// 
-/// Third screen in the authentication flow (for new users).
-/// User enters their name and optionally uploads a photo.
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
 
@@ -14,14 +10,46 @@ class ProfileSetupScreen extends ConsumerStatefulWidget {
   ConsumerState<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
 }
 
-class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
+class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen>
+    with SingleTickerProviderStateMixin {
   final _nameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   String? _photoUrl;
+  bool _isPhotoHovered = false;
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.elasticOut,
+      ),
+    );
+    
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeIn,
+      ),
+    );
+    
+    _animationController.forward();
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -35,11 +63,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   }
 
   void _pickPhoto() {
-    // TODO: Implement image picker
-    // For now, just show a message
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Photo picker coming soon!'),
+      SnackBar(
+        content: const Text('Photo picker coming soon!'),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -47,141 +75,269 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
-    // Navigate to family setup when profile is updated
     ref.listen(authProvider, (previous, next) {
-      if (next.user?.hasCompletedProfile == true && !next.isLoading) {
-        Navigator.pushReplacementNamed(context, '/family-setup');
-      } else if (next.error != null) {
+      if (next.error != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.error!),
             backgroundColor: AppTheme.errorColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
       }
     });
 
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 40),
-                
-                // Title
-                Text(
-                  "Let's set up your profile",
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-                
-                const SizedBox(height: 8),
-                
-                Text(
-                  'This helps your family recognize you',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppTheme.textSecondary,
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-                
-                const SizedBox(height: 48),
-                
-                // Profile Photo
-                Center(
-                  child: GestureDetector(
-                    onTap: _pickPhoto,
-                    child: Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppTheme.primaryColor.withOpacity(0.1),
-                        border: Border.all(
-                          color: AppTheme.primaryColor,
-                          width: 2,
-                        ),
-                      ),
-                      child: _photoUrl != null
-                          ? ClipOval(
-                              child: Image.network(
-                                _photoUrl!,
-                                fit: BoxFit.cover,
-                              ),
-                            )
-                          : Icon(
-                              Icons.add_a_photo,
-                              size: 40,
-                              color: AppTheme.primaryColor,
+      body: AnimatedContainer(
+        duration: AppTheme.normalAnimation,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: themeMode == ThemeMode.dark
+                ? [
+                    AppTheme.darkBackground,
+                    AppTheme.darkSurface,
+                    AppTheme.darkBackground,
+                  ]
+                : [
+                    Colors.white,
+                    AppTheme.primaryColor.withOpacity(0.05),
+                    AppTheme.secondaryColor.withOpacity(0.1),
+                  ],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(32.0),
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 48),
+                    
+                    // Title with animation
+                    ScaleTransition(
+                      scale: _scaleAnimation,
+                      child: AnimatedDefaultTextStyle(
+                        duration: AppTheme.normalAnimation,
+                        style: Theme.of(context).textTheme.headlineMedium!.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: themeMode == ThemeMode.dark
+                                  ? Colors.white
+                                  : AppTheme.textPrimary,
                             ),
-                    ),
-                  ),
-                ),
-                
-                const SizedBox(height: 12),
-                
-                Text(
-                  'Tap to add photo (optional)',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppTheme.textTertiary,
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-                
-                const SizedBox(height: 40),
-                
-                // Name Input
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Your Name',
-                    hintText: 'Enter your full name',
-                    prefixIcon: Icon(Icons.person),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your name';
-                    }
-                    if (value.trim().length < 2) {
-                      return 'Name must be at least 2 characters';
-                    }
-                    return null;
-                  },
-                ),
-                
-                const SizedBox(height: 32),
-                
-                // Continue Button
-                ElevatedButton(
-                  onPressed: authState.isLoading ? null : _continue,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: authState.isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text(
-                          'Continue',
-                          style: TextStyle(fontSize: 16),
+                        child: const Text(
+                          "Create your profile",
+                          textAlign: TextAlign.center,
                         ),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 12),
+                    
+                    AnimatedDefaultTextStyle(
+                      duration: AppTheme.normalAnimation,
+                      style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+                            color: themeMode == ThemeMode.dark
+                                ? Colors.white70
+                                : AppTheme.textSecondary,
+                          ),
+                      child: const Text(
+                        'Let your family members recognize you',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 56),
+                    
+                    // Profile Photo with hover animation
+                    Center(
+                      child: MouseRegion(
+                        onEnter: (_) => setState(() => _isPhotoHovered = true),
+                        onExit: (_) => setState(() => _isPhotoHovered = false),
+                        child: GestureDetector(
+                          onTap: _pickPhoto,
+                          child: AnimatedContainer(
+                            duration: AppTheme.normalAnimation,
+                            curve: Curves.easeInOut,
+                            transform: Matrix4.identity()
+                              ..scale(_isPhotoHovered ? 1.05 : 1.0),
+                            child: Stack(
+                              children: [
+                                Hero(
+                                  tag: 'profile-photo',
+                                  child: Container(
+                                    width: 140,
+                                    height: 140,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: themeMode == ThemeMode.dark
+                                          ? AppTheme.darkSurface
+                                          : Colors.white,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppTheme.primaryColor.withOpacity(
+                                            _isPhotoHovered ? 0.3 : 0.1,
+                                          ),
+                                          blurRadius: _isPhotoHovered ? 30 : 20,
+                                          spreadRadius: _isPhotoHovered ? 8 : 5,
+                                        ),
+                                      ],
+                                      border: Border.all(
+                                        color: AppTheme.primaryColor.withOpacity(0.2),
+                                        width: 4,
+                                      ),
+                                    ),
+                                    child: _photoUrl != null
+                                        ? ClipOval(
+                                            child: Image.network(
+                                              _photoUrl!,
+                                              fit: BoxFit.cover,
+                                            ),
+                                          )
+                                        : Icon(
+                                            Icons.person_add_alt_1,
+                                            size: 56,
+                                            color: AppTheme.primaryColor.withOpacity(0.5),
+                                          ),
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: AnimatedContainer(
+                                    duration: AppTheme.fastAnimation,
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryColor,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: themeMode == ThemeMode.dark
+                                            ? AppTheme.darkBackground
+                                            : Colors.white,
+                                        width: 3,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.camera_alt,
+                                      size: 20,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 56),
+                    
+                    // Name Input with animation
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.easeOut,
+                      builder: (context, value, child) {
+                        return Transform.translate(
+                          offset: Offset(0, 20 * (1 - value)),
+                          child: Opacity(
+                            opacity: value,
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: AnimatedContainer(
+                        duration: AppTheme.fastAnimation,
+                        child: TextFormField(
+                          controller: _nameController,
+                          decoration: InputDecoration(
+                            labelText: 'Full Name',
+                            hintText: 'How should we call you?',
+                            prefixIcon: const Icon(Icons.badge_outlined),
+                            filled: true,
+                            fillColor: themeMode == ThemeMode.dark
+                                ? AppTheme.darkSurface
+                                : Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Please enter your name';
+                            }
+                            if (value.trim().length < 2) return 'Name too short';
+                            return null;
+                          },
+                        ),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 48),
+                    
+                    // Continue Button with animation
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 800),
+                      curve: Curves.elasticOut,
+                      builder: (context, value, child) {
+                        return Transform.scale(
+                          scale: value,
+                          child: child,
+                        );
+                      },
+                      child: AnimatedContainer(
+                        duration: AppTheme.fastAnimation,
+                        child: ElevatedButton(
+                          onPressed: authState.isLoading ? null : _continue,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            elevation: 4,
+                            shadowColor: AppTheme.primaryColor.withOpacity(0.4),
+                          ),
+                          child: authState.isLoading
+                              ? const SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : const Text(
+                                  'Complete My Profile',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                
-                const Spacer(),
-              ],
+              ),
             ),
           ),
         ),

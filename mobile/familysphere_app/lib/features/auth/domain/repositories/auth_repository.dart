@@ -21,6 +21,22 @@ abstract class AuthRepository {
   /// Sign out the current user
   Future<void> signOut();
 
-  // Deprecated/Removed methods:
-  // sendOtp, verifyOtp, signInWithGoogle
+  /// Send OTP to phone number
+  Future<String> sendOtp({required String phoneNumber});
+
+  /// Verify OTP and complete authentication
+  Future<User> verifyOtp({
+    required String verificationId,
+    required String otp,
+  });
+
+  /// Sign in with Google
+  Future<User> signInWithGoogle();
+
+  /// Update user profile
+  Future<User> updateProfile({
+    required String name,
+    String? email,
+    String? photoUrl,
+  });
 }

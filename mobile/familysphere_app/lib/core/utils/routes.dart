@@ -8,6 +8,7 @@ import 'package:familysphere_app/features/family/presentation/screens/invite_mem
 import 'package:familysphere_app/features/home/presentation/screens/home_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/document_list_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/add_document_screen.dart';
+import 'package:familysphere_app/features/auth/presentation/screens/auth_checker.dart';
 
 /// Application Routes
 /// 
