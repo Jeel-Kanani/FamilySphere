@@ -34,6 +34,8 @@ const registerUser = async (req: Request, res: Response) => {
                 _id: user._id,
                 name: user.name,
                 email: user.email,
+                familyId: user.familyId,
+                role: user.role,
                 token: generateToken(user._id.toString()),
             });
         } else {
@@ -58,6 +60,8 @@ const loginUser = async (req: Request, res: Response) => {
                 _id: user._id,
                 name: user.name,
                 email: user.email,
+                familyId: user.familyId,
+                role: user.role,
                 token: generateToken(user._id.toString()),
             });
         } else {
@@ -74,7 +78,7 @@ const loginUser = async (req: Request, res: Response) => {
 const getCurrentUser = async (req: any, res: Response) => {
     try {
         const user = await User.findById(req.user.id).select('-password');
-        
+
         if (!user) {
             res.status(404).json({ message: 'User not found' });
             return;
@@ -84,6 +88,8 @@ const getCurrentUser = async (req: any, res: Response) => {
             _id: user._id,
             name: user.name,
             email: user.email,
+            familyId: user.familyId,
+            role: user.role,
         });
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -112,6 +118,8 @@ const updateProfile = async (req: any, res: Response) => {
             _id: updatedUser._id,
             name: updatedUser.name,
             email: updatedUser.email,
+            familyId: updatedUser.familyId,
+            role: updatedUser.role,
         });
     } catch (error: any) {
         res.status(500).json({ message: error.message });

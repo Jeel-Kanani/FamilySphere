@@ -96,8 +96,11 @@ class AuthRemoteDataSource {
       final userModel = UserModel.fromJson(response.data);
       return userModel;
     } catch (e) {
-      // If token is invalid, clear storage
-      await _tokenService.clearUserData();
+      // Only clear data if it's explicitly an auth error (handled by ApiClient usually, but good to be safe)
+      if (e.toString().contains('401') || e.toString().contains('403')) {
+        await _tokenService.clearUserData();
+      }
+      // Otherwise, just return null (or could rethrow to let UI handle network error)
       return null;
     }
   }

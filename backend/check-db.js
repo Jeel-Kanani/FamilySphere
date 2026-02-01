@@ -1,14 +1,18 @@
 // Quick script to check MongoDB connection and view users
+require('dotenv').config();
 const mongoose = require('mongoose');
 
-const MONGO_URI = 'mongodb://127.0.0.1:27017/familysphere';
-
-async function checkDatabase() {
+const checkDatabase = async () => {
     try {
-        // Connect to MongoDB
-        await mongoose.connect(MONGO_URI);
-        console.log('✅ Connected to MongoDB successfully!');
-        console.log('📊 Database: familysphere\n');
+        const conn = await mongoose.connect(process.env.MONGO_URI, {
+            serverApi: {
+                version: '1',
+                strict: true,
+                deprecationErrors: true,
+            }
+        });
+        console.log(`✅ Connected to MongoDB successfully! Host: ${conn.connection.host}`);
+        console.log(`📊 Database: ${conn.connection.name}\n`);
 
         // Get all collections
         const collections = await mongoose.connection.db.listCollections().toArray();

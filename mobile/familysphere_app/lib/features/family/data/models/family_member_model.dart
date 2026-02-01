@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:familysphere_app/features/family/domain/entities/family_member.dart';
 
 class FamilyMemberModel extends FamilyMember {
@@ -21,7 +21,7 @@ class FamilyMemberModel extends FamilyMember {
     );
   }
 
-  /// Create from Firestore Map (usually embedded in family or fetched from user)
+  /// Create from Map (backend response)
   factory FamilyMemberModel.fromMap(Map<String, dynamic> map, String userId) {
     return FamilyMemberModel(
       userId: userId,
@@ -31,7 +31,9 @@ class FamilyMemberModel extends FamilyMember {
         (e) => e.name == (map['role'] ?? 'member'),
         orElse: () => FamilyRole.member,
       ),
-      joinedAt: (map['joinedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      joinedAt: map['joinedAt'] != null 
+          ? DateTime.parse(map['joinedAt']) 
+          : DateTime.now(),
     );
   }
 
@@ -49,15 +51,7 @@ class FamilyMemberModel extends FamilyMember {
     );
   }
 
-  /// Convert to Firestore Map (for embedding if needed, or user updates)
-  Map<String, dynamic> toFirestore() {
-    return {
-      'role': role.name,
-      'joinedAt': Timestamp.fromDate(joinedAt),
-      // Display name and photo usually come from User collection, 
-      // but we might store snapshots here if needed
-    };
-  }
+  // Firestore methods removed
 
   /// Convert to JSON (for Hive/Local storage)
   Map<String, dynamic> toJson() {

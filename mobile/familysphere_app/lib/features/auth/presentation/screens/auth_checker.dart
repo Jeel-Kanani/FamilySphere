@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:familysphere_app/features/auth/domain/entities/auth_state.dart';
-import 'package:familysphere_app/core/utils/routes.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/profile_setup_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/family_setup_screen.dart';
-import 'package:familysphere_app/features/home/presentation/screens/home_screen.dart';
+import 'package:familysphere_app/features/home/presentation/screens/main_navigation_screen.dart';
 
 /// Auth Checker - Determines initial route based on auth status
 class AuthChecker extends ConsumerStatefulWidget {
@@ -21,51 +20,14 @@ class _AuthCheckerState extends ConsumerState<AuthChecker> {
   @override
   void initState() {
     super.initState();
+    // ignore: avoid_print
     print('AuthChecker: initState called');
     // Check auth status on app start
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // ignore: avoid_print
       print('AuthChecker: Triggering checkAuthStatus');
       ref.read(authProvider.notifier).checkAuthStatus();
     });
-  }
-
-  void _navigateBasedOnAuth(AuthState authState) {
-    if (!mounted) return;
-    
-    String targetRoute;
-    
-    if (authState.status == AuthStatus.authenticated) {
-      final user = authState.user;
-      
-      if (user == null) return;
-      
-      // Check if profile is complete
-      if (!user.hasCompletedProfile) {
-        targetRoute = AppRoutes.profileSetup;
-      }
-      // Check if user has family
-      else if (!user.hasFamily) {
-        targetRoute = AppRoutes.familySetup;
-      }
-      // User is fully set up - go to home
-      else {
-        targetRoute = AppRoutes.home;
-      }
-    } else if (!authState.isLoading) {
-      // Not authenticated and not loading - go to login
-      targetRoute = AppRoutes.login;
-    } else {
-      // Still loading, don't navigate yet
-      return;
-    }
-
-    print('AuthChecker: Determined targetRoute = $targetRoute');
-    if (mounted) {
-      print('AuthChecker: Executing pushReplacementNamed($targetRoute)');
-      Navigator.of(context).pushReplacementNamed(targetRoute);
-    } else {
-      print('AuthChecker: Not mounted, skipping navigation');
-    }
   }
 
   @override
@@ -103,7 +65,7 @@ class _AuthCheckerState extends ConsumerState<AuthChecker> {
         return const FamilySetupScreen(key: ValueKey('family-setup'));
       }
       
-      return const HomeScreen(key: ValueKey('home'));
+      return const MainNavigationScreen(key: ValueKey('home'));
     }
 
     // Default to login
@@ -125,8 +87,8 @@ class SplashScreen extends StatelessWidget {
             end: Alignment.bottomRight,
             colors: [
               AppTheme.primaryColor,
-              AppTheme.primaryColor.withOpacity(0.8),
-              AppTheme.secondaryColor.withOpacity(0.9),
+              AppTheme.primaryColor.withValues(alpha: 0.8),
+              AppTheme.secondaryColor.withValues(alpha: 0.9),
             ],
           ),
         ),
@@ -153,7 +115,7 @@ class SplashScreen extends StatelessWidget {
               Text(
                 'Your Family, Connected',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                     ),
               ),
               const SizedBox(height: 60),

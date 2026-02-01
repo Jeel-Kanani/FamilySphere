@@ -104,9 +104,9 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
   final GetFamily _getFamily;
   final GetFamilyMembers _getFamilyMembers;
   final GenerateInviteCode _generateInviteCode;
+  // ignore: unused_field
   final RemoveMember _removeMember;
   final LeaveFamily _leaveFamily;
-  final UpdateFamilySettings _updateFamilySettings;
 
   FamilyNotifier(
     this._ref, {
@@ -125,7 +125,6 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
         _generateInviteCode = generateInviteCode,
         _removeMember = removeMember,
         _leaveFamily = leaveFamily,
-        _updateFamilySettings = updateFamilySettings,
         super(FamilyState.initial());
 
   Future<void> loadFamily() async {
@@ -166,7 +165,17 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
         isLoading: false,
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      final errorStr = e.toString();
+      if (errorStr.contains('User already belongs to a family')) {
+        // Recovery: Refresh user and try to load the family they belong to
+        await _ref.read(authProvider.notifier).refreshUser();
+        final refreshedUser = _ref.read(authProvider).user;
+        if (refreshedUser?.familyId != null) {
+          await loadFamily();
+          return;
+        }
+      }
+      state = state.copyWith(isLoading: false, error: errorStr);
       rethrow;
     }
   }
@@ -190,7 +199,16 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
         isLoading: false,
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      final errorStr = e.toString();
+      if (errorStr.contains('Already a member')) {
+        await _ref.read(authProvider.notifier).refreshUser();
+        final refreshedUser = _ref.read(authProvider).user;
+        if (refreshedUser?.familyId != null) {
+          await loadFamily();
+          return;
+        }
+      }
+      state = state.copyWith(isLoading: false, error: errorStr);
       rethrow;
     }
   }

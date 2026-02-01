@@ -99,8 +99,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   ]
                 : [
                     Colors.white,
-                    AppTheme.primaryColor.withOpacity(0.05),
-                    AppTheme.secondaryColor.withOpacity(0.1),
+                    AppTheme.primaryColor.withValues(alpha: 0.05),
+                    AppTheme.secondaryColor.withValues(alpha: 0.1),
                   ],
           ),
         ),
@@ -169,7 +169,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             child: Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withOpacity(0.1),
+                                color: AppTheme.primaryColor.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
@@ -314,6 +314,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           child: AnimatedContainer(
                             duration: AppTheme.fastAnimation,
                             transform: Matrix4.identity()
+                              // ignore: deprecated_member_use
                               ..scale(_isButtonHovered ? 1.02 : 1.0),
                             child: ElevatedButton(
                               onPressed: authState.isLoading ? null : _handleLogin,
@@ -325,7 +326,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                 backgroundColor: AppTheme.primaryColor,
                                 foregroundColor: Colors.white,
                                 elevation: _isButtonHovered ? 8 : 4,
-                                shadowColor: AppTheme.primaryColor.withOpacity(0.5),
+                                shadowColor: AppTheme.primaryColor.withValues(alpha: 0.5),
                               ),
                               child: authState.isLoading
                                   ? const SizedBox(

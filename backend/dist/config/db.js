@@ -15,7 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importDefault(require("mongoose"));
 const connectDB = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const conn = yield mongoose_1.default.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/familysphere');
+        const conn = yield mongoose_1.default.connect(process.env.MONGO_URI || 'mongodb+srv://kananijeel00_db_user:<db_password>@familysphere.2rqtvcd.mongodb.net/?appName=FamilySphere');
         console.log(`MongoDB Connected: ${conn.connection.host}`);
     }
     catch (error) {

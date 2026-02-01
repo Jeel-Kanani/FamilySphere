@@ -6,6 +6,7 @@ import 'package:familysphere_app/features/auth/presentation/screens/family_setup
 import 'package:familysphere_app/features/family/presentation/screens/family_details_screen.dart';
 import 'package:familysphere_app/features/family/presentation/screens/invite_member_screen.dart';
 import 'package:familysphere_app/features/home/presentation/screens/home_screen.dart';
+import 'package:familysphere_app/features/home/presentation/screens/main_navigation_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/document_list_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/add_document_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/auth_checker.dart';
@@ -46,7 +47,7 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const FamilySetupScreen());
 
       case home:
-        return MaterialPageRoute(builder: (_) => const HomeScreen());
+        return MaterialPageRoute(builder: (_) => const MainNavigationScreen());
 
       case familyDetails:
         return MaterialPageRoute(builder: (_) => const FamilyDetailsScreen());

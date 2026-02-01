@@ -105,8 +105,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen>
                   ]
                 : [
                     Colors.white,
-                    AppTheme.primaryColor.withOpacity(0.05),
-                    AppTheme.secondaryColor.withOpacity(0.1),
+                    AppTheme.primaryColor.withValues(alpha: 0.05),
+                    AppTheme.secondaryColor.withValues(alpha: 0.1),
                   ],
           ),
         ),
@@ -168,6 +168,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen>
                             duration: AppTheme.normalAnimation,
                             curve: Curves.easeInOut,
                             transform: Matrix4.identity()
+                              // ignore: deprecated_member_use
                               ..scale(_isPhotoHovered ? 1.05 : 1.0),
                             child: Stack(
                               children: [
@@ -183,15 +184,15 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen>
                                           : Colors.white,
                                       boxShadow: [
                                         BoxShadow(
-                                          color: AppTheme.primaryColor.withOpacity(
-                                            _isPhotoHovered ? 0.3 : 0.1,
+                                          color: AppTheme.primaryColor.withValues(
+                                            alpha: _isPhotoHovered ? 0.3 : 0.1,
                                           ),
                                           blurRadius: _isPhotoHovered ? 30 : 20,
                                           spreadRadius: _isPhotoHovered ? 8 : 5,
                                         ),
                                       ],
                                       border: Border.all(
-                                        color: AppTheme.primaryColor.withOpacity(0.2),
+                                        color: AppTheme.primaryColor.withValues(alpha: 0.2),
                                         width: 4,
                                       ),
                                     ),
@@ -205,7 +206,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen>
                                         : Icon(
                                             Icons.person_add_alt_1,
                                             size: 56,
-                                            color: AppTheme.primaryColor.withOpacity(0.5),
+                                            color: AppTheme.primaryColor.withValues(alpha: 0.5),
                                           ),
                                   ),
                                 ),
@@ -312,7 +313,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen>
                             backgroundColor: AppTheme.primaryColor,
                             foregroundColor: Colors.white,
                             elevation: 4,
-                            shadowColor: AppTheme.primaryColor.withOpacity(0.4),
+                            shadowColor: AppTheme.primaryColor.withValues(alpha: 0.4),
                           ),
                           child: authState.isLoading
                               ? const SizedBox(

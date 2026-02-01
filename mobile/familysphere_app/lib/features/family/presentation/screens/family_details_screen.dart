@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/features/family/presentation/providers/family_provider.dart';
-import 'package:familysphere_app/features/family/domain/entities/family.dart';
 import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:intl/intl.dart';
 
@@ -83,7 +82,7 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
                 children: [
                   CircleAvatar(
                     radius: 40,
-                    backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
                     child: Text(
                       family.name.isNotEmpty ? family.name[0].toUpperCase() : 'F',
                       style: const TextStyle(

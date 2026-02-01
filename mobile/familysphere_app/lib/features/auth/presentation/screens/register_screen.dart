@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:familysphere_app/features/auth/domain/entities/auth_state.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -42,7 +43,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
 
-    // Navigation is now handled by AnimatedSwitcher in AuthChecker
+    // Listen for successful registration and pop back to AuthChecker
+    ref.listen(authProvider, (previous, next) {
+      if (next.status == AuthStatus.authenticated && !next.isLoading && next.error == null) {
+        // Pop until we are back at the root (AuthChecker)
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    });
 
     // Show error if any
     if (authState.error != null) {
@@ -65,8 +72,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             end: Alignment.bottomCenter,
             colors: [
               Colors.white,
-              AppTheme.primaryColor.withOpacity(0.05),
-              AppTheme.secondaryColor.withOpacity(0.1),
+              AppTheme.primaryColor.withValues(alpha: 0.05),
+              AppTheme.secondaryColor.withValues(alpha: 0.1),
             ],
           ),
         ),
@@ -238,7 +245,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         backgroundColor: AppTheme.primaryColor,
                         foregroundColor: Colors.white,
                         elevation: 4,
-                        shadowColor: AppTheme.primaryColor.withOpacity(0.5),
+                        shadowColor: AppTheme.primaryColor.withValues(alpha: 0.5),
                       ),
                       child: authState.isLoading
                           ? const SizedBox(

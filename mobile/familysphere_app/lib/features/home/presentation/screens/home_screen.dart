@@ -30,28 +30,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final familyState = ref.watch(familyProvider);
     final family = familyState.family;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(family?.name ?? 'FamilySphere'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.pushNamed(context, '/family-details');
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await ref.read(authProvider.notifier).signOut();
-              if (context.mounted) {
-                Navigator.pushReplacementNamed(context, '/login');
-              }
-            },
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
+    return RefreshIndicator(
         onRefresh: () => ref.read(familyProvider.notifier).loadFamily(),
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -121,7 +100,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           children: [
                             CircleAvatar(
                               radius: 30,
-                              backgroundColor: isMe ? AppTheme.primaryColor.withOpacity(0.1) : Colors.grey.shade200,
+                              backgroundColor: isMe ? AppTheme.primaryColor.withValues(alpha: 0.1) : Colors.grey.shade200,
                               backgroundImage: member.photoUrl != null 
                                   ? NetworkImage(member.photoUrl!) 
                                   : null,
@@ -162,7 +141,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.05),
+                      color: AppTheme.primaryColor.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: const Text('Connect with your family to get started!'),
@@ -223,8 +202,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildFeatureCard(
@@ -237,10 +215,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }) {
     return Card(
       elevation: 0,
-      color: color.withOpacity(0.1),
+      color: color.withValues(alpha: 0.1),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: iconColor.withOpacity(0.1), width: 1),
+        side: BorderSide(color: iconColor.withValues(alpha: 0.1), width: 1),
       ),
       child: InkWell(
         onTap: onTap ?? () {
@@ -255,7 +233,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, size: 28, color: iconColor),
