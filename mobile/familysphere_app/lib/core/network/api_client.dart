@@ -32,22 +32,29 @@ class ApiClient {
           }
           
           // Log request (only in debug mode)
+          // ignore: avoid_print
           print('🌐 REQUEST[${options.method}] => ${options.uri}');
+          // ignore: avoid_print
           print('📤 Data: ${options.data}');
           
           return handler.next(options);
         },
         onResponse: (response, handler) {
           // Log response (only in debug mode)
+          // ignore: avoid_print
           print('✅ RESPONSE[${response.statusCode}] => ${response.requestOptions.uri}');
+          // ignore: avoid_print
           print('📥 Data: ${response.data}');
           
           return handler.next(response);
         },
         onError: (error, handler) async {
           // Log error
+          // ignore: avoid_print
           print('❌ ERROR[${error.response?.statusCode}] => ${error.requestOptions.uri}');
+          // ignore: avoid_print
           print('🔴 Message: ${error.message}');
+          // ignore: avoid_print
           print('🔴 Data: ${error.response?.data}');
           
           // Handle specific error cases

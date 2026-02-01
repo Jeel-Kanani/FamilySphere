@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+// ignore_for_file: avoid_print
+
 /// Simple manual test to verify backend connectivity
 /// Run with: dart run lib/test_backend.dart
 void main() async {

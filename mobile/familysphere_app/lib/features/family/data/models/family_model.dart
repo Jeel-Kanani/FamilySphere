@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:familysphere_app/features/family/domain/entities/family.dart';
 
 class FamilyModel extends Family {
@@ -25,45 +25,27 @@ class FamilyModel extends Family {
     );
   }
 
-  /// Create FamilyModel from Firestore Document
-  factory FamilyModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    
-    return FamilyModel(
-      id: doc.id,
-      name: data['name'] ?? '',
-      createdBy: data['createdBy'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      memberIds: List<String>.from(data['memberIds'] ?? []),
-      inviteCode: data['inviteCode'] ?? '',
-      settings: FamilySettingsModel.fromMap(data['settings'] ?? {}),
-    );
-  }
+  // Firestore methods removed
 
   /// Create FamilyModel from JSON (for Hive/Local storage)
   factory FamilyModel.fromJson(Map<String, dynamic> json) {
     return FamilyModel(
-      id: json['id'],
-      name: json['name'],
-      createdBy: json['createdBy'],
-      createdAt: DateTime.parse(json['createdAt']),
-      memberIds: List<String>.from(json['memberIds']),
-      inviteCode: json['inviteCode'],
-      settings: FamilySettingsModel.fromMap(json['settings']),
+      id: json['_id'] ?? json['id'] ?? '',
+      name: json['name'] ?? '',
+      createdBy: json['createdBy'] ?? '',
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt']) 
+          : DateTime.now(),
+      memberIds: json['memberIds'] != null 
+          ? List<String>.from(json['memberIds']) 
+          : [],
+      inviteCode: json['inviteCode'] ?? '',
+      settings: json['settings'] != null 
+          ? FamilySettingsModel.fromMap(json['settings']) 
+          : const FamilySettingsModel(),
     );
   }
 
-  /// Convert to Firestore Map
-  Map<String, dynamic> toFirestore() {
-    return {
-      'name': name,
-      'createdBy': createdBy,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'memberIds': memberIds,
-      'inviteCode': inviteCode,
-      'settings': (settings as FamilySettingsModel).toMap(),
-    };
-  }
 
   /// Convert to JSON (for Hive/Local storage)
   Map<String, dynamic> toJson() {

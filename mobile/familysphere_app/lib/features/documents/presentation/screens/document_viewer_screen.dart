@@ -108,9 +108,11 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
         autoSpacing: false,
         pageFling: false,
         onError: (error) {
+          // ignore: avoid_print
           print(error.toString());
         },
         onPageError: (page, error) {
+          // ignore: avoid_print
           print('$page: ${error.toString()}');
         },
       );

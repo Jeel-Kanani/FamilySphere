@@ -3,7 +3,6 @@ import 'package:familysphere_app/features/family/domain/entities/family_member.d
 import 'package:familysphere_app/features/family/domain/repositories/family_repository.dart';
 import 'package:familysphere_app/features/family/data/datasources/family_remote_datasource.dart';
 import 'package:familysphere_app/features/family/data/datasources/family_local_datasource.dart';
-import 'package:familysphere_app/features/family/data/models/family_model.dart';
 
 /// Family Repository Implementation
 class FamilyRepositoryImpl implements FamilyRepository {
@@ -40,6 +39,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
       }
     } catch (e) {
       // Ignore remote errors for now, fall back to cache
+      // ignore: avoid_print
       print('Failed to fetch family remotely: $e');
     }
 
@@ -54,6 +54,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
       await localDataSource.cacheFamilyMembers(familyId, members);
       return members;
     } catch (e) {
+      // ignore: avoid_print
       print('Failed to fetch members remotely: $e');
       return await localDataSource.getCachedFamilyMembers(familyId);
     }

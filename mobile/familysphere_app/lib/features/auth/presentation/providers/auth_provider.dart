@@ -82,17 +82,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Check if user is already logged in
   Future<void> checkAuthStatus() async {
     try {
+      // ignore: avoid_print
       print('AuthNotifier: checkAuthStatus called');
       state = AuthState.loading();
       final user = await _getCurrentUser.call();
       if (user != null) {
+        // ignore: avoid_print
         print('AuthNotifier: User found, authenticating');
         state = AuthState.authenticated(user);
       } else {
+        // ignore: avoid_print
         print('AuthNotifier: No user found, initial state');
         state = AuthState.initial();
       }
     } catch (e) {
+      // ignore: avoid_print
       print('Auth check error: $e');
       state = AuthState.initial();
     }
@@ -195,6 +199,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = state.copyWith(user: user);
       }
     } catch (e) {
+      // ignore: avoid_print
       print('Refresh user error: $e');
       // Don't update error state for background refresh
     }

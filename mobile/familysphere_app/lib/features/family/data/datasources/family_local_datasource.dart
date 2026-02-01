@@ -21,13 +21,13 @@ class FamilyLocalDataSource {
 
   /// Cache Family Data
   Future<void> cacheFamily(FamilyModel family) async {
-    final box = Hive.box(_familyBox);
+    final box = await Hive.openBox(_familyBox);
     await box.put(_currentFamilyKey, jsonEncode(family.toJson()));
   }
 
   /// Get Cached Family
   Future<FamilyModel?> getCachedFamily() async {
-    final box = Hive.box(_familyBox);
+    final box = await Hive.openBox(_familyBox);
     final jsonStr = box.get(_currentFamilyKey);
     
     if (jsonStr == null) return null;
@@ -41,14 +41,14 @@ class FamilyLocalDataSource {
 
   /// Cache Family Members
   Future<void> cacheFamilyMembers(String familyId, List<FamilyMemberModel> members) async {
-    final box = Hive.box(_membersBox);
+    final box = await Hive.openBox(_membersBox);
     final membersJson = members.map((m) => m.toJson()).toList();
     await box.put(familyId, jsonEncode(membersJson));
   }
 
   /// Get Cached Family Members
   Future<List<FamilyMemberModel>> getCachedFamilyMembers(String familyId) async {
-    final box = Hive.box(_membersBox);
+    final box = await Hive.openBox(_membersBox);
     final jsonStr = box.get(familyId);
     
     if (jsonStr == null) return [];
@@ -63,8 +63,8 @@ class FamilyLocalDataSource {
 
   /// Clear Cache
   Future<void> clearCache() async {
-    final familyBox = Hive.box(_familyBox);
-    final membersBox = Hive.box(_membersBox);
+    final familyBox = await Hive.openBox(_familyBox);
+    final membersBox = await Hive.openBox(_membersBox);
     await familyBox.clear();
     await membersBox.clear();
   }

@@ -3,7 +3,6 @@ import 'package:familysphere_app/core/network/api_client.dart';
 import 'package:familysphere_app/features/family/data/models/family_model.dart';
 import 'package:familysphere_app/features/family/data/models/family_member_model.dart';
 import 'package:familysphere_app/features/family/domain/entities/family.dart';
-import 'package:familysphere_app/features/family/domain/entities/family_member.dart';
 
 /// Remote Data Source - Backend API Operations
 class FamilyRemoteDataSource {

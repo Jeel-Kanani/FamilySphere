@@ -105,7 +105,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               scrollDirection: Axis.horizontal,
               itemCount: _categories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (_, context) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
                 final category = _categories[index];
                 final isSelected = (category == 'All' && _selectedCategory == null) ||
@@ -115,7 +115,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                   label: Text(category),
                   selected: isSelected,
                   onSelected: (_) => _onCategorySelected(category),
-                  selectedColor: AppTheme.primaryColor.withOpacity(0.2),
+                  selectedColor: AppTheme.primaryColor.withValues(alpha: 0.2),
                   labelStyle: TextStyle(
                     color: isSelected ? AppTheme.primaryColor : Colors.black,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,

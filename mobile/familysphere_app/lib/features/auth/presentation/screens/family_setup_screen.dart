@@ -61,9 +61,7 @@ class _FamilySetupScreenState extends ConsumerState<FamilySetupScreen>
 
     try {
       await ref.read(familyProvider.notifier).create(name);
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/home');
-      }
+      // AuthChecker will handle navigation when user is refreshed
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -95,9 +93,7 @@ class _FamilySetupScreenState extends ConsumerState<FamilySetupScreen>
 
     try {
       await ref.read(familyProvider.notifier).join(code);
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/home');
-      }
+      // AuthChecker will handle navigation when user is refreshed
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -308,12 +304,13 @@ class _FamilySetupScreenState extends ConsumerState<FamilySetupScreen>
                           child: AnimatedContainer(
                             duration: AppTheme.normalAnimation,
                             transform: Matrix4.identity()
+                              // ignore: deprecated_member_use
                               ..scale(_isCreateCardHovered ? 1.02 : 1.0)
                               ..rotateZ(_isCreateCardHovered ? -0.01 : 0),
                             child: Card(
                               elevation: _isCreateCardHovered ? 12 : 8,
-                              shadowColor: AppTheme.primaryColor.withOpacity(
-                                _isCreateCardHovered ? 0.3 : 0.2,
+                              shadowColor: AppTheme.primaryColor.withValues(
+                                alpha: _isCreateCardHovered ? 0.3 : 0.2,
                               ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(24),
@@ -325,11 +322,11 @@ class _FamilySetupScreenState extends ConsumerState<FamilySetupScreen>
                                     colors: themeMode == ThemeMode.dark
                                         ? [
                                             AppTheme.darkSurface,
-                                            AppTheme.primaryColor.withOpacity(0.1),
+                                            AppTheme.primaryColor.withValues(alpha: 0.1),
                                           ]
                                         : [
                                             Colors.white,
-                                            AppTheme.primaryColor.withOpacity(0.05),
+                                            AppTheme.primaryColor.withValues(alpha: 0.05),
                                           ],
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
@@ -354,7 +351,7 @@ class _FamilySetupScreenState extends ConsumerState<FamilySetupScreen>
                                           child: Container(
                                             padding: const EdgeInsets.all(16),
                                             decoration: BoxDecoration(
-                                              color: AppTheme.primaryColor.withOpacity(0.1),
+                                              color: AppTheme.primaryColor.withValues(alpha: 0.1),
                                               shape: BoxShape.circle,
                                             ),
                                             child: Icon(
@@ -417,12 +414,13 @@ class _FamilySetupScreenState extends ConsumerState<FamilySetupScreen>
                           child: AnimatedContainer(
                             duration: AppTheme.normalAnimation,
                             transform: Matrix4.identity()
+                              // ignore: deprecated_member_use
                               ..scale(_isJoinCardHovered ? 1.02 : 1.0)
                               ..rotateZ(_isJoinCardHovered ? 0.01 : 0),
                             child: Card(
                               elevation: _isJoinCardHovered ? 12 : 8,
-                              shadowColor: AppTheme.secondaryColor.withOpacity(
-                                _isJoinCardHovered ? 0.3 : 0.2,
+                              shadowColor: AppTheme.secondaryColor.withValues(
+                                alpha: _isJoinCardHovered ? 0.3 : 0.2,
                               ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(24),
@@ -434,11 +432,11 @@ class _FamilySetupScreenState extends ConsumerState<FamilySetupScreen>
                                     colors: themeMode == ThemeMode.dark
                                         ? [
                                             AppTheme.darkSurface,
-                                            AppTheme.secondaryColor.withOpacity(0.1),
+                                            AppTheme.secondaryColor.withValues(alpha: 0.1),
                                           ]
                                         : [
                                             Colors.white,
-                                            AppTheme.secondaryColor.withOpacity(0.05),
+                                            AppTheme.secondaryColor.withValues(alpha: 0.05),
                                           ],
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
@@ -463,7 +461,7 @@ class _FamilySetupScreenState extends ConsumerState<FamilySetupScreen>
                                           child: Container(
                                             padding: const EdgeInsets.all(16),
                                             decoration: BoxDecoration(
-                                              color: AppTheme.secondaryColor.withOpacity(0.1),
+                                              color: AppTheme.secondaryColor.withValues(alpha: 0.1),
                                               shape: BoxShape.circle,
                                             ),
                                             child: Icon(

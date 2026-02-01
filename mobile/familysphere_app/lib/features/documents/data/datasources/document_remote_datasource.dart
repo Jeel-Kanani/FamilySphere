@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:familysphere_app/features/documents/data/models/document_model.dart';
-import 'package:path/path.dart' as path;
 
 class DocumentRemoteDataSource {
   DocumentRemoteDataSource();
