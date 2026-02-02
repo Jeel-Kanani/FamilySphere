@@ -4,13 +4,7 @@ const mongoose = require('mongoose');
 
 const checkDatabase = async () => {
     try {
-        const conn = await mongoose.connect(process.env.MONGO_URI, {
-            serverApi: {
-                version: '1',
-                strict: true,
-                deprecationErrors: true,
-            }
-        });
+        const conn = await mongoose.connect(process.env.MONGO_URI);
         console.log(`✅ Connected to MongoDB successfully! Host: ${conn.connection.host}`);
         console.log(`📊 Database: ${conn.connection.name}\n`);
 

@@ -26,60 +26,82 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
       ),
       bottomNavigationBar: Container(
+        padding: const EdgeInsets.only(bottom: 24, left: 16, right: 16, top: 12),
         decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 20,
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
               offset: const Offset(0, -5),
             ),
           ],
         ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: AppTheme.primaryColor,
-          unselectedItemColor: AppTheme.textTertiary,
-          showSelectedLabels: true,
-          showUnselectedLabels: true,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-          unselectedLabelStyle: const TextStyle(fontSize: 11),
-          elevation: 0,
-          backgroundColor: Colors.white,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_outlined),
-              activeIcon: Icon(Icons.dashboard),
-              label: 'Dashboard',
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.darkSurface : Colors.white,
+            borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
+            border: Border.all(
+              color: isDark ? AppTheme.darkBorder : AppTheme.borderColor,
+              width: 1,
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.folder_shared_outlined),
-              activeIcon: Icon(Icons.folder_shared),
-              label: 'Vault',
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+            child: BottomNavigationBar(
+              currentIndex: _currentIndex,
+              onTap: (index) => setState(() => _currentIndex = index),
+              type: BottomNavigationBarType.fixed,
+              selectedItemColor: AppTheme.primaryColor,
+              unselectedItemColor: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+              showSelectedLabels: false,
+              showUnselectedLabels: false,
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.grid_view_rounded),
+                  activeIcon: Icon(Icons.grid_view_rounded),
+                  label: 'Home',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.folder_copy_rounded),
+                  activeIcon: Icon(Icons.folder_copy_rounded),
+                  label: 'Vault',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.forum_rounded),
+                  activeIcon: Icon(Icons.forum_rounded),
+                  label: 'Hub',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.calendar_today_rounded),
+                  activeIcon: Icon(Icons.calendar_today_rounded),
+                  label: 'Planner',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.account_balance_wallet_rounded),
+                  activeIcon: Icon(Icons.account_balance_wallet_rounded),
+                  label: 'Safe',
+                ),
+              ],
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.forum_outlined),
-              activeIcon: Icon(Icons.forum),
-              label: 'Hub',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.calendar_month_outlined),
-              activeIcon: Icon(Icons.calendar_month),
-              label: 'Planner',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.security_outlined),
-              activeIcon: Icon(Icons.security),
-              label: 'Safe',
-            ),
-          ],
+          ),
         ),
       ),
     );

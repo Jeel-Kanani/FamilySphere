@@ -10,6 +10,8 @@ import 'package:familysphere_app/features/home/presentation/screens/main_navigat
 import 'package:familysphere_app/features/documents/presentation/screens/document_list_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/add_document_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/auth_checker.dart';
+import 'package:familysphere_app/features/auth/presentation/screens/phone_login_screen.dart';
+import 'package:familysphere_app/features/auth/presentation/screens/otp_verification_screen.dart';
 
 /// Application Routes
 /// 
@@ -26,6 +28,13 @@ class AppRoutes {
   static const String inviteMember = '/invite-member';
   static const String documents = '/documents';
   static const String addDocument = '/add-document';
+  static const String phoneLogin = '/phone-login';
+  static const String otpVerification = '/otp-verification';
+  static const String scanner = '/scanner';
+  static const String imageProcess = '/image-process';
+  static const String folderDetails = '/folder-details';
+  static const String memberDocs = '/member-docs';
+  static const String privateLocker = '/private-locker';
 
   // Route generator
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -39,6 +48,12 @@ class AppRoutes {
       case register:
         return MaterialPageRoute(builder: (_) => const RegisterScreen());
 
+      case phoneLogin:
+        return MaterialPageRoute(builder: (_) => const PhoneLoginScreen());
+
+      case otpVerification:
+        final phone = settings.arguments as String;
+        return MaterialPageRoute(builder: (_) => OtpVerificationScreen(phoneNumber: phone));
 
       case profileSetup:
         return MaterialPageRoute(builder: (_) => const ProfileSetupScreen());
@@ -59,7 +74,21 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const DocumentListScreen());
 
       case addDocument:
-        return MaterialPageRoute(builder: (_) => const AddDocumentScreen());
+        final paths = settings.arguments as List<String>?;
+        return MaterialPageRoute(builder: (_) => AddDocumentScreen(initialImagePaths: paths));
+
+      case scanner:
+      case imageProcess:
+      case folderDetails:
+      case memberDocs:
+      case privateLocker:
+        // Placeholder for missing screens to allow compilation
+        return MaterialPageRoute(
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: const Text('Coming Soon')),
+            body: const Center(child: Text('This feature is coming soon!')),
+          ),
+        );
 
       default:
         return MaterialPageRoute(
