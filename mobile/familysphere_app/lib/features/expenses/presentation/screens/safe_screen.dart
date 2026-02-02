@@ -63,13 +63,13 @@ class SafeScreen extends StatelessWidget {
                   style: TextStyle(color: AppTheme.textTertiary, fontSize: 14),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  '$2,450.80',
-                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                  Text(
+                    '\$2,450.80',
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                    ),
                   ),
-                ),
                 const SizedBox(height: 24),
                 SizedBox(
                   height: 150,
@@ -120,57 +120,57 @@ class SafeScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          _buildTransactionItem(
-            context,
-            title: 'Grocery Store',
-            subtitle: 'Shopping • Today',
-            amount: '-$120.50',
-            icon: Icons.shopping_basket_rounded,
-            color: Colors.orange,
-          ),
-          _buildTransactionItem(
-            context,
-            title: 'Electric Bill',
-            subtitle: 'Utilities • Yesterday',
-            amount: '-$85.00',
-            icon: Icons.electrical_services_rounded,
-            color: Colors.blue,
-          ),
-          _buildTransactionItem(
-            context,
-            title: 'Salary Deposit',
-            subtitle: 'Income • 2 days ago',
-            amount: '+$4,200.00',
-            icon: Icons.account_balance_wallet_rounded,
-            color: Colors.emerald,
-            isPositive: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlanningTab(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        _buildPlanningCard(
-          context,
-          title: 'Emergency Fund',
-          progress: 0.65,
-          target: '$10,000',
-          current: '$6,500',
-          color: Colors.amber,
+            _buildTransactionItem(
+              context,
+              title: 'Grocery Store',
+              subtitle: 'Shopping • Today',
+              amount: '-\$120.50',
+              icon: Icons.shopping_basket_rounded,
+              color: Colors.orange,
+            ),
+            _buildTransactionItem(
+              context,
+              title: 'Electric Bill',
+              subtitle: 'Utilities • Yesterday',
+              amount: '-\$85.00',
+              icon: Icons.electrical_services_rounded,
+              color: Colors.blue,
+            ),
+            _buildTransactionItem(
+              context,
+              title: 'Salary Deposit',
+              subtitle: 'Income • 2 days ago',
+              amount: '+\$4,200.00',
+              icon: Icons.account_balance_wallet_rounded,
+              color: Colors.green,
+              isPositive: true,
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
-        _buildPlanningCard(
-          context,
-          title: 'Family Vacation',
-          progress: 0.3,
-          target: '$5,000',
-          current: '$1,500',
-          color: Colors.purple,
-        ),
+      );
+    }
+  
+    Widget _buildPlanningTab(BuildContext context) {
+      return ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          _buildPlanningCard(
+            context,
+            title: 'Emergency Fund',
+            progress: 0.65,
+            target: '\$10,000',
+            current: '\$6,500',
+            color: Colors.amber,
+          ),
+          const SizedBox(height: 16),
+          _buildPlanningCard(
+            context,
+            title: 'Family Vacation',
+            progress: 0.3,
+            target: '\$5,000',
+            current: '\$1,500',
+            color: Colors.purple,
+          ),
       ],
     );
   }

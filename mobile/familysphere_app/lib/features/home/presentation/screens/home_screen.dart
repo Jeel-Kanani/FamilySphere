@@ -134,13 +134,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           subtitle: 'Events & Tasks',
                           color: Colors.orange,
                         ),
-                        _buildMenuCard(
-                          context,
-                          icon: Icons.account_balance_wallet_rounded,
-                          title: 'Safe',
-                          subtitle: 'Shared Expenses',
-                          color: Colors.emerald,
-                        ),
+                          _buildMenuCard(
+                            context,
+                            icon: Icons.account_balance_wallet_rounded,
+                            title: 'Safe',
+                            subtitle: 'Shared Expenses',
+                            color: AppTheme.successColor,
+                          ),
                         _buildMenuCard(
                           context,
                           icon: Icons.folder_copy_rounded,

@@ -116,13 +116,13 @@ class PlannerScreen extends StatelessWidget {
             color: Colors.blue,
             attendees: 1,
           ),
-          _buildEventItem(
-            context,
-            title: 'Trash Collection',
-            time: '7:00 AM',
-            color: Colors.emerald,
-            attendees: 2,
-          ),
+            _buildEventItem(
+              context,
+              title: 'Trash Collection',
+              time: '7:00 AM',
+              color: AppTheme.successColor,
+              attendees: 2,
+            ),
         ],
       ),
     );

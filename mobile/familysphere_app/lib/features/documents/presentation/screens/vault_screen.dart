@@ -120,14 +120,14 @@ class _VaultScreenState extends State<VaultScreen> with SingleTickerProviderStat
           
           _buildSectionHeader('Security Tiers'),
           const SizedBox(height: 12),
-          _buildVaultCard(
-            context,
-            title: 'Identity Vault',
-            subtitle: 'Passports, IDs, Certificates',
-            icon: Icons.badge_rounded,
-            color: Colors.emerald,
-            tags: ['Passport', 'License', 'ID'],
-          ),
+            _buildVaultCard(
+              context,
+              title: 'Identity Vault',
+              subtitle: 'Passports, IDs, Certificates',
+              icon: Icons.badge_rounded,
+              color: AppTheme.successColor,
+              tags: ['Passport', 'License', 'ID'],
+            ),
           const SizedBox(height: 12),
           _buildVaultCard(
             context,
