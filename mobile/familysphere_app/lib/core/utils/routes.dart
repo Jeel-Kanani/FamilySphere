@@ -11,6 +11,12 @@ import 'package:familysphere_app/features/documents/presentation/screens/documen
 import 'package:familysphere_app/features/documents/presentation/screens/add_document_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/auth_checker.dart';
 
+import 'package:familysphere_app/features/scanner/presentation/screens/document_scanner_screen.dart';
+import 'package:familysphere_app/features/scanner/presentation/screens/image_process_screen.dart';
+import 'package:familysphere_app/features/documents/presentation/screens/member_wise_documents_screen.dart';
+import 'package:familysphere_app/features/documents/presentation/screens/private_locker_screen.dart';
+import 'package:familysphere_app/features/documents/presentation/screens/folder_details_screen.dart';
+
 /// Application Routes
 /// 
 /// Centralized route management for the app.
@@ -26,6 +32,11 @@ class AppRoutes {
   static const String inviteMember = '/invite-member';
   static const String documents = '/documents';
   static const String addDocument = '/add-document';
+  static const String scanner = '/scanner';
+  static const String imageProcess = '/image-process';
+  static const String folderDetails = '/folder-details';
+  static const String memberDocs = '/member-docs';
+  static const String privateLocker = '/private-locker';
 
   // Route generator
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -59,7 +70,25 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const DocumentListScreen());
 
       case addDocument:
-        return MaterialPageRoute(builder: (_) => const AddDocumentScreen());
+        final paths = settings.arguments as List<String>?;
+        return MaterialPageRoute(builder: (_) => AddDocumentScreen(initialImagePaths: paths));
+
+      case scanner:
+        return MaterialPageRoute(builder: (_) => const DocumentScannerScreen());
+
+      case imageProcess:
+        final paths = settings.arguments as List<String>;
+        return MaterialPageRoute(builder: (_) => ImageProcessScreen(imagePaths: paths));
+
+      case folderDetails:
+        final name = settings.arguments as String;
+        return MaterialPageRoute(builder: (_) => FolderDetailsScreen(folderName: name));
+
+      case memberDocs:
+        return MaterialPageRoute(builder: (_) => const MemberWiseDocumentsScreen());
+
+      case privateLocker:
+        return MaterialPageRoute(builder: (_) => const PrivateLockerScreen());
 
       default:
         return MaterialPageRoute(

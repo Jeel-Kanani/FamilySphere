@@ -16,17 +16,11 @@ class DocumentListScreen extends ConsumerStatefulWidget {
 
 class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
   String? _selectedCategory;
+  final TextEditingController _searchController = TextEditingController();
+  bool _isSearching = false;
 
   final List<String> _categories = [
-    'All',
-    'Insurance',
-    'Medical',
-    'Legal',
-    'Tax',
-    'Home',
-    'Vehicle',
-    'Education',
-    'Other',
+    'All', 'Insurance', 'Medical', 'Legal', 'Tax', 'Home', 'Vehicle', 'Education', 'Other',
   ];
 
   @override
@@ -35,6 +29,12 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(documentProvider.notifier).loadDocuments();
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _onCategorySelected(String category) {
@@ -47,194 +47,156 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
   void _openDocument(DocumentEntity document) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => DocumentViewerScreen(document: document),
-      ),
+      MaterialPageRoute(builder: (_) => DocumentViewerScreen(document: document)),
     );
-  }
-
-  Future<void> _deleteDocument(DocumentEntity document) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Document'),
-        content: Text('Are you sure you want to delete "${document.title}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      await ref.read(documentProvider.notifier).delete(document);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(documentProvider);
+    final filteredDocs = state.documents.where((doc) {
+      if (_searchController.text.isEmpty) return true;
+      return doc.title.toLowerCase().contains(_searchController.text.toLowerCase());
+    }).toList();
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Documents'),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AddDocumentScreen()),
-          );
-        },
-        backgroundColor: AppTheme.primaryColor,
-        child: const Icon(Icons.add),
+        title: _isSearching 
+          ? TextField(
+              controller: _searchController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'Search documents...',
+                border: InputBorder.none,
+              ),
+              onChanged: (val) => setState(() {}),
+            )
+          : const Text('Documents'),
+        actions: [
+          IconButton(
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            onPressed: () => setState(() {
+              _isSearching = !_isSearching;
+              if (!_isSearching) _searchController.clear();
+            }),
+          ),
+        ],
+        elevation: 0,
       ),
       body: Column(
         children: [
-          // Category Selector
-          SizedBox(
-            height: 60,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              scrollDirection: Axis.horizontal,
-              itemCount: _categories.length,
-              separatorBuilder: (_, context) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final category = _categories[index];
-                final isSelected = (category == 'All' && _selectedCategory == null) ||
-                    category == _selectedCategory;
-                
-                return ChoiceChip(
-                  label: Text(category),
-                  selected: isSelected,
-                  onSelected: (_) => _onCategorySelected(category),
-                  selectedColor: AppTheme.primaryColor.withValues(alpha: 0.2),
-                  labelStyle: TextStyle(
-                    color: isSelected ? AppTheme.primaryColor : Colors.black,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  ),
-                );
-              },
-            ),
-          ),
-
-          // Document List
+          _buildCategorySelector(),
           Expanded(
-            child: state.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : state.documents.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.folder_open, size: 64, color: Colors.grey.shade400),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No documents found',
-                              style: TextStyle(color: Colors.grey.shade600),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: state.documents.length,
-                        itemBuilder: (context, index) {
-                          final doc = state.documents[index];
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.grey.shade200),
-                            ),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.all(12),
-                              leading: Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: doc.fileType == 'pdf' 
-                                      ? Colors.red.shade50 
-                                      : Colors.blue.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  doc.fileType == 'pdf' 
-                                      ? Icons.picture_as_pdf 
-                                      : Icons.image,
-                                  color: doc.fileType == 'pdf' 
-                                      ? Colors.red 
-                                      : Colors.blue,
-                                ),
-                              ),
-                              title: Text(
-                                doc.title,
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${doc.category} • ${DateFormat('MMM d, y').format(doc.uploadedAt)}',
-                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                                  ),
-                                  Text(
-                                    doc.fileSizeString,
-                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
-                                  ),
-                                ],
-                              ),
-                              onTap: () => _openDocument(doc),
-                              trailing: PopupMenuButton(
-                                itemBuilder: (context) => [
-                                  const PopupMenuItem(
-                                    value: 'download',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.download, size: 20),
-                                        SizedBox(width: 8),
-                                        Text('Download'),
-                                      ],
-                                    ),
-                                  ),
-                                  const PopupMenuItem(
-                                    value: 'delete',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.delete, color: Colors.red, size: 20),
-                                        SizedBox(width: 8),
-                                        Text('Delete', style: TextStyle(color: Colors.red)),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                                onSelected: (value) {
-                                  if (value == 'delete') {
-                                    _deleteDocument(doc);
-                                  } else if (value == 'download') {
-                                    ref.read(documentProvider.notifier).download(doc);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Download started...')),
-                                    );
-                                  }
-                                },
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+            child: _buildDocumentList(state.isLoading, filteredDocs),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCategorySelector() {
+    return Container(
+      height: 50,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        itemCount: _categories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final category = _categories[index];
+          final isSelected = (category == 'All' && _selectedCategory == null) ||
+              category == _selectedCategory;
+          
+          return ChoiceChip(
+            label: Text(category),
+            selected: isSelected,
+            onSelected: (_) => _onCategorySelected(category),
+            selectedColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+            labelStyle: TextStyle(
+              color: isSelected ? AppTheme.primaryColor : Colors.black87,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              fontSize: 13,
+            ),
+            backgroundColor: Colors.grey.shade50,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDocumentList(bool isLoading, List<DocumentEntity> docs) {
+    if (isLoading && docs.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (docs.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.folder_open, size: 64, color: Colors.grey.shade200),
+            const SizedBox(height: 16),
+            Text('No documents found', style: TextStyle(color: Colors.grey.shade400)),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: docs.length,
+      itemBuilder: (context, index) {
+        final doc = docs[index];
+        final isPdf = doc.fileType == 'pdf';
+        
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade100),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.all(12),
+            leading: Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: isPdf ? Colors.red.shade50 : Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                isPdf ? Icons.picture_as_pdf : Icons.image,
+                color: isPdf ? Colors.red : Colors.blue,
+                size: 28,
+              ),
+            ),
+            title: Text(
+              doc.title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '${doc.category} • ${DateFormat('MMM d, y').format(doc.uploadedAt)}',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            ),
+            onTap: () => _openDocument(doc),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+          ),
+        );
+      },
     );
   }
 }

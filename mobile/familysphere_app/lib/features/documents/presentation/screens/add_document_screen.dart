@@ -6,7 +6,8 @@ import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/features/documents/presentation/providers/document_provider.dart';
 
 class AddDocumentScreen extends ConsumerStatefulWidget {
-  const AddDocumentScreen({super.key});
+  final List<String>? initialImagePaths;
+  const AddDocumentScreen({super.key, this.initialImagePaths});
 
   @override
   ConsumerState<AddDocumentScreen> createState() => _AddDocumentScreenState();
@@ -15,22 +16,29 @@ class AddDocumentScreen extends ConsumerStatefulWidget {
 class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
-  final _categoryController = TextEditingController(); // Simple text input for now, could be dropdown
+  final _categoryController = TextEditingController();
   
-  File? _selectedFile;
-  String? _fileName;
-  String? _fileSize;
+  List<File> _selectedFiles = [];
+  String _selectedTier = 'Global';
+  String _selectedFolder = 'None';
 
   final List<String> _suggestedCategories = [
-    'Insurance',
-    'Medical',
-    'Legal',
-    'Tax',
-    'Home',
-    'Vehicle',
-    'Education',
-    'Other',
+    'Insurance', 'Medical', 'Legal', 'Tax', 'Home', 'Vehicle', 'Education', 'Other',
   ];
+
+  final List<String> _tiers = ['Global', 'Member-wise', 'Private'];
+  final List<String> _folders = ['None', 'Taxes 2023', 'Rental Agreements', 'Vehicle Docs', 'Medical Reports'];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialImagePaths != null) {
+      _selectedFiles = widget.initialImagePaths!.map((p) => File(p)).toList();
+      if (_selectedFiles.isNotEmpty) {
+        _titleController.text = 'Doc_${DateTime.now().millisecondsSinceEpoch}';
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -44,73 +52,27 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+        allowMultiple: true,
       );
 
-      if (result != null && result.files.single.path != null) {
-        final file = File(result.files.single.path!);
-        final size = await file.length();
-        
+      if (result != null) {
         setState(() {
-          _selectedFile = file;
-          _fileName = result.files.single.name;
-          _fileSize = _formatSize(size);
-          // Auto-fill title if empty
-          if (_titleController.text.isEmpty) {
-            _titleController.text = _fileName!.split('.').first;
-          }
+          _selectedFiles.addAll(result.files.where((f) => f.path != null).map((f) => File(f.path!)));
         });
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking file: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
 
-  String _formatSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-
-  Future<void> _upload() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_selectedFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a file')),
-      );
-      return;
-    }
-
-    // Hide keyboard
-    FocusScope.of(context).unfocus();
-
-    try {
-      await ref.read(documentProvider.notifier).upload(
-        file: _selectedFile!,
-        title: _titleController.text.trim(),
-        category: _categoryController.text.trim().isEmpty 
-            ? 'Other' 
-            : _categoryController.text.trim(),
-      );
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Document uploaded successfully!')),
-        );
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Upload failed: $e'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
-      }
+  Future<void> _scanDoc() async {
+    final result = await Navigator.pushNamed(context, '/scanner');
+    if (result != null && result is List<String>) {
+      setState(() {
+        _selectedFiles.addAll(result.map((p) => File(p)));
+      });
     }
   }
 
@@ -120,9 +82,8 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
     final isLoading = state.isLoading;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add Document'),
-      ),
+      backgroundColor: Colors.white,
+      appBar: AppBar(title: const Text('Save Document'), elevation: 0),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Form(
@@ -130,155 +91,151 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // File Selection Area
-              GestureDetector(
-                onTap: isLoading ? null : _pickFile,
-                child: Container(
-                  height: 150,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: _selectedFile != null ? AppTheme.primaryColor : Colors.grey.shade300,
-                      width: 2,
-                    ),
-                  ),
-                  child: _selectedFile != null
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              _fileName!.endsWith('.pdf') 
-                                  ? Icons.picture_as_pdf 
-                                  : Icons.image,
-                              size: 48,
-                              color: AppTheme.primaryColor,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _fileName!,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                              textAlign: TextAlign.center,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              _fileSize!,
-                              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Tap to change',
-                              style: TextStyle(
-                                color: AppTheme.primaryColor,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        )
-                      : Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.cloud_upload_outlined,
-                              size: 48,
-                              color: Colors.grey.shade400,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Tap to select a file',
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'PDF, JPG, PNG',
-                              style: TextStyle(
-                                color: Colors.grey.shade400,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
+              // Multiple Files Preview
+              if (_selectedFiles.isNotEmpty)
+                _buildFilesGrid()
+              else
+                Row(
+                  children: [
+                    Expanded(child: _buildSourceCard(icon: Icons.cloud_upload_outlined, label: 'Upload', onTap: _pickFile)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildSourceCard(icon: Icons.document_scanner_outlined, label: 'Scan', onTap: _scanDoc)),
+                  ],
                 ),
-              ),
               const SizedBox(height: 24),
               
-              // Title Field
+              _buildSectionTitle('Document Details'),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Document Title',
-                  prefixIcon: Icon(Icons.title),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a title';
-                  }
-                  return null;
-                },
+                decoration: const InputDecoration(labelText: 'Document Title', prefixIcon: Icon(Icons.title)),
+                validator: (value) => (value == null || value.trim().isEmpty) ? 'Please enter a title' : null,
                 enabled: !isLoading,
               ),
               const SizedBox(height: 16),
-              
-              // Category Field with Suggestions
-              TextFormField(
-                controller: _categoryController,
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  prefixIcon: Icon(Icons.category),
-                  hintText: 'e.g., Insurance, Medical',
-                ),
-                enabled: !isLoading,
-              ),
-              const SizedBox(height: 12),
-              
-              // Category Chips
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _suggestedCategories.map((category) {
-                  return ActionChip(
-                    label: Text(category),
-                    onPressed: isLoading ? null : () {
-                      _categoryController.text = category;
-                    },
-                    backgroundColor: Colors.grey.shade100,
-                  );
-                }).toList(),
-              ),
-              
-              const SizedBox(height: 32),
-              
-              // Upload Button
-              SizedBox(
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : _upload,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionTitle('Tier'),
+                        const SizedBox(height: 8),
+                        _buildDropdown(_selectedTier, _tiers, (val) => setState(() => _selectedTier = val!)),
+                      ],
                     ),
                   ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionTitle('Folder'),
+                        const SizedBox(height: 8),
+                        _buildDropdown(_selectedFolder, _folders, (val) => setState(() => _selectedFolder = val!)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              
+              _buildSectionTitle('Category'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: _suggestedCategories.map((c) => ChoiceChip(
+                  label: Text(c),
+                  selected: _categoryController.text == c,
+                  onSelected: (s) => setState(() => _categoryController.text = s ? c : ''),
+                )).toList(),
+              ),
+              const SizedBox(height: 40),
+              
+              SizedBox(
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: isLoading ? null : () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
                   child: isLoading
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                        )
-                      : const Text(
-                          'Upload Document',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('Save to Vault', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFilesGrid() {
+    return SizedBox(
+      height: 120,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _selectedFiles.length + 1,
+        itemBuilder: (context, index) {
+          if (index == _selectedFiles.length) {
+            return GestureDetector(
+              onTap: _scanDoc,
+              child: Container(
+                width: 100,
+                margin: const EdgeInsets.only(right: 12),
+                decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade300, style: BorderStyle.none)),
+                child: const Icon(Icons.add_a_photo, color: Colors.grey),
+              ),
+            );
+          }
+          return Container(
+            width: 100,
+            margin: const EdgeInsets.only(right: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              image: DecorationImage(image: FileImage(_selectedFiles[index]), fit: BoxFit.cover),
+            ),
+            child: Align(
+              alignment: Alignment.topRight,
+              child: IconButton(
+                icon: const CircleAvatar(backgroundColor: Colors.black54, radius: 10, child: Icon(Icons.close, size: 12, color: Colors.white)),
+                onPressed: () => setState(() => _selectedFiles.removeAt(index)),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDropdown(String value, List<String> items, Function(String?) onChanged) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          items: items.map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 13)))).toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) => Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87));
+
+  Widget _buildSourceCard({required IconData icon, required String label, VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+        child: Column(children: [Icon(icon, color: AppTheme.primaryColor, size: 32), const SizedBox(height: 8), Text(label, style: const TextStyle(fontWeight: FontWeight.w600))]),
       ),
     );
   }
