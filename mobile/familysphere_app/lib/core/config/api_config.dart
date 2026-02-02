@@ -2,13 +2,13 @@ class ApiConfig {
   // Base URLs for different environments
   static const String _localAndroidEmulator = 'http://10.0.2.2:5000';
   static const String _localIOSSimulator = 'http://localhost:5000';
-  static const String _localPhysicalDevice = 'http://10.63.65.206:5000'; // Your computer's local network IP
-  static const String _productionUrl = 'https://familysphere-api.example.com'; // Update when deployed
+  static const String _localPhysicalDevice = 'http://10.63.65.206:5000'; // Current PC IP
+  static const String _productionUrl = 'https://familysphere-api.example.com'; 
   
-  // Current environment - change this based on deployment
+  // Current environment
   static const bool _isProduction = false;
-  static const bool _isIOS = false; // Set to true when running on iOS
-  static const bool _isPhysicalDevice = true; // Set to true when testing on physical device, false for emulator
+  static const bool _isIOS = false; 
+  static const bool _isPhysicalDevice = true; // Use true for your physical phone
   
   // Get base URL based on platform and environment
   static String get baseUrl {
