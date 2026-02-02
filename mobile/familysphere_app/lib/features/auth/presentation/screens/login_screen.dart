@@ -20,16 +20,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
-  bool _isButtonHovered = false;
 
   @override
   void initState() {
     super.initState();
-    
-    // Setup entrance animations
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: AppTheme.slowAnimation,
     );
     
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -37,7 +34,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     );
     
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
+      begin: const Offset(0, 0.1),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _animationController,
@@ -68,6 +65,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final themeMode = ref.watch(themeModeProvider);
+    final isDark = themeMode == ThemeMode.dark;
 
     // Show error if any
     if (authState.error != null) {
@@ -75,9 +73,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(authState.error!),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorColor,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusM)),
           ),
         );
         ref.read(authProvider.notifier).clearError();
@@ -85,307 +83,245 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     }
 
     return Scaffold(
-      body: AnimatedContainer(
-        duration: AppTheme.normalAnimation,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: themeMode == ThemeMode.dark
-                ? [
-                    AppTheme.darkBackground,
-                    AppTheme.darkSurface,
-                    AppTheme.darkBackground,
-                  ]
-                : [
-                    Colors.white,
-                    AppTheme.primaryColor.withValues(alpha: 0.05),
-                    AppTheme.secondaryColor.withValues(alpha: 0.1),
-                  ],
+      body: Stack(
+        children: [
+          // Background Decorative Elements
+          Positioned(
+            top: -100,
+            right: -100,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.primaryColor.withValues(alpha: 0.05),
+              ),
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(32.0),
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: SlideTransition(
-                  position: _slideAnimation,
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Theme Toggle Button
-                        Align(
-                          alignment: Alignment.topRight,
-                          child: AnimatedScale(
-                            duration: AppTheme.fastAnimation,
-                            scale: 1.0,
-                            child: IconButton(
-                              icon: AnimatedSwitcher(
-                                duration: AppTheme.fastAnimation,
-                                transitionBuilder: (child, animation) {
-                                  return RotationTransition(
-                                    turns: animation,
-                                    child: FadeTransition(
-                                      opacity: animation,
-                                      child: child,
-                                    ),
-                                  );
-                                },
-                                child: Icon(
-                                  themeMode == ThemeMode.dark
-                                      ? Icons.light_mode
-                                      : Icons.dark_mode,
-                                  key: ValueKey(themeMode),
+          Positioned(
+            bottom: -50,
+            left: -50,
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.secondaryColor.withValues(alpha: 0.05),
+              ),
+            ),
+          ),
+          
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Theme Toggle & Logo Area
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                                ),
+                                child: const Icon(
+                                  Icons.family_restroom_rounded,
+                                  size: 32,
                                   color: AppTheme.primaryColor,
                                 ),
                               ),
-                              onPressed: () {
-                                ref.read(themeModeProvider.notifier).toggleTheme();
-                              },
+                              IconButton(
+                                icon: Icon(
+                                  isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                                  color: AppTheme.primaryColor,
+                                ),
+                                onPressed: () => ref.read(themeModeProvider.notifier).toggleTheme(),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 40),
+                          
+                          // Header Text
+                          Text(
+                            'Welcome back!',
+                            style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: -1,
                             ),
                           ),
-                        ),
-                        
-                        // App Logo with pulse animation
-                        TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0.0, end: 1.0),
-                          duration: const Duration(milliseconds: 600),
-                          builder: (context, value, child) {
-                            return Transform.scale(
-                              scale: 0.8 + (value * 0.2),
-                              child: Opacity(
-                                opacity: value,
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: Hero(
-                            tag: 'logo',
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.family_restroom,
-                                size: 72,
-                                color: AppTheme.primaryColor,
-                              ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Sign in to continue to your family hub',
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 32),
-                        
-                        // Title with animation
-                        AnimatedDefaultTextStyle(
-                          duration: AppTheme.normalAnimation,
-                          style: Theme.of(context).textTheme.headlineMedium!.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: themeMode == ThemeMode.dark
-                                    ? Colors.white
-                                    : AppTheme.textPrimary,
-                                letterSpacing: -0.5,
-                              ),
-                          child: const Text(
-                            'FamilySphere',
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        
-                        AnimatedDefaultTextStyle(
-                          duration: AppTheme.normalAnimation,
-                          style: Theme.of(context).textTheme.bodyLarge!.copyWith(
-                                color: themeMode == ThemeMode.dark
-                                    ? Colors.white70
-                                    : AppTheme.textSecondary,
-                              ),
-                          child: const Text(
-                            'Sign in to your family hub',
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        const SizedBox(height: 48),
+                          const SizedBox(height: 48),
 
-                        // Email Field with animation
-                        AnimatedContainer(
-                          duration: AppTheme.fastAnimation,
-                          child: TextFormField(
+                          // Email Field
+                          TextFormField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
-                            decoration: InputDecoration(
-                              labelText: 'Email',
-                              prefixIcon: const Icon(Icons.alternate_email),
-                              filled: true,
-                              fillColor: themeMode == ThemeMode.dark
-                                  ? AppTheme.darkSurface
-                                  : Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide.none,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide.none,
-                              ),
+                            decoration: const InputDecoration(
+                              labelText: 'Email Address',
+                              hintText: 'Enter your email',
+                              prefixIcon: Icon(Icons.email_outlined),
                             ),
                             validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your email';
-                              }
+                              if (value == null || value.isEmpty) return 'Please enter your email';
                               if (!value.contains('@')) return 'Please enter a valid email';
                               return null;
                             },
                           ),
-                        ),
-                        const SizedBox(height: 20),
+                          const SizedBox(height: 24),
 
-                        // Password Field with animation
-                        AnimatedContainer(
-                          duration: AppTheme.fastAnimation,
-                          child: TextFormField(
+                          // Password Field
+                          TextFormField(
                             controller: _passwordController,
                             obscureText: _obscurePassword,
                             decoration: InputDecoration(
                               labelText: 'Password',
-                              prefixIcon: const Icon(Icons.fingerprint),
-                              filled: true,
-                              fillColor: themeMode == ThemeMode.dark
-                                  ? AppTheme.darkSurface
-                                  : Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide.none,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide.none,
-                              ),
+                              hintText: 'Enter your password',
+                              prefixIcon: const Icon(Icons.lock_outline_rounded),
                               suffixIcon: IconButton(
-                                icon: AnimatedSwitcher(
-                                  duration: AppTheme.fastAnimation,
-                                  child: Icon(
-                                    _obscurePassword
-                                        ? Icons.visibility
-                                        : Icons.visibility_off,
-                                    key: ValueKey(_obscurePassword),
-                                    color: AppTheme.textSecondary,
-                                  ),
+                                icon: Icon(
+                                  _obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                  size: 20,
                                 ),
-                                onPressed: () {
-                                  setState(() => _obscurePassword = !_obscurePassword);
-                                },
+                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                               ),
                             ),
                             validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your password';
-                              }
+                              if (value == null || value.isEmpty) return 'Please enter your password';
                               if (value.length < 6) return 'Password too short';
                               return null;
                             },
                           ),
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Forgot Password
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () {},
-                            child: Text(
-                              'Forgot Password?',
-                              style: TextStyle(color: AppTheme.primaryColor),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-
-                        // Login Button with hover animation
-                        MouseRegion(
-                          onEnter: (_) => setState(() => _isButtonHovered = true),
-                          onExit: (_) => setState(() => _isButtonHovered = false),
-                          child: AnimatedContainer(
-                            duration: AppTheme.fastAnimation,
-                            transform: Matrix4.identity()
-                              // ignore: deprecated_member_use
-                              ..scale(_isButtonHovered ? 1.02 : 1.0),
-                            child: ElevatedButton(
-                              onPressed: authState.isLoading ? null : _handleLogin,
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 20),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                backgroundColor: AppTheme.primaryColor,
-                                foregroundColor: Colors.white,
-                                elevation: _isButtonHovered ? 8 : 4,
-                                shadowColor: AppTheme.primaryColor.withValues(alpha: 0.5),
-                              ),
-                              child: authState.isLoading
-                                  ? const SizedBox(
-                                      height: 24,
-                                      width: 24,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.white,
-                                        ),
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Sign In',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-
-                        // Register Link
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            AnimatedDefaultTextStyle(
-                              duration: AppTheme.normalAnimation,
-                              style: TextStyle(
-                                color: themeMode == ThemeMode.dark
-                                    ? Colors.white70
-                                    : AppTheme.textSecondary,
-                              ),
-                              child: const Text("New to FamilySphere? "),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pushNamed(context, AppRoutes.register);
-                              },
+                          
+                          // Forgot Password
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () {},
                               child: Text(
-                                'Create Account',
+                                'Forgot Password?',
                                 style: TextStyle(
                                   color: AppTheme.primaryColor,
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                      ],
+                          ),
+                          const SizedBox(height: 32),
+
+                          // Login Button
+                          ElevatedButton(
+                            onPressed: authState.isLoading ? null : _handleLogin,
+                            child: authState.isLoading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Text('Sign In'),
+                          ),
+                          const SizedBox(height: 40),
+
+                          // Social Login Divider
+                          Row(
+                            children: [
+                              Expanded(child: Divider(color: isDark ? AppTheme.darkBorder : AppTheme.borderColor)),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: Text(
+                                  'Or continue with',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ),
+                              Expanded(child: Divider(color: isDark ? AppTheme.darkBorder : AppTheme.borderColor)),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          
+                          // Social Login Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () {},
+                                  icon: const Icon(Icons.g_mobiledata, size: 28),
+                                  label: const Text('Google'),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () => Navigator.pushNamed(context, AppRoutes.phoneLogin),
+                                  icon: const Icon(Icons.phone_android_rounded, size: 20),
+                                  label: const Text('Phone'),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 40),
+
+                          // Register Link
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                "Don't have an account? ",
+                                style: TextStyle(
+                                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pushNamed(context, AppRoutes.register),
+                                child: const Text(
+                                  'Create Account',
+                                  style: TextStyle(
+                                    color: AppTheme.primaryColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

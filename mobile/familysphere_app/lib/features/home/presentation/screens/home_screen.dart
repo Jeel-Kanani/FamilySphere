@@ -4,9 +4,6 @@ import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:familysphere_app/features/family/presentation/providers/family_provider.dart';
 
-/// Home Screen
-/// 
-/// Main dashboard displaying family overview and quick actions.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -18,7 +15,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Load family data once the widget is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(familyProvider.notifier).loadFamily();
     });
@@ -28,226 +24,334 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
     final familyState = ref.watch(familyProvider);
-    final family = familyState.family;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return RefreshIndicator(
+    return Scaffold(
+      body: RefreshIndicator(
         onRefresh: () => ref.read(familyProvider.notifier).loadFamily(),
-        child: SingleChildScrollView(
+        child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Welcome Section
-                Text(
-                  'Hello, ${user?.displayName?.split(' ')[0] ?? "User"}! 👋',
+          slivers: [
+            // Custom App Bar
+            SliverAppBar(
+              expandedHeight: 120.0,
+              floating: false,
+              pinned: true,
+              stretch: true,
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              flexibleSpace: FlexibleSpaceBar(
+                centerTitle: false,
+                titlePadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                title: Text(
+                  'FamilySphere',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textSecondary,
-                      ),
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                  ),
                 ),
-                
-                const SizedBox(height: 24),
-                
-                // Family Members (Face Bubbles)
-                if (family != null) ...[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Family Members',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pushNamed(context, '/family-details'),
-                        child: const Text('View All'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 90,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: familyState.members.length + 1, // +1 for Add button
-                      separatorBuilder: (context, index) => const SizedBox(width: 16),
-                      itemBuilder: (context, index) {
-                        if (index == familyState.members.length) {
-                          // Add Member Button
-                          return GestureDetector(
-                            onTap: () => Navigator.pushNamed(context, '/invite-member'),
-                            child: Column(
-                              children: [
-                                CircleAvatar(
-                                  radius: 30,
-                                  backgroundColor: Colors.grey.shade200,
-                                  child: const Icon(Icons.add, color: AppTheme.primaryColor),
-                                ),
-                                const SizedBox(height: 8),
-                                const Text('Invite', style: TextStyle(fontSize: 12)),
-                              ],
-                            ),
-                          );
-                        }
-
-                        final member = familyState.members[index];
-                        final isMe = member.userId == user?.id;
-
-                        return Column(
-                          children: [
-                            CircleAvatar(
-                              radius: 30,
-                              backgroundColor: isMe ? AppTheme.primaryColor.withValues(alpha: 0.1) : Colors.grey.shade200,
-                              backgroundImage: member.photoUrl != null 
-                                  ? NetworkImage(member.photoUrl!) 
-                                  : null,
-                              child: member.photoUrl == null
-                                  ? Text(
-                                      member.displayName.isNotEmpty 
-                                          ? member.displayName[0].toUpperCase() 
-                                          : '?',
-                                      style: TextStyle(
-                                        color: isMe ? AppTheme.primaryColor : Colors.grey,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    )
-                                  : null,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              isMe ? 'You' : member.displayName.split(' ')[0],
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: isMe ? FontWeight.bold : FontWeight.normal,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
+              ),
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 16.0),
+                  child: CircleAvatar(
+                    radius: 20,
+                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    child: Text(
+                      user?.displayName?[0].toUpperCase() ?? 'U',
+                      style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
                     ),
                   ),
-                ] else if (familyState.isLoading) ...[
-                   const SizedBox(
-                     height: 100, 
-                     child: Center(
-                       child: CircularProgressIndicator(strokeWidth: 2)
-                     )
-                   ),
-                ] else ...[
-                  // If no family yet (though AuthChecker handles this)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Text('Connect with your family to get started!'),
-                  ),
-                ],
-
-                const SizedBox(height: 32),
-                
-                // Quick Actions / Features Placeholder
-                Text(
-                  'Quick Actions',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const SizedBox(height: 16),
-                
-                GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 1.5,
-                  children: [
-                    _buildFeatureCard(
-                      context,
-                      icon: Icons.calendar_month,
-                      title: 'Calendar',
-                      color: Colors.blue.shade100,
-                      iconColor: Colors.blue,
-                    ),
-                    _buildFeatureCard(
-                      context,
-                      icon: Icons.check_circle_outline,
-                      title: 'Tasks',
-                      color: Colors.green.shade100,
-                      iconColor: Colors.green,
-                    ),
-                    _buildFeatureCard(
-                      context,
-                      icon: Icons.folder,
-                      title: 'Documents',
-                      color: Colors.amber.shade100,
-                      iconColor: Colors.amber.shade800,
-                      onTap: () => Navigator.pushNamed(context, '/documents'),
-                    ),
-                    _buildFeatureCard(
-                      context,
-                      icon: Icons.attach_money,
-                      title: 'Expenses',
-                      color: Colors.orange.shade100,
-                      iconColor: Colors.orange,
-                    ),
-                  ],
                 ),
               ],
             ),
-          ),
-        ),
-      );
-  }
 
-  Widget _buildFeatureCard(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required Color color,
-    required Color iconColor,
-    VoidCallback? onTap,
-  }) {
-    return Card(
-      elevation: 0,
-      color: color.withValues(alpha: 0.1),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: iconColor.withValues(alpha: 0.1), width: 1),
-      ),
-      child: InkWell(
-        onTap: onTap ?? () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('$title coming soon!')),
-          );
-        },
-        borderRadius: BorderRadius.circular(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.5),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 28, color: iconColor),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: AppTheme.textPrimary,
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 8),
+                    Text(
+                      'Welcome back, ${user?.displayName?.split(' ')[0] ?? "User"}! 👋',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Quick Stats / Banner
+                    _buildSummaryCard(context),
+                    const SizedBox(height: 32),
+
+                    // Family Members Section
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Family Members',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pushNamed(context, '/family-details'),
+                          child: const Text('View All'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildFamilyMembersList(familyState, user?.id),
+                    const SizedBox(height: 32),
+
+                    // Navigation Grid
+                    Text(
+                      'Management Hub',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: 1.1,
+                      children: [
+                        _buildMenuCard(
+                          context,
+                          icon: Icons.forum_rounded,
+                          title: 'Family Hub',
+                          subtitle: 'Chat & Updates',
+                          color: Colors.indigo,
+                        ),
+                        _buildMenuCard(
+                          context,
+                          icon: Icons.calendar_today_rounded,
+                          title: 'Planner',
+                          subtitle: 'Events & Tasks',
+                          color: Colors.orange,
+                        ),
+                        _buildMenuCard(
+                          context,
+                          icon: Icons.account_balance_wallet_rounded,
+                          title: 'Safe',
+                          subtitle: 'Shared Expenses',
+                          color: Colors.emerald,
+                        ),
+                        _buildMenuCard(
+                          context,
+                          icon: Icons.folder_copy_rounded,
+                          title: 'Vault',
+                          subtitle: 'Secure Docs',
+                          color: Colors.amber,
+                          onTap: () => Navigator.pushNamed(context, '/documents'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: AppTheme.primaryGradient,
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryColor.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Next Family Event',
+                style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusXS),
+                ),
+                child: const Text(
+                  'In 2 days',
+                  style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Sunday Family Dinner',
+            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              const Icon(Icons.access_time_filled_rounded, color: Colors.white70, size: 16),
+              const SizedBox(width: 8),
+              const Text(
+                '6:30 PM • Home',
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+              const Spacer(),
+              const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 16),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFamilyMembersList(FamilyState familyState, String? currentUserId) {
+    if (familyState.isLoading) {
+      return const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()));
+    }
+
+    return SizedBox(
+      height: 100,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: familyState.members.length + 1,
+        separatorBuilder: (context, index) => const SizedBox(width: 20),
+        itemBuilder: (context, index) {
+          if (index == familyState.members.length) {
+            return _buildInviteButton();
+          }
+
+          final member = familyState.members[index];
+          final isMe = member.userId == currentUserId;
+
+          return Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isMe ? AppTheme.primaryColor : Colors.transparent,
+                    width: 2,
+                  ),
+                ),
+                child: CircleAvatar(
+                  radius: 30,
+                  backgroundColor: isMe ? AppTheme.primaryColor.withValues(alpha: 0.1) : Colors.grey.shade200,
+                  backgroundImage: member.photoUrl != null ? NetworkImage(member.photoUrl!) : null,
+                  child: member.photoUrl == null
+                      ? Text(
+                          member.displayName.isNotEmpty ? member.displayName[0].toUpperCase() : '?',
+                          style: TextStyle(
+                            color: isMe ? AppTheme.primaryColor : Colors.grey.shade600,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isMe ? 'You' : member.displayName.split(' ')[0],
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isMe ? FontWeight.bold : FontWeight.w500,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildInviteButton() {
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(context, '/invite-member'),
+      child: Column(
+        children: [
+          Container(
+            height: 60,
+            width: 60,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+              border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2), width: 1),
+            ),
+            child: const Icon(Icons.add_rounded, color: AppTheme.primaryColor, size: 30),
+          ),
+          const SizedBox(height: 8),
+          const Text('Invite', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuCard(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    VoidCallback? onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Card(
+      child: InkWell(
+        onTap: onTap ?? () {},
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                ),
+                child: Icon(icon, color: color, size: 28),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
