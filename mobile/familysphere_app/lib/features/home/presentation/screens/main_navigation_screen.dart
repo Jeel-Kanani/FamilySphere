@@ -3,7 +3,7 @@ import 'package:familysphere_app/features/home/presentation/screens/home_screen.
 import 'package:familysphere_app/features/documents/presentation/screens/vault_screen.dart';
 import 'package:familysphere_app/features/chat/presentation/screens/hub_screen.dart';
 import 'package:familysphere_app/features/calendar/presentation/screens/planner_screen.dart';
-import 'package:familysphere_app/features/expenses/presentation/screens/safe_screen.dart';
+import 'package:familysphere_app/features/auth/presentation/screens/profile_screen.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 
 class MainNavigationScreen extends StatefulWidget {
@@ -19,9 +19,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _screens = [
     const HomeScreen(),
     const VaultScreen(),
-    const HubScreen(),
     const PlannerScreen(),
-    const SafeScreen(),
+    const HubScreen(),
+    const ProfileScreen(),
   ];
 
   @override
@@ -69,35 +69,35 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               type: BottomNavigationBarType.fixed,
               selectedItemColor: AppTheme.primaryColor,
               unselectedItemColor: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-              showSelectedLabels: false,
-              showUnselectedLabels: false,
+              showSelectedLabels: true,
+              showUnselectedLabels: true,
               elevation: 0,
               backgroundColor: Colors.transparent,
               items: const [
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.grid_view_rounded),
-                  activeIcon: Icon(Icons.grid_view_rounded),
+                  icon: Icon(Icons.home_rounded),
+                  activeIcon: Icon(Icons.home_rounded),
                   label: 'Home',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.folder_copy_rounded),
-                  activeIcon: Icon(Icons.folder_copy_rounded),
+                  icon: Icon(Icons.shield_rounded),
+                  activeIcon: Icon(Icons.shield_rounded),
                   label: 'Vault',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.forum_rounded),
-                  activeIcon: Icon(Icons.forum_rounded),
-                  label: 'Hub',
+                  icon: Icon(Icons.science_rounded),
+                  activeIcon: Icon(Icons.science_rounded),
+                  label: 'Lab',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.calendar_today_rounded),
-                  activeIcon: Icon(Icons.calendar_today_rounded),
-                  label: 'Planner',
+                  icon: Icon(Icons.inbox_rounded),
+                  activeIcon: Icon(Icons.inbox_rounded),
+                  label: 'Requests',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.account_balance_wallet_rounded),
-                  activeIcon: Icon(Icons.account_balance_wallet_rounded),
-                  label: 'Safe',
+                  icon: Icon(Icons.settings_rounded),
+                  activeIcon: Icon(Icons.settings_rounded),
+                  label: 'Settings',
                 ),
               ],
             ),

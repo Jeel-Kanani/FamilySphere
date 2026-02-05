@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Family;
 import 'package:familysphere_app/features/family/domain/entities/family.dart';
+import 'package:familysphere_app/features/family/domain/entities/family_activity.dart';
 import 'package:familysphere_app/features/family/domain/entities/family_member.dart';
 import 'package:familysphere_app/features/family/domain/usecases/create_family.dart';
 import 'package:familysphere_app/features/family/domain/usecases/join_family.dart';
@@ -9,6 +10,8 @@ import 'package:familysphere_app/features/family/domain/usecases/generate_invite
 import 'package:familysphere_app/features/family/domain/usecases/remove_member.dart';
 import 'package:familysphere_app/features/family/domain/usecases/leave_family.dart';
 import 'package:familysphere_app/features/family/domain/usecases/update_family_settings.dart';
+import 'package:familysphere_app/features/family/domain/usecases/update_member_role.dart';
+import 'package:familysphere_app/features/family/domain/usecases/transfer_ownership.dart';
 import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:familysphere_app/features/family/data/repositories/family_repository_impl.dart';
 import 'package:familysphere_app/features/family/data/datasources/family_remote_datasource.dart';
@@ -65,18 +68,30 @@ final updateFamilySettingsUseCaseProvider = Provider((ref) {
   return UpdateFamilySettings(ref.read(familyRepositoryProvider));
 });
 
+final updateMemberRoleUseCaseProvider = Provider((ref) {
+  return UpdateMemberRole(ref.read(familyRepositoryProvider));
+});
+
+final transferOwnershipUseCaseProvider = Provider((ref) {
+  return TransferOwnership(ref.read(familyRepositoryProvider));
+});
+
 
 // State
 class FamilyState {
   final Family? family;
   final List<FamilyMember> members;
+  final List<FamilyActivity> activities;
   final bool isLoading;
+  final bool isUpdatingSettings;
   final String? error;
 
   const FamilyState({
     this.family,
     this.members = const [],
+    this.activities = const [],
     this.isLoading = false,
+    this.isUpdatingSettings = false,
     this.error,
   });
 
@@ -85,13 +100,17 @@ class FamilyState {
   FamilyState copyWith({
     Family? family,
     List<FamilyMember>? members,
+    List<FamilyActivity>? activities,
     bool? isLoading,
+    bool? isUpdatingSettings,
     String? error,
   }) {
     return FamilyState(
       family: family ?? this.family,
       members: members ?? this.members,
+      activities: activities ?? this.activities,
       isLoading: isLoading ?? this.isLoading,
+      isUpdatingSettings: isUpdatingSettings ?? this.isUpdatingSettings,
       error: error,
     );
   }
@@ -107,6 +126,9 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
   // ignore: unused_field
   final RemoveMember _removeMember;
   final LeaveFamily _leaveFamily;
+  final UpdateFamilySettings _updateFamilySettings;
+  final UpdateMemberRole _updateMemberRole;
+  final TransferOwnership _transferOwnership;
 
   FamilyNotifier(
     this._ref, {
@@ -118,6 +140,8 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
     required RemoveMember removeMember,
     required LeaveFamily leaveFamily,
     required UpdateFamilySettings updateFamilySettings,
+    required UpdateMemberRole updateMemberRole,
+    required TransferOwnership transferOwnership,
   })  : _createFamily = createFamily,
         _joinFamily = joinFamily,
         _getFamily = getFamily,
@@ -125,6 +149,9 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
         _generateInviteCode = generateInviteCode,
         _removeMember = removeMember,
         _leaveFamily = leaveFamily,
+        _updateFamilySettings = updateFamilySettings,
+        _updateMemberRole = updateMemberRole,
+        _transferOwnership = transferOwnership,
         super(FamilyState.initial());
 
   Future<void> loadFamily() async {
@@ -135,13 +162,26 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
     try {
       final family = await _getFamily(user.familyId!);
       final members = await _getFamilyMembers(user.familyId!);
+      final activities = await _ref.read(familyRepositoryProvider).getFamilyActivity(user.familyId!);
       state = state.copyWith(
         family: family,
         members: members,
+        activities: activities,
         isLoading: false,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> refreshActivity() async {
+    final familyId = state.family?.id;
+    if (familyId == null) return;
+    try {
+      final activities = await _ref.read(familyRepositoryProvider).getFamilyActivity(familyId);
+      state = state.copyWith(activities: activities);
+    } catch (_) {
+      // Best-effort refresh
     }
   }
 
@@ -242,10 +282,123 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
       state = state.copyWith(
         family: state.family?.copyWith(inviteCode: newCode),
       );
+      await refreshActivity();
       return newCode;
     } catch (e) {
       state = state.copyWith(error: e.toString());
       return null;
+    }
+  }
+
+  Future<void> updateSettings({
+    bool? allowMemberInvites,
+    bool? requireApproval,
+  }) async {
+    final user = _ref.read(authProvider).user;
+    final family = state.family;
+    if (user == null || family == null) return;
+
+    state = state.copyWith(isUpdatingSettings: true, error: null);
+    try {
+      final newSettings = family.settings.copyWith(
+        allowMemberInvites: allowMemberInvites ?? family.settings.allowMemberInvites,
+        requireApproval: requireApproval ?? family.settings.requireApproval,
+      );
+
+      final updatedFamily = await _updateFamilySettings(
+        familyId: family.id,
+        settings: newSettings,
+        requestingUserId: user.id,
+      );
+
+      state = state.copyWith(
+        family: updatedFamily,
+        isUpdatingSettings: false,
+      );
+      await refreshActivity();
+    } catch (e) {
+      state = state.copyWith(isUpdatingSettings: false, error: e.toString());
+      rethrow;
+    }
+  }
+
+  Future<void> removeMember(String memberId) async {
+    final user = _ref.read(authProvider).user;
+    final family = state.family;
+    if (user == null || family == null) return;
+
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _removeMember(
+        familyId: family.id,
+        userId: memberId,
+        requestingUserId: user.id,
+      );
+      // Refresh members list
+      final members = await _getFamilyMembers(family.id);
+      state = state.copyWith(
+        members: members,
+        isLoading: false,
+      );
+      await refreshActivity();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
+
+  Future<void> changeMemberRole(String memberId, String role) async {
+    final user = _ref.read(authProvider).user;
+    final family = state.family;
+    if (user == null || family == null) return;
+
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _updateMemberRole(
+        familyId: family.id,
+        userId: memberId,
+        role: role,
+        requestingUserId: user.id,
+      );
+      // Refresh members list
+      final members = await _getFamilyMembers(family.id);
+      state = state.copyWith(
+        members: members,
+        isLoading: false,
+      );
+      await refreshActivity();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
+
+  Future<void> transferOwnership(String memberId) async {
+    final user = _ref.read(authProvider).user;
+    final family = state.family;
+    if (user == null || family == null) return;
+
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _transferOwnership(
+        familyId: family.id,
+        userId: memberId,
+        requestingUserId: user.id,
+      );
+      // Refresh family + members
+      final refreshedFamily = await _getFamily(family.id);
+      final members = await _getFamilyMembers(family.id);
+      state = state.copyWith(
+        family: refreshedFamily ?? family,
+        members: members,
+        isLoading: false,
+      );
+      // Refresh user to update role locally
+      await _ref.read(authProvider.notifier).refreshUser();
+      await refreshActivity();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
     }
   }
 }
@@ -261,5 +414,7 @@ final familyProvider = StateNotifierProvider<FamilyNotifier, FamilyState>((ref) 
     removeMember: ref.read(removeMemberUseCaseProvider),
     leaveFamily: ref.read(leaveFamilyUseCaseProvider),
     updateFamilySettings: ref.read(updateFamilySettingsUseCaseProvider),
+    updateMemberRole: ref.read(updateMemberRoleUseCaseProvider),
+    transferOwnership: ref.read(transferOwnershipUseCaseProvider),
   );
 });

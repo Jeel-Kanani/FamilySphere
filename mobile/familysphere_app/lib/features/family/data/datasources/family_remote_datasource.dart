@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:familysphere_app/core/network/api_client.dart';
 import 'package:familysphere_app/features/family/data/models/family_model.dart';
 import 'package:familysphere_app/features/family/data/models/family_member_model.dart';
+import 'package:familysphere_app/features/family/domain/entities/family_activity.dart';
 import 'package:familysphere_app/features/family/domain/entities/family.dart';
 
 /// Remote Data Source - Backend API Operations
@@ -75,6 +76,21 @@ class FamilyRemoteDataSource {
     );
   }
 
+  /// Update member role
+  Future<void> updateMemberRole(String familyId, String userId, String role) async {
+    await _apiClient.put(
+      '/api/families/$familyId/members/$userId/role',
+      data: {'role': role},
+    );
+  }
+
+  /// Transfer ownership
+  Future<void> transferOwnership(String familyId, String userId) async {
+    await _apiClient.post(
+      '/api/families/$familyId/members/$userId/transfer-ownership',
+    );
+  }
+
   /// Leave family
   Future<void> leaveFamily(String familyId, String userId) async {
     await _apiClient.post(
@@ -100,6 +116,22 @@ class FamilyRemoteDataSource {
   /// For now, this is a placeholder that throws an error
   Stream<FamilyModel?> watchFamily(String familyId) {
     throw UnimplementedError('Real-time streaming not implemented with REST API');
+  }
+
+  /// Get family activity feed
+  Future<List<FamilyActivity>> getFamilyActivity(String familyId) async {
+    final response = await _apiClient.get('/api/families/$familyId/activity');
+    final List<dynamic> activities = response.data['activities'] ?? [];
+    return activities.map((json) {
+      final createdAt = json['createdAt'] as String?;
+      return FamilyActivity(
+        id: json['_id']?.toString() ?? '',
+        type: json['type']?.toString() ?? 'unknown',
+        message: json['message']?.toString() ?? '',
+        actorName: json['actorName']?.toString(),
+        createdAt: createdAt != null ? DateTime.parse(createdAt) : DateTime.now(),
+      );
+    }).toList();
   }
 
   /// Generate 6-char random alphanumeric code

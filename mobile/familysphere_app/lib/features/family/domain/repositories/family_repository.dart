@@ -1,4 +1,5 @@
 import 'package:familysphere_app/features/family/domain/entities/family.dart';
+import 'package:familysphere_app/features/family/domain/entities/family_activity.dart';
 import 'package:familysphere_app/features/family/domain/entities/family_member.dart';
 
 /// Family Repository Interface
@@ -56,6 +57,30 @@ abstract class FamilyRepository {
     String requestingUserId,
   );
 
+  /// Update a member's role
+  /// 
+  /// [familyId] - ID of the family
+  /// [userId] - ID of the member
+  /// [role] - New role
+  /// [requestingUserId] - ID of the user making the request
+  Future<void> updateMemberRole(
+    String familyId,
+    String userId,
+    String role,
+    String requestingUserId,
+  );
+
+  /// Transfer family ownership to another member
+  /// 
+  /// [familyId] - ID of the family
+  /// [userId] - ID of the new owner
+  /// [requestingUserId] - ID of current owner
+  Future<void> transferOwnership(
+    String familyId,
+    String userId,
+    String requestingUserId,
+  );
+
   /// Leave the family
   /// 
   /// [familyId] - ID of the family
@@ -84,4 +109,7 @@ abstract class FamilyRepository {
   /// 
   /// Emits Family whenever it changes
   Stream<Family?> watchFamily(String familyId);
+
+  /// Get family activity feed
+  Future<List<FamilyActivity>> getFamilyActivity(String familyId);
 }

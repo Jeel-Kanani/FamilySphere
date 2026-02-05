@@ -19,14 +19,21 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
   bool _isSearching = false;
 
   final List<String> _categories = [
-    'All', 'Insurance', 'Medical', 'Legal', 'Tax', 'Home', 'Vehicle', 'Education', 'Other',
+    'All', 'Shared', 'Individual', 'Private', 'Insurance', 'Medical', 'Legal', 'Tax', 'Home', 'Vehicle', 'Education', 'Other',
   ];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(documentProvider.notifier).loadDocuments();
+      // Check for category argument from VaultScreen
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map && args.containsKey('category')) {
+        setState(() {
+          _selectedCategory = args['category'];
+        });
+      }
+      ref.read(documentProvider.notifier).loadDocuments(category: _selectedCategory);
     });
   }
 
@@ -189,7 +196,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
             ),
             subtitle: Text(
               '${doc.category} • ${DateFormat('MMM d, y').format(doc.uploadedAt)}',
-              style: TextStyle(fontSize: 12, color: AppTheme.textTertiary),
+              style: const TextStyle(fontSize: 12, color: AppTheme.textTertiary),
             ),
             onTap: () => _openDocument(doc),
             trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.textTertiary),

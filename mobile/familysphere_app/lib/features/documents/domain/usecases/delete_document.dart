@@ -7,13 +7,9 @@ class DeleteDocument {
 
   Future<void> call({
     required String documentId,
-    required String familyId,
-    required String storagePath,
   }) async {
     return await repository.deleteDocument(
       documentId: documentId,
-      familyId: familyId,
-      storagePath: storagePath,
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:familysphere_app/features/family/domain/entities/family.dart';
+import 'package:familysphere_app/features/family/domain/entities/family_activity.dart';
 import 'package:familysphere_app/features/family/domain/entities/family_member.dart';
 import 'package:familysphere_app/features/family/domain/repositories/family_repository.dart';
 import 'package:familysphere_app/features/family/data/datasources/family_remote_datasource.dart';
@@ -78,6 +79,39 @@ class FamilyRepositoryImpl implements FamilyRepository {
   }
 
   @override
+  Future<void> updateMemberRole(
+    String familyId,
+    String userId,
+    String role,
+    String requestingUserId,
+  ) async {
+    final family = await getFamily(familyId);
+    if (family == null) throw Exception('Family not found');
+
+    if (!family.isAdmin(requestingUserId)) {
+      throw Exception('Not authorized to update roles');
+    }
+
+    await remoteDataSource.updateMemberRole(familyId, userId, role);
+  }
+
+  @override
+  Future<void> transferOwnership(
+    String familyId,
+    String userId,
+    String requestingUserId,
+  ) async {
+    final family = await getFamily(familyId);
+    if (family == null) throw Exception('Family not found');
+
+    if (!family.isAdmin(requestingUserId) || family.createdBy != requestingUserId) {
+      throw Exception('Only the creator can transfer ownership');
+    }
+
+    await remoteDataSource.transferOwnership(familyId, userId);
+  }
+
+  @override
   Future<void> leaveFamily(String familyId, String userId) async {
     final family = await getFamily(familyId);
     if (family == null) return; // Already gone or error
@@ -112,5 +146,10 @@ class FamilyRepositoryImpl implements FamilyRepository {
   @override
   Stream<Family?> watchFamily(String familyId) {
     return remoteDataSource.watchFamily(familyId);
+  }
+
+  @override
+  Future<List<FamilyActivity>> getFamilyActivity(String familyId) async {
+    return remoteDataSource.getFamilyActivity(familyId);
   }
 }

@@ -16,18 +16,14 @@ class AddDocumentScreen extends ConsumerStatefulWidget {
 class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
-  final _categoryController = TextEditingController();
+  final _typeController = TextEditingController();
   
   List<File> _selectedFiles = [];
-  String _selectedTier = 'Global';
-  String _selectedFolder = 'None';
+  String _selectedCategory = 'Shared'; // Default to Shared to match Vault subsections
 
-  final List<String> _suggestedCategories = [
+  final List<String> _suggestedTypes = [
     'Insurance', 'Medical', 'Legal', 'Tax', 'Home', 'Vehicle', 'Education', 'Other',
   ];
-
-  final List<String> _tiers = ['Global', 'Member-wise', 'Private'];
-  final List<String> _folders = ['None', 'Taxes 2023', 'Rental Agreements', 'Vehicle Docs', 'Medical Reports'];
 
   @override
   void initState() {
@@ -43,7 +39,7 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
   @override
   void dispose() {
     _titleController.dispose();
-    _categoryController.dispose();
+    _typeController.dispose();
     super.dispose();
   }
 
@@ -114,41 +110,27 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
               ),
               const SizedBox(height: 16),
 
+              _buildSectionTitle('Vault Section'),
+              const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSectionTitle('Tier'),
-                        const SizedBox(height: 8),
-                        _buildDropdown(_selectedTier, _tiers, (val) => setState(() => _selectedTier = val!)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSectionTitle('Folder'),
-                        const SizedBox(height: 8),
-                        _buildDropdown(_selectedFolder, _folders, (val) => setState(() => _selectedFolder = val!)),
-                      ],
-                    ),
-                  ),
+                  _buildCategoryChip('Shared'),
+                  const SizedBox(width: 8),
+                  _buildCategoryChip('Individual'),
+                  const SizedBox(width: 8),
+                  _buildCategoryChip('Private'),
                 ],
               ),
               const SizedBox(height: 24),
               
-              _buildSectionTitle('Category'),
+              _buildSectionTitle('Document Type (Optional)'),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
-                children: _suggestedCategories.map((c) => ChoiceChip(
-                  label: Text(c),
-                  selected: _categoryController.text == c,
-                  onSelected: (s) => setState(() => _categoryController.text = s ? c : ''),
+                children: _suggestedTypes.map((t) => ChoiceChip(
+                  label: Text(t),
+                  selected: _typeController.text == t,
+                  onSelected: (s) => setState(() => _typeController.text = s ? t : ''),
                 )).toList(),
               ),
               const SizedBox(height: 40),
@@ -156,7 +138,7 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
               SizedBox(
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: isLoading ? null : () => Navigator.pop(context),
+                  onPressed: isLoading ? null : _saveDocument,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -169,6 +151,65 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _saveDocument() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedFiles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select or scan a document first')),
+      );
+      return;
+    }
+
+    try {
+      // For now, we upload the first file or handle them sequentially
+      for (final file in _selectedFiles) {
+        String finalTitle = _titleController.text;
+        if (_typeController.text.isNotEmpty) {
+          finalTitle += " (${_typeController.text})";
+        }
+
+        await ref.read(documentProvider.notifier).upload(
+          file: file,
+          title: finalTitle,
+          category: _selectedCategory,
+        );
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Document(s) saved successfully')),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save: $e')),
+        );
+      }
+    }
+  }
+
+  Widget _buildCategoryChip(String label) {
+    final isSelected = _selectedCategory == label;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        if (selected) {
+          setState(() {
+            _selectedCategory = label;
+          });
+        }
+      },
+      selectedColor: AppTheme.primaryColor.withValues(alpha: 0.2),
+      labelStyle: TextStyle(
+        color: isSelected ? AppTheme.primaryColor : Colors.black87,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
       ),
     );
   }
@@ -207,21 +248,6 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildDropdown(String value, List<String> items, Function(String?) onChanged) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          isExpanded: true,
-          items: items.map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 13)))).toList(),
-          onChanged: onChanged,
-        ),
       ),
     );
   }

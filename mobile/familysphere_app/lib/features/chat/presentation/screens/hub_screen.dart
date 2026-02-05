@@ -32,6 +32,7 @@ class HubScreen extends StatelessWidget {
           ],
         ),
         floatingActionButton: FloatingActionButton(
+          heroTag: 'hub_fab',
           onPressed: () {},
           backgroundColor: AppTheme.primaryColor,
           child: const Icon(Icons.edit_note_rounded, color: Colors.white),
@@ -123,7 +124,7 @@ class HubScreen extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Text(time, style: TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
+          Text(time, style: const TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
           const SizedBox(height: 4),
           if (unreadCount > 0)
             Container(
@@ -165,7 +166,7 @@ class HubScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(author, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text(time, style: TextStyle(color: AppTheme.textTertiary, fontSize: 12)),
+                    Text(time, style: const TextStyle(color: AppTheme.textTertiary, fontSize: 12)),
                   ],
                 ),
                 const Spacer(),
@@ -192,7 +193,7 @@ class HubScreen extends StatelessWidget {
             const SizedBox(height: 16),
             Row(
               children: [
-                Icon(Icons.favorite_border_rounded, size: 20, color: AppTheme.accentColor),
+                const Icon(Icons.favorite_border_rounded, size: 20, color: AppTheme.accentColor),
                 const SizedBox(width: 4),
                 const Text('4', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 const SizedBox(width: 16),

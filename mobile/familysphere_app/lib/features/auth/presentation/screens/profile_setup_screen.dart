@@ -75,108 +75,111 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen>
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
           child: FadeTransition(
             opacity: _fadeAnimation,
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 20),
-                  Text(
-                    'Setup Profile',
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -1,
+            child: ScaleTransition(
+              scale: _scaleAnimation,
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 20),
+                    Text(
+                      'Setup Profile',
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -1,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Add your name and photo so your family can recognize you',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                    const SizedBox(height: 12),
+                    Text(
+                      'Add your name and photo so your family can recognize you',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 56),
-                  
-                  // Profile Photo
-                  Center(
-                    child: GestureDetector(
-                      onTap: _pickPhoto,
-                      child: Stack(
-                        children: [
-                          Container(
-                            width: 140,
-                            height: 140,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: isDark ? AppTheme.darkSurface : Colors.white,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                                  blurRadius: 20,
-                                  spreadRadius: 5,
-                                ),
-                              ],
-                              border: Border.all(
-                                color: AppTheme.primaryColor.withValues(alpha: 0.2),
-                                width: 4,
-                              ),
-                            ),
-                            child: _photoUrl != null
-                                ? ClipOval(child: Image.network(_photoUrl!, fit: BoxFit.cover))
-                                : const Icon(Icons.person_add_alt_1_rounded, size: 56, color: AppTheme.primaryColor),
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: const BoxDecoration(
-                                color: AppTheme.primaryColor,
+                    const SizedBox(height: 56),
+                    
+                    // Profile Photo
+                    Center(
+                      child: GestureDetector(
+                        onTap: _pickPhoto,
+                        child: Stack(
+                          children: [
+                            Container(
+                              width: 140,
+                              height: 140,
+                              decoration: BoxDecoration(
                                 shape: BoxShape.circle,
+                                color: isDark ? AppTheme.darkSurface : Colors.white,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                    blurRadius: 20,
+                                    spreadRadius: 5,
+                                  ),
+                                ],
+                                border: Border.all(
+                                  color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                                  width: 4,
+                                ),
                               ),
-                              child: const Icon(Icons.camera_alt_rounded, size: 20, color: Colors.white),
+                              child: _photoUrl != null
+                                  ? ClipOval(child: Image.network(_photoUrl!, fit: BoxFit.cover))
+                                  : const Icon(Icons.person_add_alt_1_rounded, size: 56, color: AppTheme.primaryColor),
                             ),
-                          ),
-                        ],
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: const BoxDecoration(
+                                  color: AppTheme.primaryColor,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.camera_alt_rounded, size: 20, color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  
-                  const SizedBox(height: 56),
-                  
-                  // Name Input
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Full Name',
-                      hintText: 'Enter your full name',
-                      prefixIcon: Icon(Icons.badge_outlined),
+                    
+                    const SizedBox(height: 56),
+                    
+                    // Name Input
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Full Name',
+                        hintText: 'Enter your full name',
+                        prefixIcon: Icon(Icons.badge_outlined),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) return 'Please enter your name';
+                        if (value.trim().length < 2) return 'Name too short';
+                        return null;
+                      },
                     ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) return 'Please enter your name';
-                      if (value.trim().length < 2) return 'Name too short';
-                      return null;
-                    },
-                  ),
-                  
-                  const SizedBox(height: 48),
-                  
-                  ElevatedButton(
-                    onPressed: authState.isLoading ? null : _continue,
-                    child: authState.isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : const Text('Complete Setup'),
-                  ),
-                ],
+                    
+                    const SizedBox(height: 48),
+                    
+                    ElevatedButton(
+                      onPressed: authState.isLoading ? null : _continue,
+                      child: authState.isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Text('Complete Setup'),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

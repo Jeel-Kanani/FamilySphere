@@ -1,0 +1,24 @@
+Connected to MongoDB
+Total Documents: 0
+Documents:
+[]
+Families:
+[
+  {
+    "_id": "697f2d82a4be0ab4288011b2",
+    "name": "Kanani",
+    "createdBy": "697f2d7ea4be0ab4288011ae",
+    "memberIds": [
+      "697f2d7ea4be0ab4288011ae",
+      "697f2fbca4be0ab4288011c9"
+    ],
+    "inviteCode": "PBRYEN",
+    "settings": {
+      "allowMemberInvites": true,
+      "requireApproval": false
+    },
+    "createdAt": "2026-02-01T10:40:02.857Z",
+    "updatedAt": "2026-02-01T12:11:32.175Z",
+    "__v": 3
+  }
+]

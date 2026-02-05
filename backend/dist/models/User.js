@@ -56,6 +56,8 @@ const userSchema = new mongoose_1.default.Schema({
         type: String,
         required: true,
         unique: true,
+        lowercase: true,
+        trim: true,
     },
     password: {
         type: String,
@@ -68,6 +70,10 @@ const userSchema = new mongoose_1.default.Schema({
     role: {
         type: String,
         enum: ['admin', 'member'],
+    },
+    tokenVersion: {
+        type: Number,
+        default: 0,
     },
 }, {
     timestamps: true,

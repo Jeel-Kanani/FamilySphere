@@ -32,6 +32,7 @@ class PlannerScreen extends StatelessWidget {
           ],
         ),
         floatingActionButton: FloatingActionButton(
+          heroTag: 'planner_fab',
           onPressed: () {},
           backgroundColor: AppTheme.primaryColor,
           child: const Icon(Icons.add_task_rounded, color: Colors.white),
@@ -72,7 +73,7 @@ class PlannerScreen extends StatelessWidget {
                     final isToday = index == 0; // Just for UI
                     return Column(
                       children: [
-                        Text(days[index], style: TextStyle(color: AppTheme.textTertiary, fontSize: 12)),
+                        Text(days[index], style: const TextStyle(color: AppTheme.textTertiary, fontSize: 12)),
                         const SizedBox(height: 8),
                         Container(
                           padding: const EdgeInsets.all(10),
@@ -170,15 +171,15 @@ class PlannerScreen extends StatelessWidget {
               children: [
                 Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 4),
-                Text(time, style: TextStyle(color: AppTheme.textTertiary, fontSize: 12)),
+                Text(time, style: const TextStyle(color: AppTheme.textTertiary, fontSize: 12)),
               ],
             ),
           ),
           Row(
             children: List.generate(
               attendees > 3 ? 3 : attendees,
-              (index) => Padding(
-                padding: const EdgeInsets.only(left: -8),
+              (index) => Transform.translate(
+                offset: Offset(-8.0 * index, 0),
                 child: CircleAvatar(
                   radius: 12,
                   backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),

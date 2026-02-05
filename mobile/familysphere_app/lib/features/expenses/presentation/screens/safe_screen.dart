@@ -33,6 +33,7 @@ class SafeScreen extends StatelessWidget {
           ],
         ),
         floatingActionButton: FloatingActionButton(
+          heroTag: 'safe_fab',
           onPressed: () {},
           backgroundColor: AppTheme.primaryColor,
           child: const Icon(Icons.add_rounded, color: Colors.white),

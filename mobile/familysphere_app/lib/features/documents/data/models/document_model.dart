@@ -38,39 +38,47 @@ class DocumentModel extends DocumentEntity {
   // Firestore methods removed as we are migrating to custom backend
 
 
-  /// Create from JSON (for Hive)
+  /// Create from JSON (from API)
   factory DocumentModel.fromJson(Map<String, dynamic> json) {
+    // Handle both populated and non-populated uploadedBy
+    String uploaderId = '';
+    if (json['uploadedBy'] is Map) {
+      uploaderId = json['uploadedBy']['_id'] ?? '';
+    } else {
+      uploaderId = json['uploadedBy']?.toString() ?? '';
+    }
+
     return DocumentModel(
-      id: json['id'],
-      familyId: json['familyId'],
-      title: json['title'],
-      category: json['category'],
-      fileUrl: json['fileUrl'],
-      fileType: json['fileType'],
-      sizeBytes: json['size'],
-      uploadedBy: json['uploadedBy'],
-      uploadedAt: DateTime.parse(json['uploadedAt']),
-      storagePath: json['storagePath'],
+      id: json['_id'] ?? json['id'] ?? '',
+      familyId: json['familyId']?.toString() ?? '',
+      title: json['title'] ?? '',
+      category: json['category'] ?? '',
+      fileUrl: json['fileUrl'] ?? '',
+      fileType: json['fileType'] ?? '',
+      sizeBytes: (json['fileSize'] ?? json['size'] ?? 0) as int,
+      uploadedBy: uploaderId,
+      uploadedAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt']) 
+          : DateTime.now(),
+      storagePath: json['cloudinaryId'] ?? json['storagePath'] ?? '',
       isOfflineAvailable: json['isOfflineAvailable'] ?? false,
       localPath: json['localPath'],
     );
   }
 
-  /// To JSON (for Hive)
+  /// To JSON
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      '_id': id,
       'familyId': familyId,
       'title': title,
       'category': category,
       'fileUrl': fileUrl,
       'fileType': fileType,
-      'size': sizeBytes,
+      'fileSize': sizeBytes,
       'uploadedBy': uploadedBy,
-      'uploadedAt': uploadedAt.toIso8601String(),
-      'storagePath': storagePath,
-      'isOfflineAvailable': isOfflineAvailable,
-      'localPath': localPath,
+      'cloudinaryId': storagePath,
+      'createdAt': uploadedAt.toIso8601String(),
     };
   }
 }

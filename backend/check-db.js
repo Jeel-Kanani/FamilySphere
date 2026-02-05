@@ -1,46 +1,26 @@
-// Quick script to check MongoDB connection and view users
-require('dotenv').config();
 const mongoose = require('mongoose');
+const fs = require('fs');
+require('dotenv').config();
 
-const checkDatabase = async () => {
+async function checkDocs() {
     try {
-        const conn = await mongoose.connect(process.env.MONGO_URI);
-        console.log(`✅ Connected to MongoDB successfully! Host: ${conn.connection.host}`);
-        console.log(`📊 Database: ${conn.connection.name}\n`);
+        await mongoose.connect(process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/familysphere');
+        let output = 'Connected to MongoDB\n';
 
-        // Get all collections
-        const collections = await mongoose.connection.db.listCollections().toArray();
-        console.log('📁 Collections found:', collections.map(c => c.name).join(', '));
-        console.log('');
+        const docs = await mongoose.connection.db.collection('documents').find({}).toArray();
+        output += `Total Documents: ${docs.length}\n`;
+        output += `Documents:\n${JSON.stringify(docs, null, 2)}\n`;
 
-        // Check users collection
-        const usersCollection = mongoose.connection.db.collection('users');
-        const userCount = await usersCollection.countDocuments();
-        console.log(`👥 Total users: ${userCount}`);
+        const families = await mongoose.connection.db.collection('families').find({}).toArray();
+        output += `Families:\n${JSON.stringify(families, null, 2)}\n`;
 
-        if (userCount > 0) {
-            console.log('\n📋 Registered Users:');
-            const users = await usersCollection.find({}).toArray();
-            users.forEach((user, index) => {
-                console.log(`\n${index + 1}. User:`);
-                console.log(`   ID: ${user._id}`);
-                console.log(`   Name: ${user.name}`);
-                console.log(`   Email: ${user.email}`);
-                console.log(`   Family ID: ${user.familyId || 'None'}`);
-                console.log(`   Role: ${user.role || 'N/A'}`);
-                console.log(`   Created: ${user.createdAt}`);
-            });
-        }
+        fs.writeFileSync('db-output-utf8.txt', output, 'utf8');
+        console.log('Output written to db-output-utf8.txt');
 
-        await mongoose.connection.close();
-        console.log('\n✅ Database check complete!');
-    } catch (error) {
-        console.error('❌ Error:', error.message);
-        if (error.message.includes('ECONNREFUSED')) {
-            console.log('\n⚠️  MongoDB is not running!');
-            console.log('Please start MongoDB with: net start MongoDB');
-        }
+        await mongoose.disconnect();
+    } catch (err) {
+        console.error(err);
     }
 }
 
-checkDatabase();
+checkDocs();

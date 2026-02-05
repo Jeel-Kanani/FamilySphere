@@ -15,7 +15,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importDefault(require("mongoose"));
 const connectDB = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const conn = yield mongoose_1.default.connect(process.env.MONGO_URI || 'mongodb+srv://kananijeel00_db_user:<db_password>@familysphere.2rqtvcd.mongodb.net/?appName=FamilySphere');
+        const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
+        if (!mongoUri) {
+            console.error('MONGO_URI or MONGODB_URI must be set in environment');
+            process.exit(1);
+        }
+        const conn = yield mongoose_1.default.connect(mongoUri);
         console.log(`MongoDB Connected: ${conn.connection.host}`);
     }
     catch (error) {

@@ -67,20 +67,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     final themeMode = ref.watch(themeModeProvider);
     final isDark = themeMode == ThemeMode.dark;
 
-    // Show error if any
-    if (authState.error != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Show errors only when they change (prevents repeat spam)
+    ref.listen(authProvider, (previous, next) {
+      final newError = next.error;
+      final oldError = previous?.error;
+      if (newError != null && newError != oldError && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(authState.error!),
+            content: Text(newError),
             backgroundColor: AppTheme.errorColor,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusM)),
           ),
         );
         ref.read(authProvider.notifier).clearError();
-      });
-    }
+      }
+    });
 
     return Scaffold(
       body: Stack(
@@ -204,7 +206,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) return 'Please enter your password';
-                              if (value.length < 6) return 'Password too short';
+                              if (value.length < 8) return 'Password too short (min 8 chars)';
                               return null;
                             },
                           ),
@@ -214,7 +216,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             alignment: Alignment.centerRight,
                             child: TextButton(
                               onPressed: () {},
-                              child: Text(
+                              child: const Text(
                                 'Forgot Password?',
                                 style: TextStyle(
                                   color: AppTheme.primaryColor,
@@ -262,7 +264,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             children: [
                               Expanded(
                                 child: OutlinedButton.icon(
-                                  onPressed: () {},
+                                  onPressed: () => ref.read(authProvider.notifier).signInWithGoogle(),
                                   icon: const Icon(Icons.g_mobiledata, size: 28),
                                   label: const Text('Google'),
                                   style: OutlinedButton.styleFrom(

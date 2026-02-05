@@ -18,8 +18,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _emailOtpController = TextEditingController();
+  final _passwordFocusNode = FocusNode();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _emailOtpSent = false;
+  bool _emailVerified = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -53,12 +57,70 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _emailOtpController.dispose();
+    _passwordFocusNode.dispose();
     _animationController.dispose();
     super.dispose();
   }
 
+  void _showSnack(String message, {Color? color}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color ?? AppTheme.primaryColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusM)),
+      ),
+    );
+  }
+
+  Future<void> _handleSendOtp() async {
+    if (_emailController.text.trim().isEmpty || !_emailController.text.contains('@')) {
+      _showSnack('Please enter a valid email', color: AppTheme.errorColor);
+      return;
+    }
+
+    await ref.read(authProvider.notifier).sendEmailOtp(
+          _emailController.text.trim(),
+        );
+
+    final hasError = ref.read(authProvider).error != null;
+    if (mounted && !hasError) {
+      setState(() {
+        _emailOtpSent = true;
+        _emailVerified = false;
+      });
+      _showSnack('OTP sent to your email');
+    }
+  }
+
+  Future<void> _handleVerifyOtp() async {
+    if (_emailOtpController.text.trim().isEmpty) {
+      _showSnack('Enter the OTP sent to your email', color: AppTheme.errorColor);
+      return;
+    }
+
+    await ref.read(authProvider.notifier).verifyEmailOtp(
+          _emailController.text.trim(),
+          _emailOtpController.text.trim(),
+        );
+
+    final hasError = ref.read(authProvider).error != null;
+    if (mounted && !hasError) {
+      setState(() {
+        _emailVerified = true;
+      });
+      _showSnack('Email verified');
+      _passwordFocusNode.requestFocus();
+    }
+  }
+
   Future<void> _handleRegister() async {
     if (_formKey.currentState!.validate()) {
+      if (!_emailVerified) {
+        _showSnack('Please verify your email first', color: AppTheme.errorColor);
+        return;
+      }
       await ref.read(authProvider.notifier).register(
             _nameController.text.trim(),
             _emailController.text.trim(),
@@ -73,27 +135,29 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     final themeMode = ref.watch(themeModeProvider);
     final isDark = themeMode == ThemeMode.dark;
 
-    // Listen for successful registration and pop back
+    // Show errors only when they change (prevents repeat spam)
     ref.listen(authProvider, (previous, next) {
-      if (next.status == AuthStatus.authenticated && !next.isLoading && next.error == null) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      }
-    });
-
-    // Show error if any
-    if (authState.error != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      final newError = next.error;
+      final oldError = previous?.error;
+      if (newError != null && newError != oldError && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(authState.error!),
+            content: Text(newError),
             backgroundColor: AppTheme.errorColor,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusM)),
           ),
         );
         ref.read(authProvider.notifier).clearError();
-      });
-    }
+      }
+    });
+
+    // Listen for successful registration and pop back
+    ref.listen(authProvider, (previous, next) {
+      if (next.status == AuthStatus.authenticated && !next.isLoading && next.error == null) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    });
 
     return Scaffold(
       body: Stack(
@@ -183,9 +247,52 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                         ),
                         const SizedBox(height: 20),
 
+                        // Email OTP Actions
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: authState.isLoading ? null : _handleSendOtp,
+                                child: Text(_emailOtpSent ? 'Resend OTP' : 'Send OTP'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: authState.isLoading || !_emailOtpSent ? null : _handleVerifyOtp,
+                                child: const Text('Verify OTP'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        if (_emailOtpSent) ...[
+                          TextFormField(
+                            controller: _emailOtpController,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: 'Email OTP',
+                              hintText: 'Enter 6-digit code',
+                              prefixIcon: const Icon(Icons.verified_outlined),
+                              suffixIcon: _emailVerified
+                                  ? const Icon(Icons.check_circle, color: Colors.green)
+                                  : null,
+                            ),
+                            validator: (value) {
+                              if (_emailOtpSent && (value == null || value.isEmpty)) {
+                                return 'Please enter the OTP';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+
                         // Password Field
                         TextFormField(
                           controller: _passwordController,
+                          focusNode: _passwordFocusNode,
                           obscureText: _obscurePassword,
                           decoration: InputDecoration(
                             labelText: 'Password',
@@ -199,12 +306,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                               onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                             ),
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) return 'Please enter a password';
-                            if (value.length < 6) return 'Password too short (min 6 chars)';
-                            return null;
-                          },
-                        ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) return 'Please enter a password';
+                              if (value.length < 8) return 'Password too short (min 8 chars)';
+                              return null;
+                            },
+                          ),
                         const SizedBox(height: 20),
 
                         // Confirm Password Field
