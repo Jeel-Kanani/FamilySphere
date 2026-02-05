@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/features/family/presentation/providers/family_provider.dart';
+import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 class InviteMemberScreen extends ConsumerWidget {
   const InviteMemberScreen({super.key});
@@ -11,12 +13,15 @@ class InviteMemberScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final familyState = ref.watch(familyProvider);
     final family = familyState.family;
+    final currentUser = ref.watch(authProvider).user;
 
     if (family == null) {
       return const Scaffold(
         body: Center(child: Text('Family not found')),
       );
     }
+
+    final isAdmin = family.isAdmin(currentUser?.id ?? '');
 
     return Scaffold(
       appBar: AppBar(
@@ -83,12 +88,9 @@ class InviteMemberScreen extends ConsumerWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  // TODO: Implement share functionality
-                  Clipboard.setData(ClipboardData(text: family.inviteCode));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Code copied! Share it via any app.')),
-                  );
+                onPressed: () async {
+                  final message = 'Join my family on FamilySphere. Use invite code: ${family.inviteCode}';
+                  await Share.share(message, subject: 'FamilySphere Invite');
                 },
                 icon: const Icon(Icons.share),
                 label: const Text('Share Code'),
@@ -98,18 +100,38 @@ class InviteMemberScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            if (ref.read(familyProvider).isLoading)
+            if (familyState.isLoading)
               const CircularProgressIndicator()
             else
               TextButton.icon(
-                onPressed: () async {
-                  final newCode = await ref.read(familyProvider.notifier).generateNewInviteCode();
-                  if (context.mounted && newCode != null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('New invite code generated')),
-                    );
-                  }
-                },
+                onPressed: isAdmin
+                    ? () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Generate new code?'),
+                            content: const Text('Old invite links will stop working.'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Cancel'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('Generate'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm != true) return;
+                        final newCode = await ref.read(familyProvider.notifier).generateNewInviteCode();
+                        if (context.mounted && newCode != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('New invite code generated')),
+                          );
+                        }
+                      }
+                    : null,
                 icon: const Icon(Icons.refresh),
                 label: const Text('Generate New Code'),
               ),

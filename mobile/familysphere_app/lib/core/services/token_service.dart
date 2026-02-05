@@ -7,6 +7,7 @@ class TokenService {
   static const String _userIdKey = 'user_id';
   static const String _userEmailKey = 'user_email';
   static const String _userNameKey = 'user_name';
+  static const String _userProfileKey = 'user_profile';
   
   TokenService({FlutterSecureStorage? secureStorage})
       : _secureStorage = secureStorage ?? const FlutterSecureStorage();
@@ -31,12 +32,19 @@ class TokenService {
     required String userId,
     required String email,
     required String name,
+    String? userJson,
   }) async {
-    await Future.wait([
+    final futures = [
       _secureStorage.write(key: _userIdKey, value: userId),
       _secureStorage.write(key: _userEmailKey, value: email),
       _secureStorage.write(key: _userNameKey, value: name),
-    ]);
+    ];
+    
+    if (userJson != null) {
+      futures.add(_secureStorage.write(key: _userProfileKey, value: userJson));
+    }
+    
+    await Future.wait(futures);
   }
   
   // Get user data
@@ -44,11 +52,13 @@ class TokenService {
     final userId = await _secureStorage.read(key: _userIdKey);
     final email = await _secureStorage.read(key: _userEmailKey);
     final name = await _secureStorage.read(key: _userNameKey);
+    final userJson = await _secureStorage.read(key: _userProfileKey);
     
     return {
       'userId': userId,
       'email': email,
       'name': name,
+      'userJson': userJson,
     };
   }
   
@@ -59,6 +69,7 @@ class TokenService {
       _secureStorage.delete(key: _userIdKey),
       _secureStorage.delete(key: _userEmailKey),
       _secureStorage.delete(key: _userNameKey),
+      _secureStorage.delete(key: _userProfileKey),
     ]);
   }
   

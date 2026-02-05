@@ -9,6 +9,17 @@ abstract class AuthRepository {
     required String password,
   });
 
+  /// Send email OTP before registration
+  Future<void> sendEmailOtp({
+    required String email,
+  });
+
+  /// Verify email OTP before registration
+  Future<void> verifyEmailOtp({
+    required String email,
+    required String otp,
+  });
+
   /// Login with email and password
   Future<User> login({
     required String email,
@@ -17,6 +28,9 @@ abstract class AuthRepository {
 
   /// Get the currently logged-in user
   Future<User?> getCurrentUser();
+
+  /// Get user from local storage (fast path)
+  Future<User?> getLocalUser();
 
   /// Sign out the current user
   Future<void> signOut();

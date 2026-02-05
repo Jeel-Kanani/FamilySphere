@@ -32,17 +32,18 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
   void initState() {
     super.initState();
     _pageUrls.add(widget.document.fileUrl);
-    // Add mock pages if it's a multi-page doc
-    _pageUrls.addAll([
-      widget.document.fileUrl,
-      widget.document.fileUrl,
-    ]);
     _prepareDocument();
   }
 
+  bool get _isPdf => widget.document.fileType.toLowerCase().contains('pdf') || 
+                     widget.document.fileUrl.toLowerCase().endsWith('.pdf');
+  
+  bool get _isImage => widget.document.fileType.toLowerCase().startsWith('image') ||
+                       ['jpg', 'jpeg', 'png', 'gif'].any((ext) => widget.document.fileUrl.toLowerCase().endsWith('.$ext'));
+
   Future<void> _prepareDocument() async {
     try {
-      if (widget.document.fileType == 'pdf') {
+      if (_isPdf) {
         final file = await _downloadFile(widget.document.fileUrl, widget.document.title);
         if (mounted) {
           setState(() {
@@ -56,7 +57,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = "Could not load document: $e";
           _isLoading = false;
         });
       }
@@ -126,18 +127,12 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
       return Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.white)));
     }
 
-    if (widget.document.fileType == 'image') {
-      return PageView.builder(
-        itemCount: _pageUrls.length,
-        onPageChanged: (i) => setState(() => _currentPageIndex = i),
-        itemBuilder: (context, index) {
-          return PhotoView(
-            imageProvider: NetworkImage(_pageUrls[index]),
-            backgroundDecoration: const BoxDecoration(color: Colors.black),
-          );
-        },
+    if (_isImage) {
+      return PhotoView(
+        imageProvider: NetworkImage(widget.document.fileUrl),
+        backgroundDecoration: const BoxDecoration(color: Colors.black),
       );
-    } else if (widget.document.fileType == 'pdf' && _localPath != null) {
+    } else if (_isPdf && _localPath != null) {
       return PDFView(
         filePath: _localPath,
         enableSwipe: true,

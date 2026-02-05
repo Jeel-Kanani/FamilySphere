@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/features/documents/domain/entities/document_entity.dart';
 import 'package:familysphere_app/features/documents/domain/usecases/upload_document.dart';
@@ -11,7 +12,7 @@ import 'package:familysphere_app/features/auth/presentation/providers/auth_provi
 
 // --- Data Source Provider ---
 final documentRemoteDataSourceProvider = Provider((ref) {
-  return DocumentRemoteDataSource();
+  return DocumentRemoteDataSource(apiClient: ref.read(apiClientProvider));
 });
 
 // --- Repository Provider ---
@@ -43,13 +44,17 @@ class DocumentState {
   final List<DocumentEntity> documents;
   final bool isLoading;
   final String? error;
-  final double? uploadProgress; // Null if not uploading
+  final double? uploadProgress; 
+  final int storageUsed;
+  final int storageLimit;
 
   const DocumentState({
     this.documents = const [],
     this.isLoading = false,
     this.error,
     this.uploadProgress,
+    this.storageUsed = 0,
+    this.storageLimit = 25 * 1024 * 1024 * 1024, // 25 GB default
   });
 
   factory DocumentState.initial() => const DocumentState();
@@ -59,12 +64,16 @@ class DocumentState {
     bool? isLoading,
     String? error,
     double? uploadProgress,
+    int? storageUsed,
+    int? storageLimit,
   }) {
     return DocumentState(
       documents: documents ?? this.documents,
       isLoading: isLoading ?? this.isLoading,
-      error: error, // If passed, update. If null, keep null unless intentional clearing logic is used elsewhere.
+      error: error,
       uploadProgress: uploadProgress ?? this.uploadProgress,
+      storageUsed: storageUsed ?? this.storageUsed,
+      storageLimit: storageLimit ?? this.storageLimit,
     );
   }
 }
@@ -92,16 +101,32 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
   /// Load documents for family
   Future<void> loadDocuments({String? category}) async {
     final user = _ref.read(authProvider).user;
-    if (user == null || user.familyId == null) return;
+    if (user == null || user.familyId == null) {
+      if (kDebugMode) {
+        debugPrint('DocumentNotifier: User or familyId is null. User: ${user?.id}, FamilyId: ${user?.familyId}');
+      }
+      return;
+    }
 
+    if (kDebugMode) {
+      debugPrint('DocumentNotifier: Loading documents. FamilyId: ${user.familyId}, Category: $category');
+    }
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final docs = await _getDocuments(user.familyId!, category: category);
+      final result = await _getDocuments(user.familyId!, category: category);
+      if (kDebugMode) {
+        debugPrint('DocumentNotifier: Loaded ${result['documents'].length} documents');
+      }
       state = state.copyWith(
-        documents: docs,
+        documents: List<DocumentEntity>.from(result['documents']),
+        storageUsed: result['storageUsed'],
+        storageLimit: result['storageLimit'],
         isLoading: false,
       );
     } catch (e) {
+      if (kDebugMode) {
+        debugPrint('DocumentNotifier: Error loading documents: $e');
+      }
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
@@ -114,11 +139,17 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
   }) async {
     final user = _ref.read(authProvider).user;
     if (user == null || user.familyId == null) {
+      if (kDebugMode) {
+        debugPrint('DocumentNotifier: Upload failed - User or familyId is null');
+      }
       state = state.copyWith(error: "User not in a family");
       return;
     }
 
-    state = state.copyWith(isLoading: true, error: null); // Could imply upload progress here
+    if (kDebugMode) {
+      debugPrint('DocumentNotifier: Uploading document. FamilyId: ${user.familyId}, Category: $category, Title: $title');
+    }
+    state = state.copyWith(isLoading: true, error: null);
     try {
       final newDoc = await _uploadDocument(
         file: file,
@@ -128,12 +159,19 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
         uploadedBy: user.id,
       );
       
+      if (kDebugMode) {
+        debugPrint('DocumentNotifier: Upload successful. New Doc ID: ${newDoc.id}');
+      }
       // Update list locally
       state = state.copyWith(
         documents: [newDoc, ...state.documents],
+        storageUsed: state.storageUsed + (newDoc.sizeBytes).toInt(),
         isLoading: false,
       );
     } catch (e) {
+      if (kDebugMode) {
+        debugPrint('DocumentNotifier: Upload error: $e');
+      }
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
     }
@@ -141,24 +179,26 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
 
   /// Delete a document
   Future<void> delete(DocumentEntity document) async {
-    final user = _ref.read(authProvider).user;
-    if (user == null || user.familyId == null) return;
-
     // Optimistically remove from list
     final previousList = state.documents;
+    final previousStorage = state.storageUsed;
+
     state = state.copyWith(
       documents: state.documents.where((d) => d.id != document.id).toList(),
+      storageUsed: state.storageUsed - (document.sizeBytes).toInt(),
     );
 
     try {
       await _deleteDocument(
         documentId: document.id,
-        familyId: user.familyId!,
-        storagePath: document.storagePath,
       );
     } catch (e) {
       // Revert if failed
-      state = state.copyWith(documents: previousList, error: "Failed to delete: $e");
+      state = state.copyWith(
+        documents: previousList, 
+        storageUsed: previousStorage,
+        error: "Failed to delete: $e"
+      );
     }
   }
 

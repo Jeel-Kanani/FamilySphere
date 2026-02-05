@@ -1,9 +1,13 @@
+import 'package:flutter/foundation.dart';
+
 class ApiConfig {
   // Base URLs for different environments
   static const String _localAndroidEmulator = 'http://10.0.2.2:5000';
   static const String _localIOSSimulator = 'http://localhost:5000';
-  static const String _localPhysicalDevice = 'http://10.63.65.206:5000'; // Current PC IP
+  static const String _localWeb = 'http://localhost:5000';
+  static const String _localPhysicalDevice = 'http://10.228.26.206:5000'; // Current PC IP
   static const String _productionUrl = 'https://familysphere-api.example.com'; 
+  static const String _overrideBaseUrl = String.fromEnvironment('API_BASE_URL');
   
   // Current environment
   static const bool _isProduction = false;
@@ -12,8 +16,16 @@ class ApiConfig {
   
   // Get base URL based on platform and environment
   static String get baseUrl {
+    if (_overrideBaseUrl.isNotEmpty) {
+      return _overrideBaseUrl;
+    }
+
     if (_isProduction) {
       return _productionUrl;
+    }
+
+    if (kIsWeb) {
+      return _localWeb;
     }
     
     if (_isIOS) {
@@ -28,8 +40,11 @@ class ApiConfig {
   static const String authBase = '/api/auth';
   static const String registerEndpoint = '$authBase/register';
   static const String loginEndpoint = '$authBase/login';
+  static const String logoutEndpoint = '$authBase/logout';
   static const String currentUserEndpoint = '$authBase/me';
   static const String updateProfileEndpoint = '$authBase/profile';
+  static const String sendEmailOtpEndpoint = '$authBase/send-email-otp';
+  static const String verifyEmailOtpEndpoint = '$authBase/verify-email-otp';
   
   // Timeouts
   static const Duration connectTimeout = Duration(seconds: 30);

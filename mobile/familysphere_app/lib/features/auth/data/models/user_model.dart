@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:familysphere_app/features/auth/domain/entities/user.dart';
 
 /// User Model - Data Transfer Object
@@ -14,6 +15,11 @@ class UserModel extends User {
     required super.updatedAt,
     super.token,
   });
+
+  /// Convert to JSON string
+  String toJsonString() {
+    return json.encode(toJson());
+  }
 
   /// Create UserModel from Entity
   factory UserModel.fromEntity(User user) {

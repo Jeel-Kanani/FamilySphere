@@ -28,20 +28,16 @@ class DocumentRepositoryImpl implements DocumentRepository {
   }
 
   @override
-  Future<List<DocumentEntity>> getDocuments(String familyId, {String? category}) async {
+  Future<Map<String, dynamic>> getDocuments(String familyId, {String? category}) async {
     return await remoteDataSource.getDocuments(familyId, category: category);
   }
 
   @override
   Future<void> deleteDocument({
     required String documentId,
-    required String familyId,
-    required String storagePath,
   }) async {
     await remoteDataSource.deleteDocument(
       documentId: documentId,
-      familyId: familyId,
-      storagePath: storagePath,
     );
   }
 

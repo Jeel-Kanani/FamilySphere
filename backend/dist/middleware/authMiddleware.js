@@ -16,22 +16,36 @@ exports.protect = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const User_1 = __importDefault(require("../models/User"));
 const protect = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     let token;
-    if (req.headers.authorization &&
-        req.headers.authorization.startsWith('Bearer')) {
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         try {
             token = req.headers.authorization.split(' ')[1];
-            const decoded = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET || 'secret');
-            req.user = yield User_1.default.findById(decoded.id).select('-password');
-            next();
+            const jwtSecret = process.env.JWT_SECRET;
+            if (!jwtSecret) {
+                console.error('JWT_SECRET not set');
+                return res.status(500).json({ message: 'Server configuration error' });
+            }
+            const decoded = jsonwebtoken_1.default.verify(token, jwtSecret);
+            const user = yield User_1.default.findById(decoded.id).select('-password');
+            if (!user) {
+                return res.status(401).json({ message: 'Not authorized, user not found' });
+            }
+            const decodedVersion = typeof decoded.ver === 'number' ? decoded.ver : 0;
+            const currentVersion = (_a = user.tokenVersion) !== null && _a !== void 0 ? _a : 0;
+            if (decodedVersion !== currentVersion) {
+                return res.status(401).json({ message: 'Not authorized, token revoked' });
+            }
+            req.user = user;
+            return next();
         }
         catch (error) {
             console.error(error);
-            res.status(401).json({ message: 'Not authorized, token failed' });
+            return res.status(401).json({ message: 'Not authorized, token failed' });
         }
     }
     if (!token) {
-        res.status(401).json({ message: 'Not authorized, no token' });
+        return res.status(401).json({ message: 'Not authorized, no token' });
     }
 });
 exports.protect = protect;

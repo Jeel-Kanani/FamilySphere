@@ -19,6 +19,16 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<void> sendEmailOtp({required String email}) async {
+    return await remoteDataSource.sendEmailOtp(email);
+  }
+
+  @override
+  Future<void> verifyEmailOtp({required String email, required String otp}) async {
+    return await remoteDataSource.verifyEmailOtp(email, otp);
+  }
+
+  @override
   Future<User> login({
     required String email,
     required String password,
@@ -29,6 +39,11 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<User?> getCurrentUser() async {
     return await remoteDataSource.getCurrentUser();
+  }
+
+  @override
+  Future<User?> getLocalUser() async {
+    return await remoteDataSource.getLocalUser();
   }
 
   @override

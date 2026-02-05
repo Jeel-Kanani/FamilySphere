@@ -22,21 +22,17 @@ abstract class DocumentRepository {
     required String uploadedBy,
   });
 
-  /// Get list of documents for a family
+  /// Get list of documents and storage info for a family
   /// 
   /// [familyId] - ID of the family
   /// [category] - Optional filter by category
-  Future<List<DocumentEntity>> getDocuments(String familyId, {String? category});
+  Future<Map<String, dynamic>> getDocuments(String familyId, {String? category});
 
   /// Delete a document
   /// 
   /// [documentId] - ID of document to delete
-  /// [familyId] - Family ID (for path resolution)
-  /// [storagePath] - Storage path (for file deletion)
   Future<void> deleteDocument({
     required String documentId,
-    required String familyId,
-    required String storagePath,
   });
 
   /// Download a document for offline access

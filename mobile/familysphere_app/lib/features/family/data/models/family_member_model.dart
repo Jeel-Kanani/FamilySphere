@@ -39,15 +39,26 @@ class FamilyMemberModel extends FamilyMember {
 
   /// Create from JSON (for Hive/Local storage)
   factory FamilyMemberModel.fromJson(Map<String, dynamic> json) {
+    final rawId = json['userId'] ?? json['_id'] ?? '';
+    final rawDisplayName = json['displayName'] ?? json['name'] ?? json['email'] ?? '';
+    final rawRole = json['role'];
+    final rawJoinedAt = json['joinedAt'] ?? json['createdAt'];
+    DateTime joinedAt;
+    try {
+      joinedAt = rawJoinedAt is String ? DateTime.parse(rawJoinedAt) : DateTime.now();
+    } catch (_) {
+      joinedAt = DateTime.now();
+    }
+
     return FamilyMemberModel(
-      userId: json['userId'],
-      displayName: json['displayName'],
+      userId: rawId is String ? rawId : rawId.toString(),
+      displayName: rawDisplayName is String ? rawDisplayName : rawDisplayName.toString(),
       photoUrl: json['photoUrl'],
       role: FamilyRole.values.firstWhere(
-        (e) => e.name == json['role'],
+        (e) => e.name == rawRole,
         orElse: () => FamilyRole.member,
       ),
-      joinedAt: DateTime.parse(json['joinedAt']),
+      joinedAt: joinedAt,
     );
   }
 
