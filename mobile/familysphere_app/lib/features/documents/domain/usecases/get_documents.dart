@@ -5,7 +5,12 @@ class GetDocuments {
 
   GetDocuments(this.repository);
 
-  Future<Map<String, dynamic>> call(String familyId, {String? category}) async {
-    return await repository.getDocuments(familyId, category: category);
+  Future<Map<String, dynamic>> call(String familyId, {String? category, String? folder, String? memberId}) async {
+    return await repository.getDocuments(
+      familyId,
+      category: category,
+      folder: folder,
+      memberId: memberId,
+    );
   }
 }

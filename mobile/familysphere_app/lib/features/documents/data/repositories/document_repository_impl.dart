@@ -17,6 +17,8 @@ class DocumentRepositoryImpl implements DocumentRepository {
     required String title,
     required String category,
     required String uploadedBy,
+    String? folder,
+    String? memberId,
   }) async {
     return await remoteDataSource.uploadDocument(
       file: file,
@@ -24,12 +26,19 @@ class DocumentRepositoryImpl implements DocumentRepository {
       title: title,
       category: category,
       uploadedBy: uploadedBy,
+      folder: folder,
+      memberId: memberId,
     );
   }
 
   @override
-  Future<Map<String, dynamic>> getDocuments(String familyId, {String? category}) async {
-    return await remoteDataSource.getDocuments(familyId, category: category);
+  Future<Map<String, dynamic>> getDocuments(String familyId, {String? category, String? folder, String? memberId}) async {
+    return await remoteDataSource.getDocuments(
+      familyId,
+      category: category,
+      folder: folder,
+      memberId: memberId,
+    );
   }
 
   @override
@@ -38,6 +47,47 @@ class DocumentRepositoryImpl implements DocumentRepository {
   }) async {
     await remoteDataSource.deleteDocument(
       documentId: documentId,
+    );
+  }
+
+  @override
+  Future<List<String>> getFolders({
+    required String familyId,
+    required String category,
+    String? memberId,
+  }) async {
+    return await remoteDataSource.getFolders(
+      familyId: familyId,
+      category: category,
+      memberId: memberId,
+    );
+  }
+
+  @override
+  Future<void> createFolder({
+    required String familyId,
+    required String category,
+    required String name,
+    String? memberId,
+  }) async {
+    await remoteDataSource.createFolder(
+      familyId: familyId,
+      category: category,
+      name: name,
+      memberId: memberId,
+    );
+  }
+
+  @override
+  Future<DocumentEntity> moveDocumentToFolder({
+    required String documentId,
+    required String folder,
+    String? memberId,
+  }) async {
+    return await remoteDataSource.moveDocumentToFolder(
+      documentId: documentId,
+      folder: folder,
+      memberId: memberId,
     );
   }
 

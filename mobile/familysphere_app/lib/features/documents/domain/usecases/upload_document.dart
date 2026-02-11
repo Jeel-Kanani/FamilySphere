@@ -13,6 +13,8 @@ class UploadDocument {
     required String title,
     required String category,
     required String uploadedBy,
+    String? folder,
+    String? memberId,
   }) async {
     return await repository.uploadDocument(
       file: file,
@@ -20,6 +22,8 @@ class UploadDocument {
       title: title,
       category: category,
       uploadedBy: uploadedBy,
+      folder: folder,
+      memberId: memberId,
     );
   }
 }

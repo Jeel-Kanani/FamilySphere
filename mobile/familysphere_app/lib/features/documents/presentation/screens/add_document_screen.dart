@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
+import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:familysphere_app/features/family/presentation/providers/family_provider.dart';
 import 'package:familysphere_app/features/documents/presentation/providers/document_provider.dart';
 
 class AddDocumentScreen extends ConsumerStatefulWidget {
@@ -14,12 +16,61 @@ class AddDocumentScreen extends ConsumerStatefulWidget {
 }
 
 class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
+  static const Map<String, List<String>> _builtInByCategory = {
+    'Shared': [
+      'Property Deed',
+      'Medical',
+      'Insurance',
+      'Vehicle',
+      'Finance & Tax',
+      'Legal',
+      'Education',
+      'Household Bills',
+    ],
+    'Personal': [
+      'Study & Learning',
+      'Career Documents',
+      'Business',
+      'Portfolio',
+      'Personal Certificates',
+      'Creative Work',
+      'Travel',
+      'Misc Personal',
+    ],
+    'Private': [
+      'Passwords',
+      'Confidential Notes',
+      'Legal Contracts',
+      'Bank Accounts',
+      'Identity Secrets',
+      'Recovery Keys',
+      'Private Finance',
+      'Critical Credentials',
+    ],
+  };
+  static const List<String> _sharedMemberFolders = [
+    'Aadhaar Card',
+    'PAN Card',
+    'Passport',
+    'Voter ID',
+    'Driving License',
+    'Birth Certificate',
+    '10th Marksheet',
+    '12th Marksheet',
+    'Results',
+    'Degree/Certificates',
+    'Bank/KYC',
+    'Employment',
+  ];
+
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _typeController = TextEditingController();
   
   List<File> _selectedFiles = [];
   String _selectedCategory = 'Shared'; // Default to Shared to match Vault subsections
+  String _selectedFolder = 'Property Deed';
+  String? _selectedMemberId;
 
   final List<String> _suggestedTypes = [
     'Insurance', 'Medical', 'Legal', 'Tax', 'Home', 'Vehicle', 'Education', 'Other',
@@ -28,6 +79,21 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(documentProvider.notifier).loadFolders(category: _selectedCategory);
+      ref.read(familyProvider.notifier).loadFamily().then((_) {
+        if (!mounted) return;
+        if (_selectedCategory == 'Shared') {
+          if (_selectedMemberId != null) return;
+          setState(() => _selectedMemberId = null); // Family-level by default
+        } else {
+          final currentUserId = ref.read(authProvider).user?.id;
+          if (currentUserId != null && _selectedMemberId == null) {
+            setState(() => _selectedMemberId = currentUserId);
+          }
+        }
+      });
+    });
     if (widget.initialImagePaths != null) {
       _selectedFiles = widget.initialImagePaths!.map((p) => File(p)).toList();
       if (_selectedFiles.isNotEmpty) {
@@ -75,6 +141,7 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(documentProvider);
+    final familyState = ref.watch(familyProvider);
     final isLoading = state.isLoading;
 
     return Scaffold(
@@ -116,10 +183,86 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
                 children: [
                   _buildCategoryChip('Shared'),
                   const SizedBox(width: 8),
-                  _buildCategoryChip('Individual'),
+                  _buildCategoryChip('Personal'),
                   const SizedBox(width: 8),
                   _buildCategoryChip('Private'),
                 ],
+              ),
+              if (_selectedCategory == 'Shared') ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 48,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: familyState.members.length + 1,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return ChoiceChip(
+                          label: const Text('Family'),
+                          selected: _selectedMemberId == null,
+                          showCheckmark: false,
+                          onSelected: (_) {
+                            setState(() {
+                              _selectedMemberId = null;
+                              _selectedFolder = (_builtInByCategory['Shared'] ?? const ['General']).first;
+                            });
+                            ref.read(documentProvider.notifier).loadFolders(
+                                  category: _selectedCategory,
+                                  memberId: null,
+                                );
+                          },
+                        );
+                      }
+                      final member = familyState.members[index - 1];
+                      final selected = _selectedMemberId == member.userId;
+                      return ChoiceChip(
+                        label: Text(member.displayName),
+                        selected: selected,
+                        showCheckmark: false,
+                        onSelected: (_) {
+                          setState(() {
+                            _selectedMemberId = member.userId;
+                            _selectedFolder = _sharedMemberFolders.first;
+                          });
+                          ref.read(documentProvider.notifier).loadFolders(
+                                category: _selectedCategory,
+                                memberId: _selectedMemberId,
+                              );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: _folderOptions(state.folders).contains(_selectedFolder) ? _selectedFolder : _folderOptions(state.folders).first,
+                decoration: const InputDecoration(
+                  labelText: 'Folder',
+                  prefixIcon: Icon(Icons.folder_outlined),
+                ),
+                items: _folderOptions(state.folders)
+                    .map((f) => DropdownMenuItem<String>(value: f, child: Text(f)))
+                    .toList(),
+                onChanged: isLoading
+                    ? null
+                    : (value) {
+                        if (value == null) return;
+                        setState(() => _selectedFolder = value);
+                      },
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.blueGrey.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'Upload Path: ${_uploadPathLabel(familyState)}',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
               ),
               const SizedBox(height: 24),
               
@@ -163,6 +306,19 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
       );
       return;
     }
+    final validFolders = _folderOptions(ref.read(documentProvider).folders);
+    if (!validFolders.contains(_selectedFolder)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid folder for selected vault path. Please reselect folder.')),
+      );
+      return;
+    }
+    if (_selectedCategory == 'Shared' && _selectedMemberId != null && _selectedMemberId!.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid member selection.')),
+      );
+      return;
+    }
 
     try {
       // For now, we upload the first file or handle them sequentially
@@ -176,6 +332,8 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
           file: file,
           title: finalTitle,
           category: _selectedCategory,
+          folder: _selectedFolder,
+          memberId: _selectedCategory == 'Shared' ? _selectedMemberId : ref.read(authProvider).user?.id,
         );
       }
 
@@ -201,9 +359,16 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
       selected: isSelected,
       onSelected: (selected) {
         if (selected) {
+          final defaultMemberId = label == 'Shared' ? null : ref.read(authProvider).user?.id;
           setState(() {
             _selectedCategory = label;
+            _selectedFolder = _builtInByCategory[label]?.first ?? 'General';
+            _selectedMemberId = defaultMemberId;
           });
+          ref.read(documentProvider.notifier).loadFolders(
+                category: label,
+                memberId: label == 'Shared' ? _selectedMemberId : ref.read(authProvider).user?.id,
+              );
         }
       },
       selectedColor: AppTheme.primaryColor.withValues(alpha: 0.2),
@@ -253,6 +418,41 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
   }
 
   Widget _buildSectionTitle(String title) => Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87));
+
+  String _uploadPathLabel(FamilyState familyState) {
+    if (_selectedCategory != 'Shared') {
+      return '$_selectedCategory / $_selectedFolder';
+    }
+
+    if (_selectedMemberId == null) {
+      return 'Shared / Family / $_selectedFolder';
+    }
+
+    String memberName = 'Member';
+    for (final m in familyState.members) {
+      if (m.userId == _selectedMemberId) {
+        memberName = m.displayName;
+        break;
+      }
+    }
+    return 'Shared / Individual / $memberName / $_selectedFolder';
+  }
+
+  List<String> _folderOptions(List<String> folders) {
+    final builtIn = _selectedCategory == 'Shared' && _selectedMemberId != null
+        ? _sharedMemberFolders
+        : (_builtInByCategory[_selectedCategory] ?? const <String>[]);
+
+    final merged = <String>{
+      ...builtIn,
+      'General',
+    };
+    for (final folder in folders) {
+      final trimmed = folder.trim();
+      if (trimmed.isNotEmpty) merged.add(trimmed);
+    }
+    return merged.toList();
+  }
 
   Widget _buildSourceCard({required IconData icon, required String label, VoidCallback? onTap}) {
     return InkWell(

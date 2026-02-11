@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:familysphere_app/core/utils/routes.dart';
 import 'package:familysphere_app/features/documents/presentation/providers/document_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -137,13 +138,13 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
 
                         _buildQuickAccessCard(
                           context,
-                          category: 'Individual',
-                          title: 'Folders',
-                          description: 'Manage personal documents within family context',
+                          category: 'Personal',
+                          title: 'My Documents',
+                          description: 'Store your own non-family documents',
                           imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCQ9m31mRjMPJROHvR9O3nVymTJPcuf_KS9YL9FyudXmw_zkOZNlPaCxq-CGaRbhmuTiPEpBmEOg9G5RXcbdziUnqj0jo9qZi1htg3J-ureNYgnwsNPPXnGRe6DGGLll0c0crc4YpLiLC87QZsBS50XWg0LsrVaF_CylA0BewwAmBroLRkrul9q5Vu8V7ufkSsbsvCfC6AGHgo9oS-qMRaiWTD523EQolbVo5-eEtQaHwdKcJa3MjGDTqWleea1rjSqT0gWE_kFZg',
                           textColor: textColor,
                           secondaryTextColor: secondaryTextColor,
-                          onTap: () => _showCategoryFilter(context, 'Individual'),
+                          onTap: () => _showCategoryFilter(context, 'Personal'),
                         ),
 
                         _buildQuickAccessCard(
@@ -181,7 +182,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                                 textColor, 
                                 secondaryTextColor, 
                                 iconBgColor,
-                                () => Navigator.pushNamed(context, '/document-viewer', arguments: doc),
+                                () => Navigator.pushNamed(context, AppRoutes.documentViewer, arguments: doc),
                               );
                             },
                           ),
@@ -206,7 +207,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               children: [
                 ElevatedButton.icon(
                   onPressed: () async {
-                    await Navigator.pushNamed(context, '/add-document');
+                    await Navigator.pushNamed(context, AppRoutes.addDocument);
                     ref.read(documentProvider.notifier).loadDocuments();
                   },
                   icon: const Icon(Icons.add_rounded, size: 24, color: Colors.white),
@@ -234,7 +235,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
 
   void _showCategoryFilter(BuildContext context, String category) {
     // Navigate to a filtered list or show a modal
-    Navigator.pushNamed(context, '/documents', arguments: {'category': category});
+    Navigator.pushNamed(context, AppRoutes.documents, arguments: {'category': category});
   }
 
   String _formatDate(DateTime date) {

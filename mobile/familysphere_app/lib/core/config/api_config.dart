@@ -5,7 +5,7 @@ class ApiConfig {
   static const String _localAndroidEmulator = 'http://10.0.2.2:5000';
   static const String _localIOSSimulator = 'http://localhost:5000';
   static const String _localWeb = 'http://localhost:5000';
-  static const String _localPhysicalDevice = 'http://10.228.26.206:5000'; // Current PC IP
+  static const String _localPhysicalDevice = 'http://10.205.131.206:5000'; // Current PC IP
   static const String _productionUrl = 'https://familysphere-api.example.com'; 
   static const String _overrideBaseUrl = String.fromEnvironment('API_BASE_URL');
   
@@ -45,6 +45,12 @@ class ApiConfig {
   static const String updateProfileEndpoint = '$authBase/profile';
   static const String sendEmailOtpEndpoint = '$authBase/send-email-otp';
   static const String verifyEmailOtpEndpoint = '$authBase/verify-email-otp';
+  
+  // Document management endpoints
+  static const String documentBase = '/api/documents';
+  static const String uploadDocumentEndpoint = '$documentBase/upload';
+  static const String getDocumentsEndpoint = '$documentBase';
+  static const String deleteDocumentEndpoint = '$documentBase/delete';
   
   // Timeouts
   static const Duration connectTimeout = Duration(seconds: 30);

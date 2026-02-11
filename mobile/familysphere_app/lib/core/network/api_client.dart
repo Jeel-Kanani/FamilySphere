@@ -123,6 +123,25 @@ class ApiClient {
       throw _handleError(e);
     }
   }
+
+  // PATCH request
+  Future<Response> patch(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) async {
+    try {
+      return await _dio.patch(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      );
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
   
   // DELETE request
   Future<Response> delete(

@@ -6,6 +6,8 @@ class DocumentEntity {
   final String familyId;
   final String title;
   final String category;
+  final String folder;
+  final String? memberId;
   final String fileUrl;
   final String fileType; // 'pdf', 'image', etc.
   final int sizeBytes;
@@ -20,6 +22,8 @@ class DocumentEntity {
     required this.familyId,
     required this.title,
     required this.category,
+    this.folder = 'General',
+    this.memberId,
     required this.fileUrl,
     required this.fileType,
     required this.sizeBytes,
@@ -43,6 +47,8 @@ class DocumentEntity {
     String? familyId,
     String? title,
     String? category,
+    String? folder,
+    String? memberId,
     String? fileUrl,
     String? fileType,
     int? sizeBytes,
@@ -57,6 +63,8 @@ class DocumentEntity {
       familyId: familyId ?? this.familyId,
       title: title ?? this.title,
       category: category ?? this.category,
+      folder: folder ?? this.folder,
+      memberId: memberId ?? this.memberId,
       fileUrl: fileUrl ?? this.fileUrl,
       fileType: fileType ?? this.fileType,
       sizeBytes: sizeBytes ?? this.sizeBytes,

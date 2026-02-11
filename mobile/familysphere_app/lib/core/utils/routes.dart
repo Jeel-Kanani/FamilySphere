@@ -9,6 +9,8 @@ import 'package:familysphere_app/features/family/presentation/screens/invite_mem
 import 'package:familysphere_app/features/home/presentation/screens/main_navigation_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/document_list_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/add_document_screen.dart';
+import 'package:familysphere_app/features/documents/presentation/screens/document_viewer_screen.dart';
+import 'package:familysphere_app/features/documents/domain/entities/document_entity.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/auth_checker.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/phone_login_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/otp_verification_screen.dart';
@@ -29,6 +31,7 @@ class AppRoutes {
   static const String inviteMember = '/invite-member';
   static const String documents = '/documents';
   static const String addDocument = '/add-document';
+  static const String documentViewer = '/document-viewer';
   static const String phoneLogin = '/phone-login';
   static const String otpVerification = '/otp-verification';
   static const String scanner = '/scanner';
@@ -75,11 +78,22 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const InviteMemberScreen());
 
       case documents:
-        return MaterialPageRoute(builder: (_) => const DocumentListScreen());
+        final args = settings.arguments;
+        String? category;
+        if (args is Map && args['category'] is String) {
+          category = args['category'] as String;
+        }
+        return MaterialPageRoute(
+          builder: (_) => DocumentListScreen(initialCategory: category),
+        );
 
       case addDocument:
         final paths = settings.arguments as List<String>?;
         return MaterialPageRoute(builder: (_) => AddDocumentScreen(initialImagePaths: paths));
+
+      case documentViewer:
+        final document = settings.arguments as DocumentEntity;
+        return MaterialPageRoute(builder: (_) => DocumentViewerScreen(document: document));
 
       case scanner:
       case imageProcess:

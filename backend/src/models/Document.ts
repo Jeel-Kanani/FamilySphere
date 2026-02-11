@@ -3,6 +3,8 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IDocument extends Document {
     title: String;
     category: String;
+    folder: String;
+    memberId?: mongoose.Types.ObjectId;
     fileUrl: String;
     fileType: String;
     fileSize: number;
@@ -17,6 +19,8 @@ const documentSchema: Schema = new Schema(
     {
         title: { type: String, required: true },
         category: { type: String, required: true },
+        folder: { type: String, default: 'General' },
+        memberId: { type: Schema.Types.ObjectId, ref: 'User' },
         fileUrl: { type: String, required: true },
         fileType: { type: String, required: true },
         fileSize: { type: Number, required: true }, // in bytes
