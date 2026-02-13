@@ -17,6 +17,8 @@ class DocumentModel extends DocumentEntity {
     required super.storagePath,
     super.isOfflineAvailable,
     super.localPath,
+    super.deleted,
+    super.deletedAt,
   });
 
   /// Create from Domain Entity
@@ -36,6 +38,8 @@ class DocumentModel extends DocumentEntity {
       storagePath: entity.storagePath,
       isOfflineAvailable: entity.isOfflineAvailable,
       localPath: entity.localPath,
+      deleted: entity.deleted,
+      deletedAt: entity.deletedAt,
     );
   }
 
@@ -52,6 +56,14 @@ class DocumentModel extends DocumentEntity {
       uploaderId = json['uploadedBy']?.toString() ?? '';
     }
 
+    final fileUrl = (json['fileUrl'] ?? '').toString();
+    final storagePath = (json['cloudinaryId'] ?? json['storagePath'] ?? '').toString();
+    final rawType = (json['fileType'] ?? '').toString();
+    final lowerRawType = rawType.toLowerCase();
+    final isPdfHint = lowerRawType.contains('pdf') ||
+        fileUrl.toLowerCase().endsWith('.pdf') ||
+        storagePath.toLowerCase().endsWith('.pdf');
+
     return DocumentModel(
       id: json['_id'] ?? json['id'] ?? '',
       familyId: json['familyId']?.toString() ?? '',
@@ -59,16 +71,22 @@ class DocumentModel extends DocumentEntity {
       category: json['category'] ?? '',
       folder: (json['folder'] ?? 'General').toString(),
       memberId: json['memberId']?.toString(),
-      fileUrl: json['fileUrl'] ?? '',
-      fileType: json['fileType'] ?? '',
-      sizeBytes: (json['fileSize'] ?? json['size'] ?? 0) as int,
+      fileUrl: fileUrl,
+      fileType: rawType.isNotEmpty ? rawType : (isPdfHint ? 'application/pdf' : 'application/octet-stream'),
+      sizeBytes: (json['fileSize'] ?? json['size'] ?? 0) is num
+          ? ((json['fileSize'] ?? json['size'] ?? 0) as num).toInt()
+          : 0,
       uploadedBy: uploaderId,
       uploadedAt: json['createdAt'] != null 
           ? DateTime.parse(json['createdAt']) 
           : DateTime.now(),
-      storagePath: json['cloudinaryId'] ?? json['storagePath'] ?? '',
+      storagePath: storagePath,
       isOfflineAvailable: json['isOfflineAvailable'] ?? false,
       localPath: json['localPath'],
+      deleted: json['deleted'] ?? false,
+      deletedAt: json['deletedAt'] != null 
+          ? DateTime.parse(json['deletedAt']) 
+          : null,
     );
   }
 

@@ -6,6 +6,7 @@ export interface IVaultFolder extends Document {
     memberId?: mongoose.Types.ObjectId;
     name: string;
     isSystem: boolean;
+    deleted: boolean;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -17,6 +18,7 @@ const vaultFolderSchema: Schema = new Schema(
         memberId: { type: Schema.Types.ObjectId, ref: 'User' },
         name: { type: String, required: true },
         isSystem: { type: Boolean, default: false },
+        deleted: { type: Boolean, default: false },
     },
     { timestamps: true }
 );

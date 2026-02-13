@@ -58,6 +58,10 @@ export const uploadDocument = async (req: Request, res: Response) => {
         if (!file) {
             return res.status(400).json({ message: 'No file uploaded' });
         }
+        const originalName = (file.originalname || '').toString().toLowerCase();
+        const mimeType = (file.mimetype || '').toString().toLowerCase();
+        const uploadPath = (file.path || '').toString().toLowerCase();
+        const isPdf = mimeType.includes('pdf') || originalName.endsWith('.pdf') || uploadPath.endsWith('.pdf');
 
         const newDocument = new Document({
             title,
@@ -65,7 +69,7 @@ export const uploadDocument = async (req: Request, res: Response) => {
             folder: (folder || 'General').trim() || 'General',
             memberId: memberId || undefined,
             fileUrl: file.path,
-            fileType: file.mimetype,
+            fileType: isPdf ? 'application/pdf' : file.mimetype,
             fileSize: file.size,
             cloudinaryId: file.filename,
             familyId,
@@ -88,7 +92,7 @@ export const getDocuments = async (req: Request, res: Response) => {
         console.log('Family ID:', familyId);
         console.log('Category Filter:', category);
 
-        const query: any = { familyId };
+        const query: any = { familyId, deleted: false };
         const normalizedCategory = typeof category === 'string' ? category.trim() : '';
         if (normalizedCategory) {
             const categoryValue = canonicalCategory(normalizedCategory);
@@ -131,8 +135,8 @@ export const getDocuments = async (req: Request, res: Response) => {
             .sort({ createdAt: -1 })
             .populate('uploadedBy', 'name');
 
-        // Calculate total storage usage for this family
-        const allDocs = await Document.find({ familyId });
+        // Calculate total storage usage for this family (excluding deleted documents)
+        const allDocs = await Document.find({ familyId, deleted: false });
         const totalSize = allDocs.reduce((acc, doc) => acc + (doc.fileSize || 0), 0);
 
         res.status(200).json({
@@ -154,13 +158,12 @@ export const deleteDocument = async (req: Request, res: Response) => {
             return res.status(404).json({ message: 'Document not found' });
         }
 
-        // Delete from Cloudinary
-        await cloudinary.uploader.destroy(document.cloudinaryId as string);
+        // Soft delete - mark as deleted
+        document.deleted = true;
+        document.deletedAt = new Date();
+        await document.save();
 
-        // Delete from MongoDB
-        await Document.findByIdAndDelete(id);
-
-        res.status(200).json({ message: 'Document deleted successfully' });
+        res.status(200).json({ message: 'Document moved to trash successfully' });
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }
@@ -199,6 +202,28 @@ export const getFolders = async (req: Request, res: Response) => {
         const customFolders = await VaultFolder.find(folderQuery)
             .sort({ createdAt: 1 })
             .lean();
+        
+        // Get deleted built-in folders markers
+        const deletedBuiltInQuery: any = {
+            familyId,
+            deleted: true,
+        };
+        if (category === 'Shared') {
+            deletedBuiltInQuery.$or = [
+                { category: 'Shared' },
+                { category: 'Individual' },
+            ];
+        } else {
+            deletedBuiltInQuery.category = category;
+        }
+        if (memberId) {
+            deletedBuiltInQuery.memberId = memberId;
+        } else {
+            deletedBuiltInQuery.memberId = { $exists: false };
+        }
+        const deletedBuiltIns = await VaultFolder.find(deletedBuiltInQuery).lean();
+        const deletedBuiltInNames = new Set(deletedBuiltIns.map((f: any) => f.name));
+        
         const documentQuery: any = { familyId };
         if (category === 'Shared') {
             documentQuery.$or = [
@@ -223,14 +248,31 @@ export const getFolders = async (req: Request, res: Response) => {
         const documentFolders = await Document.distinct('folder', documentQuery);
 
         const merged = new Set<string>([
-            ...(BUILT_IN_FOLDERS[category] || []),
-            ...customFolders.map((f: any) => (f.name || '').trim()).filter(Boolean),
+            ...(BUILT_IN_FOLDERS[category] || []).filter(name => !deletedBuiltInNames.has(name)),
+            ...customFolders.map((f: any) => (f.name || '').trim()).filter((name) => {
+                const folder = customFolders.find((cf: any) => cf.name === name);
+                return name && !folder?.deleted;
+            }),
             ...documentFolders.map((f: any) => (f || '').toString().trim()).filter(Boolean),
         ]);
 
+        // Build folder details array
+        const folderDetails = Array.from(merged).map(name => {
+            const builtIn = (BUILT_IN_FOLDERS[category] || []).includes(name);
+            const custom = customFolders.find((f: any) => f.name === name);
+            return {
+                name,
+                isBuiltIn: builtIn,
+                isCustom: !!custom,
+                folderId: custom?._id?.toString(),
+                isSystem: false, // Allow all folders to be deletable
+            };
+        });
+
         res.status(200).json({
             category,
-            folders: Array.from(merged),
+            folders: Array.from(merged), // Keep for backward compatibility
+            folderDetails, // New detailed format
         });
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -292,6 +334,125 @@ export const moveDocumentToFolder = async (req: Request, res: Response) => {
         }
 
         res.status(200).json(updated);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const deleteFolder = async (req: Request, res: Response) => {
+    try {
+        const { folderId } = req.params;
+        const { folderName, familyId, category, memberId } = req.body;
+        
+        // Try to find existing folder
+        let folder = folderId ? await VaultFolder.findById(folderId) : null;
+        
+        // If no folder found and folderName provided, this might be a built-in folder
+        if (!folder && folderName && familyId && category) {
+            const categoryValue = canonicalCategory(category);
+            const builtInFolders = BUILT_IN_FOLDERS[categoryValue] || [];
+            
+            if (builtInFolders.includes(folderName)) {
+                // Create a deleted marker for built-in folder
+                folder = await VaultFolder.create({
+                    familyId,
+                    category: categoryValue,
+                    memberId: memberId || undefined,
+                    name: folderName,
+                    isSystem: false,
+                    deleted: true,
+                });
+                return res.status(200).json({ message: 'Built-in folder hidden successfully' });
+            }
+            
+            return res.status(404).json({ message: 'Folder not found' });
+        }
+        
+        if (!folder) {
+            return res.status(404).json({ message: 'Folder not found' });
+        }
+
+        // Check if folder contains any documents
+        const documentsInFolder = await Document.countDocuments({
+            familyId: folder.familyId,
+            category: folder.category,
+            folder: folder.name,
+            ...(folder.memberId ? { memberId: folder.memberId } : {}),
+        });
+
+        if (documentsInFolder > 0) {
+            return res.status(400).json({ 
+                message: 'Cannot delete folder with documents. Please move or delete all documents first.',
+                documentCount: documentsInFolder 
+            });
+        }
+
+        // Mark as deleted instead of actually deleting (for potential recovery)
+        await VaultFolder.findByIdAndUpdate(folder._id, { deleted: true });
+
+        res.status(200).json({ message: 'Folder deleted successfully' });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getTrashedDocuments = async (req: Request, res: Response) => {
+    try {
+        const { familyId } = req.params;
+
+        const documents = await Document.find({ 
+            familyId, 
+            deleted: true 
+        })
+            .sort({ deletedAt: -1 })
+            .populate('uploadedBy', 'name');
+
+        res.status(200).json({ documents });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const restoreDocument = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const document = await Document.findById(id);
+
+        if (!document) {
+            return res.status(404).json({ message: 'Document not found' });
+        }
+
+        if (!document.deleted) {
+            return res.status(400).json({ message: 'Document is not in trash' });
+        }
+
+        // Restore document
+        document.deleted = false;
+        document.deletedAt = undefined;
+        await document.save();
+
+        res.status(200).json({ message: 'Document restored successfully', document });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const permanentlyDeleteDocument = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const document = await Document.findById(id);
+
+        if (!document) {
+            return res.status(404).json({ message: 'Document not found' });
+        }
+
+        // Delete from Cloudinary
+        await cloudinary.uploader.destroy(document.cloudinaryId as string);
+
+        // Permanently delete from MongoDB
+        await Document.findByIdAndDelete(id);
+
+        res.status(200).json({ message: 'Document permanently deleted' });
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }

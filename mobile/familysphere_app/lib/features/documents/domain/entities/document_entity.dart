@@ -16,6 +16,8 @@ class DocumentEntity {
   final String storagePath;
   final bool isOfflineAvailable;
   final String? localPath;
+  final bool deleted;
+  final DateTime? deletedAt;
 
   const DocumentEntity({
     required this.id,
@@ -32,6 +34,8 @@ class DocumentEntity {
     required this.storagePath,
     this.isOfflineAvailable = false,
     this.localPath,
+    this.deleted = false,
+    this.deletedAt,
   });
 
   /// Readable file size
@@ -56,8 +60,8 @@ class DocumentEntity {
     DateTime? uploadedAt,
     String? storagePath,
     bool? isOfflineAvailable,
-    String? localPath,
-  }) {
+    String? localPath,    bool? deleted,
+    DateTime? deletedAt,  }) {
     return DocumentEntity(
       id: id ?? this.id,
       familyId: familyId ?? this.familyId,
@@ -73,6 +77,8 @@ class DocumentEntity {
       storagePath: storagePath ?? this.storagePath,
       isOfflineAvailable: isOfflineAvailable ?? this.isOfflineAvailable,
       localPath: localPath ?? this.localPath,
+      deleted: deleted ?? this.deleted,
+      deletedAt: deletedAt ?? this.deletedAt,
     );
   }
 }

@@ -17,29 +17,33 @@ class AuthChecker extends ConsumerStatefulWidget {
 }
 
 class _AuthCheckerState extends ConsumerState<AuthChecker> {
+  late final Future<void> _authCheckFuture;
+
   @override
   void initState() {
     super.initState();
-    // ignore: avoid_print
-    print('AuthChecker: initState called');
-    // Check auth status on app start
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // ignore: avoid_print
-      print('AuthChecker: Triggering checkAuthStatus');
-      ref.read(authProvider.notifier).checkAuthStatus();
-    });
+    // Trigger immediately so login screen does not flash before auto-login decision.
+    _authCheckFuture = ref.read(authProvider.notifier).checkAuthStatus();
   }
 
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 500),
-      transitionBuilder: (Widget child, Animation<double> animation) {
-        return FadeTransition(opacity: animation, child: child);
+
+    return FutureBuilder<void>(
+      future: _authCheckFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const SplashScreen(key: ValueKey('splash'));
+        }
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          child: _buildCurrentScreen(authState),
+        );
       },
-      child: _buildCurrentScreen(authState),
     );
   }
 

@@ -5,7 +5,11 @@ import {
     deleteDocument,
     getFolders,
     createFolder,
+    deleteFolder,
     moveDocumentToFolder,
+    getTrashedDocuments,
+    restoreDocument,
+    permanentlyDeleteDocument,
 } from '../controllers/documentController';
 import { upload } from '../config/cloudinary';
 
@@ -23,8 +27,20 @@ router.get('/folders/:familyId', getFolders);
 // POST /api/documents/folders - Create custom folder
 router.post('/folders', createFolder);
 
-// DELETE /api/documents/:id - Delete a document
+// DELETE /api/documents/folders/:folderId - Delete custom folder
+router.delete('/folders/:folderId', deleteFolder);
+
+// DELETE /api/documents/:id - Delete a document (move to trash)
 router.delete('/:id', deleteDocument);
+
+// GET /api/documents/trash/:familyId - Get trashed documents
+router.get('/trash/:familyId', getTrashedDocuments);
+
+// PATCH /api/documents/:id/restore - Restore document from trash
+router.patch('/:id/restore', restoreDocument);
+
+// DELETE /api/documents/:id/permanent - Permanently delete document
+router.delete('/:id/permanent', permanentlyDeleteDocument);
 
 // PATCH /api/documents/:id/folder - Move document to folder
 router.patch('/:id/folder', moveDocumentToFolder);

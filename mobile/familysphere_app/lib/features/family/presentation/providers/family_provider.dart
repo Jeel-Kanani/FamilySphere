@@ -129,6 +129,8 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
   final UpdateFamilySettings _updateFamilySettings;
   final UpdateMemberRole _updateMemberRole;
   final TransferOwnership _transferOwnership;
+  bool _isLoadingFamily = false;
+  DateTime? _lastFamilyLoadAt;
 
   FamilyNotifier(
     this._ref, {
@@ -154,10 +156,18 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
         _transferOwnership = transferOwnership,
         super(FamilyState.initial());
 
-  Future<void> loadFamily() async {
+  Future<void> loadFamily({bool force = false}) async {
     final user = _ref.read(authProvider).user;
     if (user == null || !user.hasFamily) return;
+    if (_isLoadingFamily) return;
+    if (!force &&
+        _lastFamilyLoadAt != null &&
+        DateTime.now().difference(_lastFamilyLoadAt!).inSeconds < 20 &&
+        (state.family != null || state.members.isNotEmpty)) {
+      return;
+    }
 
+    _isLoadingFamily = true;
     state = state.copyWith(isLoading: true, error: null);
     try {
       final family = await _getFamily(user.familyId!);
@@ -169,8 +179,11 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
         activities: activities,
         isLoading: false,
       );
+      _lastFamilyLoadAt = DateTime.now();
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
+    } finally {
+      _isLoadingFamily = false;
     }
   }
 

@@ -20,22 +20,24 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
 }
 
 class AppTheme {
-  // Brand Colors
-  static const Color primaryColor = Color(0xFF6366F1); // Modern Indigo
-  static const Color secondaryColor = Color(0xFF8B5CF6); // Modern Purple
-  static const Color accentColor = Color(0xFFF43F5E); // Rose
+  // Brand Colors - Professional Blue & White
+  static const Color primaryColor = Color(0xFF2563EB); // Professional Blue
+  static const Color primaryLight = Color(0xFF60A5FA); // Light Blue
+  static const Color primaryDark = Color(0xFF1E40AF); // Dark Blue
+  static const Color secondaryColor = Color(0xFF3B82F6); // Accent Blue
+  static const Color accentColor = Color(0xFF0EA5E9); // Sky Blue
   
   // Semantic Colors
-  static const Color infoColor = Color(0xFF0EA5E9); // Sky
-  static const Color successColor = Color(0xFF10B981); // Emerald
+  static const Color infoColor = Color(0xFF2563EB); // Blue
+  static const Color successColor = Color(0xFF10B981); // Emerald 
   static const Color warningColor = Color(0xFFF59E0B); // Amber
   static const Color errorColor = Color(0xFFEF4444); // Red
   
   // Neutral Colors (Light)
-  static const Color backgroundColor = Color(0xFFF8FAFC);
+  static const Color backgroundColor = Color(0xFFFAFAFA);
   static const Color surfaceColor = Color(0xFFFFFFFF);
-  static const Color textPrimary = Color(0xFF0F172A);
-  static const Color textSecondary = Color(0xFF475569);
+  static const Color textPrimary = Color(0xFF1E293B);
+  static const Color textSecondary = Color(0xFF64748B);
   static const Color textTertiary = Color(0xFF94A3B8);
   static const Color borderColor = Color(0xFFE2E8F0);
   
@@ -62,13 +64,13 @@ class AppTheme {
 
   // Helper for gradients
   static LinearGradient primaryGradient = const LinearGradient(
-    colors: [primaryColor, secondaryColor],
+    colors: [Color(0xFF2563EB), Color(0xFF3B82F6)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static LinearGradient accentGradient = const LinearGradient(
-    colors: [accentColor, Color(0xFFFB7185)],
+    colors: [Color(0xFF0EA5E9), Color(0xFF60A5FA)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

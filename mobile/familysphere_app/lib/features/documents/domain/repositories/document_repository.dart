@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:familysphere_app/features/documents/domain/entities/document_entity.dart';
+import 'package:familysphere_app/features/documents/domain/entities/folder_entity.dart';
 
 /// Document Repository Interface
 /// 
@@ -44,11 +45,30 @@ abstract class DocumentRepository {
     String? memberId,
   });
 
+  /// Get folder details with metadata for a vault category
+  Future<List<FolderEntity>> getFolderDetails({
+    required String familyId,
+    required String category,
+    String? memberId,
+  });
+
   /// Create a custom folder inside a vault category
   Future<void> createFolder({
     required String familyId,
     required String category,
     required String name,
+    String? memberId,
+  });
+
+  /// Delete a custom folder
+  /// 
+  /// [folderId] - ID of the folder to delete
+  /// Additional parameters for built-in folder handling
+  Future<void> deleteFolder({
+    required String folderId,
+    String? folderName,
+    String? familyId,
+    String? category,
     String? memberId,
   });
 
@@ -65,4 +85,25 @@ abstract class DocumentRepository {
   /// 
   /// Returns path to local file
   Future<String> downloadDocument(DocumentEntity document);
+
+  /// Get trashed documents for a family
+  /// 
+  /// [familyId] - ID of the family
+  Future<List<DocumentEntity>> getTrashedDocuments({
+    required String familyId,
+  });
+
+  /// Restore a document from trash
+  /// 
+  /// [documentId] - ID of document to restore
+  Future<DocumentEntity> restoreDocument({
+    required String documentId,
+  });
+
+  /// Permanently delete a document
+  /// 
+  /// [documentId] - ID of document to permanently delete
+  Future<void> permanentlyDeleteDocument({
+    required String documentId,
+  });
 }

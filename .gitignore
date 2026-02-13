@@ -1,0 +1,67 @@
+# Root-level .gitignore for FamilySphere
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+*.env
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Build outputs
+dist/
+build/
+out/
+
+# Dependency directories
+node_modules/
+
+# Database outputs and test files
+db-output*.txt
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Archives
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z

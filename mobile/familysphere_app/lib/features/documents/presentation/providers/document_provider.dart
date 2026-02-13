@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/features/documents/domain/entities/document_entity.dart';
+import 'package:familysphere_app/features/documents/domain/entities/folder_entity.dart';
 import 'package:familysphere_app/features/documents/domain/usecases/upload_document.dart';
 import 'package:familysphere_app/features/documents/domain/usecases/get_documents.dart';
 import 'package:familysphere_app/features/documents/domain/usecases/delete_document.dart';
@@ -43,6 +44,7 @@ final downloadDocumentUseCaseProvider = Provider((ref) {
 class DocumentState {
   final List<DocumentEntity> documents;
   final List<String> folders;
+  final Map<String, List<FolderEntity>> folderDetailsCache;
   final bool isLoading;
   final String? error;
   final double? uploadProgress; 
@@ -52,6 +54,7 @@ class DocumentState {
   const DocumentState({
     this.documents = const [],
     this.folders = const [],
+    this.folderDetailsCache = const {},
     this.isLoading = false,
     this.error,
     this.uploadProgress,
@@ -64,6 +67,7 @@ class DocumentState {
   DocumentState copyWith({
     List<DocumentEntity>? documents,
     List<String>? folders,
+    Map<String, List<FolderEntity>>? folderDetailsCache,
     bool? isLoading,
     String? error,
     double? uploadProgress,
@@ -73,6 +77,7 @@ class DocumentState {
     return DocumentState(
       documents: documents ?? this.documents,
       folders: folders ?? this.folders,
+      folderDetailsCache: folderDetailsCache ?? this.folderDetailsCache,
       isLoading: isLoading ?? this.isLoading,
       error: error,
       uploadProgress: uploadProgress ?? this.uploadProgress,
@@ -89,6 +94,13 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
   final GetDocuments _getDocuments;
   final DeleteDocument _deleteDocument;
   final DownloadDocument _downloadDocument;
+  bool _isLoadingDocuments = false;
+  String? _activeDocumentsQueryKey;
+  String? _lastLoadedDocumentsQueryKey;
+  int _documentsRequestSeq = 0;
+  final Map<String, List<DocumentEntity>> _documentsByQueryCache = <String, List<DocumentEntity>>{};
+  final Map<String, DateTime> _documentsCacheAt = <String, DateTime>{};
+  final Set<String> _loadingFolderKeys = <String>{};
 
   DocumentNotifier(
     this._ref, {
@@ -112,11 +124,34 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
       return;
     }
 
+    final queryKey = '${user.familyId}|${category ?? ''}|${folder ?? ''}|${memberId ?? ''}';
+    if (_isLoadingDocuments && _activeDocumentsQueryKey == queryKey) {
+      return;
+    }
+    final cachedDocs = _documentsByQueryCache[queryKey];
+    final cachedAt = _documentsCacheAt[queryKey];
+    if (cachedDocs != null &&
+        cachedAt != null &&
+        DateTime.now().difference(cachedAt).inSeconds < 20) {
+      state = state.copyWith(
+        documents: cachedDocs,
+        isLoading: false,
+        error: null,
+      );
+      _lastLoadedDocumentsQueryKey = queryKey;
+      return;
+    }
+    final requestSeq = ++_documentsRequestSeq;
+    final isQueryChanged = _lastLoadedDocumentsQueryKey != queryKey;
+
     if (kDebugMode) {
       debugPrint('DocumentNotifier: Loading documents. FamilyId: ${user.familyId}, Category: $category, Folder: $folder, MemberId: $memberId');
     }
+    _isLoadingDocuments = true;
+    _activeDocumentsQueryKey = queryKey;
     state = state.copyWith(
-      isLoading: state.documents.isEmpty,
+      isLoading: true,
+      documents: isQueryChanged ? const <DocumentEntity>[] : state.documents,
       error: null,
     );
     try {
@@ -126,11 +161,16 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
         folder: folder,
         memberId: memberId,
       );
+      if (requestSeq != _documentsRequestSeq) {
+        return;
+      }
       final requestedCanonical = _canonicalCategory(category);
       final fetchedDocs = List<DocumentEntity>.from(result['documents']);
       final filteredDocs = requestedCanonical == null
           ? fetchedDocs
           : fetchedDocs.where((doc) => _canonicalCategory(doc.category) == requestedCanonical).toList();
+      _documentsByQueryCache[queryKey] = filteredDocs;
+      _documentsCacheAt[queryKey] = DateTime.now();
       if (kDebugMode) {
         debugPrint('DocumentNotifier: Loaded ${fetchedDocs.length} documents, kept ${filteredDocs.length} after category guard');
       }
@@ -140,11 +180,20 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
         storageLimit: result['storageLimit'],
         isLoading: false,
       );
+      _lastLoadedDocumentsQueryKey = queryKey;
     } catch (e) {
+      if (requestSeq != _documentsRequestSeq) {
+        return;
+      }
       if (kDebugMode) {
         debugPrint('DocumentNotifier: Error loading documents: $e');
       }
       state = state.copyWith(isLoading: false, error: e.toString());
+    } finally {
+      if (requestSeq == _documentsRequestSeq) {
+        _isLoadingDocuments = false;
+        _activeDocumentsQueryKey = null;
+      }
     }
   }
 
@@ -199,6 +248,8 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
         storageUsed: state.storageUsed + (newDoc.sizeBytes).toInt(),
         isLoading: false,
       );
+      _documentsByQueryCache.clear();
+      _documentsCacheAt.clear();
     } catch (e) {
       if (kDebugMode) {
         debugPrint('DocumentNotifier: Upload error: $e');
@@ -223,6 +274,8 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
       await _deleteDocument(
         documentId: document.id,
       );
+      _documentsByQueryCache.clear();
+      _documentsCacheAt.clear();
     } catch (e) {
       // Revert if failed
       state = state.copyWith(
@@ -246,6 +299,9 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
   Future<void> loadFolders({required String category, String? memberId}) async {
     final user = _ref.read(authProvider).user;
     if (user == null || user.familyId == null) return;
+    final folderKey = '${user.familyId}|$category|${memberId ?? ''}';
+    if (_loadingFolderKeys.contains(folderKey)) return;
+    _loadingFolderKeys.add(folderKey);
     try {
       final repository = _ref.read(documentRepositoryProvider);
       final folders = await repository.getFolders(
@@ -253,10 +309,29 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
         category: category,
         memberId: memberId,
       );
-      state = state.copyWith(folders: folders);
+      // Also load folder details
+      final folderDetails = await repository.getFolderDetails(
+        familyId: user.familyId!,
+        category: category,
+        memberId: memberId,
+      );
+      final newCache = Map<String, List<FolderEntity>>.from(state.folderDetailsCache);
+      newCache[folderKey] = folderDetails;
+      if (!listEquals(state.folders, folders) || state.error != null) {
+        state = state.copyWith(folders: folders, folderDetailsCache: newCache, error: null);
+      }
     } catch (e) {
       state = state.copyWith(error: 'Failed to load folders: $e');
+    } finally {
+      _loadingFolderKeys.remove(folderKey);
     }
+  }
+
+  List<FolderEntity>? getFolderDetails({required String category, String? memberId}) {
+    final user = _ref.read(authProvider).user;
+    if (user == null || user.familyId == null) return null;
+    final folderKey = '${user.familyId}|$category|${memberId ?? ''}';
+    return state.folderDetailsCache[folderKey];
   }
 
   Future<void> createFolder({
@@ -281,6 +356,29 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
     }
   }
 
+  Future<void> deleteFolder({
+    required String folderId,
+    required String category,
+    String? folderName,
+    String? familyId,
+    String? memberId,
+  }) async {
+    try {
+      final repository = _ref.read(documentRepositoryProvider);
+      await repository.deleteFolder(
+        folderId: folderId,
+        folderName: folderName,
+        familyId: familyId,
+        category: category,
+        memberId: memberId,
+      );
+      await loadFolders(category: category, memberId: memberId);
+    } catch (e) {
+      state = state.copyWith(error: 'Failed to delete folder: $e');
+      rethrow;
+    }
+  }
+
   Future<void> moveDocumentToFolder({
     required DocumentEntity document,
     required String folder,
@@ -297,6 +395,8 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
           .map((d) => d.id == document.id ? updated : d)
           .toList();
       state = state.copyWith(documents: newDocs);
+      _documentsByQueryCache.clear();
+      _documentsCacheAt.clear();
     } catch (e) {
       state = state.copyWith(error: 'Failed to move document: $e');
       rethrow;

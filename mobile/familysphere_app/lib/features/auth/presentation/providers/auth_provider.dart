@@ -106,14 +106,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Check if user is already logged in
   Future<void> checkAuthStatus() async {
     try {
-      // ignore: avoid_print
-      print('AuthNotifier: checkAuthStatus called at ${DateTime.now()}');
-      
       // Fast path: Check local storage first
       final localUser = await _getLocalUser.call();
       if (localUser != null) {
-        // ignore: avoid_print
-        print('AuthNotifier: Found local user, transitioning immediately at ${DateTime.now()}');
         state = AuthState.authenticated(localUser);
         
         // Quietly refresh in background
@@ -127,17 +122,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // Since it's a cold start with no cache, we should wait for a real check
       final user = await _getCurrentUser.call();
       if (user != null) {
-        // ignore: avoid_print
-        print('AuthNotifier: User found from backend at ${DateTime.now()}');
         state = AuthState.authenticated(user);
       } else {
-        // ignore: avoid_print
-        print('AuthNotifier: No user found at ${DateTime.now()}');
         state = AuthState.initial();
       }
     } catch (e) {
-      // ignore: avoid_print
-      print('Auth check error: $e');
       state = AuthState.initial();
     }
   }

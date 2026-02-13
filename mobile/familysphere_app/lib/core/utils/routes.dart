@@ -10,6 +10,7 @@ import 'package:familysphere_app/features/home/presentation/screens/main_navigat
 import 'package:familysphere_app/features/documents/presentation/screens/document_list_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/add_document_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/document_viewer_screen.dart';
+import 'package:familysphere_app/features/documents/presentation/screens/scanner_screen.dart';
 import 'package:familysphere_app/features/documents/domain/entities/document_entity.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/auth_checker.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/phone_login_screen.dart';
@@ -96,6 +97,13 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => DocumentViewerScreen(document: document));
 
       case scanner:
+        final args = settings.arguments;
+        bool returnOnly = false;
+        if (args is Map && args['returnOnly'] is bool) {
+          returnOnly = args['returnOnly'] as bool;
+        }
+        return MaterialPageRoute(builder: (_) => ScannerScreen(returnOnly: returnOnly));
+
       case imageProcess:
       case folderDetails:
       case memberDocs:

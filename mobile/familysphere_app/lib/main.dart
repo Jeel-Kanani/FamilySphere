@@ -40,13 +40,6 @@ class FamilySphereApp extends ConsumerWidget {
         themeMode: themeMode,
         onGenerateRoute: AppRoutes.generateRoute,
         home: const AuthChecker(),
-        // Custom page transition animations
-        builder: (context, child) {
-          return AnimatedSwitcher(
-            duration: AppTheme.fastAnimation,
-            child: child,
-          );
-        },
       ),
     );
   }

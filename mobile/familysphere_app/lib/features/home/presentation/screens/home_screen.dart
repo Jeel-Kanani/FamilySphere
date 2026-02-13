@@ -14,17 +14,24 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  static const Color _pageBackground = Color(0xFFF8FAFC);
+  static const Color _pageBackground = Color(0xFFFAFAFA);
   static const Color _cardColor = Colors.white;
-  static const Color _cardColorAlt = Color(0xFFF1F5F9);
-  static const Color _actionBlue = Color(0xFF2D8CFF);
+  static const Color _primaryBlue = Color(0xFF2563EB);
+  static const Color _lightBlue = Color(0xFFEFF6FF);
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(familyProvider.notifier).loadFamily();
-      ref.read(documentProvider.notifier).loadDocuments();
+      final familyState = ref.read(familyProvider);
+      if (!familyState.isLoading && familyState.members.isEmpty) {
+        ref.read(familyProvider.notifier).loadFamily();
+      }
+
+      final docState = ref.read(documentProvider);
+      if (!docState.isLoading && docState.documents.isEmpty) {
+        ref.read(documentProvider.notifier).loadDocuments();
+      }
     });
   }
 
@@ -57,7 +64,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       context,
                       title: 'Scan Document',
                       icon: Icons.document_scanner_rounded,
-                      color: _actionBlue,
+                      color: _primaryBlue,
                       onTap: () => Navigator.pushNamed(context, AppRoutes.scanner),
                     ),
                   ),
@@ -67,7 +74,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       context,
                       title: 'Upload File',
                       icon: Icons.cloud_upload_rounded,
-                      color: _cardColorAlt,
+                      color: _lightBlue,
                       onTap: () => Navigator.pushNamed(context, AppRoutes.addDocument),
                     ),
                   ),
@@ -83,15 +90,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-              SizedBox(
-                height: 138,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: members.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (context, index) => _buildMemberCard(context, members[index]),
+              if (familyState.isLoading && familyState.members.isEmpty)
+                const SizedBox(
+                  height: 138,
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (members.isEmpty)
+                Container(
+                  height: 90,
+                  width: double.infinity,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _cardColor,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusL),
+                    border: Border.all(color: AppTheme.borderColor),
+                  ),
+                  child: const Text(
+                    'No family members found',
+                    style: TextStyle(color: AppTheme.textSecondary),
+                  ),
+                )
+              else
+                SizedBox(
+                  height: 138,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: members.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 12),
+                    itemBuilder: (context, index) => _buildMemberCard(context, members[index]),
+                  ),
                 ),
-              ),
               const SizedBox(height: 26),
               _buildSectionTitle(
                 context,
@@ -122,14 +150,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Row(
       children: [
         Container(
-          height: 44,
-          width: 44,
+          height: 50,
+          width: 50,
           decoration: BoxDecoration(
-            color: _cardColorAlt,
-            borderRadius: BorderRadius.circular(AppTheme.radiusL),
-            border: Border.all(color: AppTheme.borderColor),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF2563EB), Color(0xFF3B82F6)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          child: const Icon(Icons.group_rounded, color: AppTheme.primaryColor),
+          child: const Icon(Icons.group_rounded, color: Colors.white, size: 26),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -188,9 +226,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         if (trailing != null)
           DefaultTextStyle(
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: _actionBlue,
+                  color: _primaryBlue,
+                  fontWeight: FontWeight.w600,
                 ) ??
-                const TextStyle(color: _actionBlue),
+                const TextStyle(color: _primaryBlue),
             child: trailing,
           ),
       ],
@@ -204,33 +243,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    final textColor = color == _cardColorAlt ? AppTheme.textPrimary : Colors.white;
+    final isBlue = color == _primaryBlue;
+    final textColor = isBlue ? Colors.white : _primaryBlue;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-          border: color == _cardColorAlt ? Border.all(color: AppTheme.borderColor) : null,
+          borderRadius: BorderRadius.circular(16),
+          border: !isBlue ? Border.all(color: AppTheme.borderColor) : null,
+          boxShadow: isBlue
+              ? [
+                  BoxShadow(
+                    color: _primaryBlue.withValues(alpha: 0.25),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ]
+              : null,
         ),
         child: SizedBox(
-          height: 110,
+          height: 90,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: color == _cardColorAlt
-                      ? AppTheme.primaryColor.withValues(alpha: 0.12)
-                      : Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                  color: isBlue
+                      ? Colors.white.withValues(alpha: 0.2)
+                      : _primaryBlue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   icon,
-                  color: color == _cardColorAlt ? AppTheme.primaryColor : Colors.white,
+                  color: isBlue ? Colors.white : _primaryBlue,
+                  size: 24,
                 ),
               ),
               const Spacer(),
@@ -238,7 +288,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 title,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       color: textColor,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
               ),
             ],
@@ -372,12 +422,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }).toList();
     }
 
-    return const [
-      _MemberCardData(name: 'Dad', subtitle: 'Admin', isOnline: true),
-      _MemberCardData(name: 'Mom', subtitle: 'Member', isOnline: false),
-      _MemberCardData(name: 'Brother', subtitle: 'Member', isOnline: false),
-      _MemberCardData(name: 'Sister', subtitle: 'Member', isOnline: false),
-    ];
+    return const [];
   }
 
   List<_DocumentCardData> _buildDocumentCards(DocumentState documentsState) {
@@ -392,29 +437,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         title: 'Identity Proofs',
         subtitle: '$identityCount Documents',
         icon: Icons.badge_rounded,
-        iconColor: const Color(0xFF3B82F6),
-        iconBackground: const Color(0xFF1E3A8A),
+        iconColor: const Color(0xFF2563EB),
+        iconBackground: const Color(0xFFEFF6FF),
       ),
       _DocumentCardData(
         title: 'Insurance Policies',
         subtitle: '$insuranceCount Documents',
         icon: Icons.shield_rounded,
-        iconColor: const Color(0xFF22C55E),
-        iconBackground: const Color(0xFF14532D),
+        iconColor: const Color(0xFF10B981),
+        iconBackground: const Color(0xFFECFDF5),
       ),
       _DocumentCardData(
         title: 'Utility Bills',
         subtitle: '$utilityCount Documents',
         icon: Icons.receipt_long_rounded,
         iconColor: const Color(0xFFF97316),
-        iconBackground: const Color(0xFF7C2D12),
+        iconBackground: const Color(0xFFFFF7ED),
       ),
       _DocumentCardData(
         title: 'Property Docs',
         subtitle: '$propertyCount Documents',
         icon: Icons.home_work_rounded,
-        iconColor: const Color(0xFF8B5CF6),
-        iconBackground: const Color(0xFF4C1D95),
+        iconColor: const Color(0xFF3B82F6),
+        iconBackground: const Color(0xFFDBEAFE),
       ),
     ];
   }

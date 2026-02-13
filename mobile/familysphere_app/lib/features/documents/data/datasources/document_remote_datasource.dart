@@ -27,7 +27,7 @@ class DocumentRemoteDataSource {
       if (memberId != null) 'memberId': memberId,
       'file': await MultipartFile.fromFile(
         file.path,
-        filename: file.path.split('/').last,
+        filename: file.path.split(RegExp(r'[\\/]')).last,
       ),
     });
 
@@ -85,6 +85,24 @@ class DocumentRemoteDataSource {
     return folders;
   }
 
+  Future<List<Map<String, dynamic>>> getFolderDetails({
+    required String familyId,
+    required String category,
+    String? memberId,
+  }) async {
+    final response = await _apiClient.get(
+      '/api/documents/folders/$familyId',
+      queryParameters: {
+        'category': category,
+        if (memberId != null) 'memberId': memberId,
+      },
+    );
+    final folderDetails = (response.data['folderDetails'] as List<dynamic>? ?? const [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+    return folderDetails;
+  }
+
   Future<void> createFolder({
     required String familyId,
     required String category,
@@ -102,6 +120,24 @@ class DocumentRemoteDataSource {
     );
   }
 
+  Future<void> deleteFolder({
+    required String folderId,
+    String? folderName,
+    String? familyId,
+    String? category,
+    String? memberId,
+  }) async {
+    await _apiClient.delete(
+      '/api/documents/folders/$folderId',
+      data: {
+        if (folderName != null) 'folderName': folderName,
+        if (familyId != null) 'familyId': familyId,
+        if (category != null) 'category': category,
+        if (memberId != null) 'memberId': memberId,
+      },
+    );
+  }
+
   Future<DocumentModel> moveDocumentToFolder({
     required String documentId,
     required String folder,
@@ -115,5 +151,31 @@ class DocumentRemoteDataSource {
       },
     );
     return DocumentModel.fromJson(response.data);
+  }
+
+  /// Get trashed documents
+  Future<List<DocumentModel>> getTrashedDocuments({
+    required String familyId,
+  }) async {
+    final response = await _apiClient.get('/api/documents/trash/$familyId');
+    final documents = (response.data['documents'] as List<dynamic>? ?? const [])
+        .map((json) => DocumentModel.fromJson(json))
+        .toList();
+    return documents;
+  }
+
+  /// Restore document from trash
+  Future<DocumentModel> restoreDocument({
+    required String documentId,
+  }) async {
+    final response = await _apiClient.patch('/api/documents/$documentId/restore');
+    return DocumentModel.fromJson(response.data['document']);
+  }
+
+  /// Permanently delete document
+  Future<void> permanentlyDeleteDocument({
+    required String documentId,
+  }) async {
+    await _apiClient.delete('/api/documents/$documentId/permanent');
   }
 }
