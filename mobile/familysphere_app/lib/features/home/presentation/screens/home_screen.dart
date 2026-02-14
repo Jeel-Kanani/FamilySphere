@@ -14,48 +14,37 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  static const Color _pageBackground = Color(0xFFFAFAFA);
-  static const Color _cardColor = Colors.white;
-  static const Color _primaryBlue = Color(0xFF2563EB);
-  static const Color _lightBlue = Color(0xFFEFF6FF);
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final familyState = ref.read(familyProvider);
-      if (!familyState.isLoading && familyState.members.isEmpty) {
-        ref.read(familyProvider.notifier).loadFamily();
-      }
-
-      final docState = ref.read(documentProvider);
-      if (!docState.isLoading && docState.documents.isEmpty) {
-        ref.read(documentProvider.notifier).loadDocuments();
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
     final familyState = ref.watch(familyProvider);
     final documentsState = ref.watch(documentProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     final displayName = user?.displayName ?? 'User';
     final familyName = familyState.family?.name ?? '${displayName} Family';
     final members = _buildMemberCards(familyState);
     final docCards = _buildDocumentCards(documentsState);
 
+    final pageBackground = isDark ? AppTheme.darkBackground : AppTheme.backgroundColor;
+    final cardColor = isDark ? AppTheme.darkSurface : Colors.white;
+    final primaryBlue = AppTheme.primaryColor;
+    final lightBlue = isDark ? AppTheme.darkSurfaceVariant : const Color(0xFFEFF6FF);
+    final borderColor = isDark ? AppTheme.darkBorder : AppTheme.borderColor;
+    final textSecondary = isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary;
+    final textPrimary = isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary;
+
     return Scaffold(
-      backgroundColor: _pageBackground,
+      backgroundColor: pageBackground,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(context, familyName),
+              _buildHeader(context, familyName, cardColor, borderColor, textPrimary, textSecondary),
               const SizedBox(height: 24),
-              _buildSectionTitle(context, title: 'Quick Actions'),
+              _buildSectionTitle(context, title: 'Quick Actions', textSecondary: textSecondary),
               const SizedBox(height: 14),
               Row(
                 children: [
@@ -64,7 +53,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       context,
                       title: 'Scan Document',
                       icon: Icons.document_scanner_rounded,
-                      color: _primaryBlue,
+                      color: primaryBlue,
+                      borderColor: borderColor,
                       onTap: () => Navigator.pushNamed(context, AppRoutes.scanner),
                     ),
                   ),
@@ -74,7 +64,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       context,
                       title: 'Upload File',
                       icon: Icons.cloud_upload_rounded,
-                      color: _lightBlue,
+                      color: lightBlue,
+                      borderColor: borderColor,
                       onTap: () => Navigator.pushNamed(context, AppRoutes.addDocument),
                     ),
                   ),
@@ -84,9 +75,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               _buildSectionTitle(
                 context,
                 title: 'Family Members',
+                textSecondary: textSecondary,
                 trailing: TextButton(
                   onPressed: () => Navigator.pushNamed(context, AppRoutes.familyDetails),
-                  child: const Text('Manage'),
+                  child: Text('Manage', style: TextStyle(color: primaryBlue)),
                 ),
               ),
               const SizedBox(height: 14),
@@ -101,13 +93,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   width: double.infinity,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: _cardColor,
+                    color: cardColor,
                     borderRadius: BorderRadius.circular(AppTheme.radiusL),
-                    border: Border.all(color: AppTheme.borderColor),
+                    border: Border.all(color: borderColor),
                   ),
-                  child: const Text(
+                  child: Text(
                     'No family members found',
-                    style: TextStyle(color: AppTheme.textSecondary),
+                    style: TextStyle(color: textSecondary),
                   ),
                 )
               else
@@ -117,16 +109,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     scrollDirection: Axis.horizontal,
                     itemCount: members.length,
                     separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) => _buildMemberCard(context, members[index]),
+                    itemBuilder: (context, index) => _buildMemberCard(context, members[index], textPrimary, cardColor),
                   ),
                 ),
               const SizedBox(height: 26),
               _buildSectionTitle(
                 context,
                 title: 'Common Documents',
+                textSecondary: textSecondary,
                 trailing: TextButton(
                   onPressed: () => Navigator.pushNamed(context, AppRoutes.documents),
-                  child: const Text('See All'),
+                  child: Text('See All', style: TextStyle(color: primaryBlue)),
                 ),
               ),
               const SizedBox(height: 14),
@@ -137,7 +130,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 crossAxisSpacing: 12,
                 physics: const NeverScrollableScrollPhysics(),
                 childAspectRatio: 1.1,
-                children: docCards.map((item) => _buildDocumentCard(context, item)).toList(),
+                children: docCards.map((item) => _buildDocumentCard(context, item, cardColor, borderColor, textPrimary, textSecondary)).toList(),
               ),
             ],
           ),
@@ -146,7 +139,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context, String familyName) {
+  Widget _buildHeader(BuildContext context, String familyName, Color cardColor, Color borderColor, Color textPrimary, Color textSecondary) {
     return Row(
       children: [
         Container(
@@ -177,14 +170,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Text(
                 'Good morning,',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.textSecondary,
+                      color: textSecondary,
                     ),
               ),
               const SizedBox(height: 2),
               Text(
                 familyName,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppTheme.textPrimary,
+                      color: textPrimary,
                       fontWeight: FontWeight.bold,
                     ),
               ),
@@ -193,13 +186,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         Container(
           decoration: BoxDecoration(
-            color: _cardColor,
+            color: cardColor,
             borderRadius: BorderRadius.circular(AppTheme.radiusL),
-            border: Border.all(color: AppTheme.borderColor),
+            border: Border.all(color: borderColor),
           ),
           child: IconButton(
             icon: const Icon(Icons.notifications_rounded),
-            color: AppTheme.textPrimary,
+            color: textPrimary,
             onPressed: () {},
           ),
         ),
@@ -210,6 +203,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildSectionTitle(
     BuildContext context, {
     required String title,
+    required Color textSecondary,
     Widget? trailing,
   }) {
     return Row(
@@ -218,7 +212,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Text(
           title.toUpperCase(),
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: AppTheme.textSecondary,
+                color: textSecondary,
                 letterSpacing: 1.0,
                 fontWeight: FontWeight.w600,
               ),
@@ -226,10 +220,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         if (trailing != null)
           DefaultTextStyle(
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: _primaryBlue,
+                  color: AppTheme.primaryColor,
                   fontWeight: FontWeight.w600,
                 ) ??
-                const TextStyle(color: _primaryBlue),
+                const TextStyle(color: AppTheme.primaryColor),
             child: trailing,
           ),
       ],
@@ -241,10 +235,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required String title,
     required IconData icon,
     required Color color,
+    required Color borderColor,
     required VoidCallback onTap,
   }) {
-    final isBlue = color == _primaryBlue;
-    final textColor = isBlue ? Colors.white : _primaryBlue;
+    final isPrimary = color == AppTheme.primaryColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isPrimary ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.primaryColor);
+    final iconColor = isPrimary ? Colors.white : AppTheme.primaryColor;
+    final iconBg = isPrimary 
+        ? Colors.white.withValues(alpha: 0.2) 
+        : AppTheme.primaryColor.withValues(alpha: 0.1);
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -253,11 +254,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(16),
-          border: !isBlue ? Border.all(color: AppTheme.borderColor) : null,
-          boxShadow: isBlue
+          border: !isPrimary ? Border.all(color: borderColor) : null,
+          boxShadow: isPrimary
               ? [
                   BoxShadow(
-                    color: _primaryBlue.withValues(alpha: 0.25),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.25),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
@@ -272,14 +273,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: isBlue
-                      ? Colors.white.withValues(alpha: 0.2)
-                      : _primaryBlue.withValues(alpha: 0.1),
+                  color: iconBg,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   icon,
-                  color: isBlue ? Colors.white : _primaryBlue,
+                  color: iconColor,
                   size: 24,
                 ),
               ),
@@ -298,7 +297,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildMemberCard(BuildContext context, _MemberCardData member) {
+  Widget _buildMemberCard(BuildContext context, _MemberCardData member, Color textPrimary, Color cardColor) {
     return SizedBox(
       width: 92,
       child: Column(
@@ -310,7 +309,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 width: 66,
                 height: 66,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: cardColor,
                   shape: BoxShape.circle,
                   border: Border.all(color: AppTheme.primaryColor, width: 2),
                   boxShadow: [
@@ -341,7 +340,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     decoration: BoxDecoration(
                       color: const Color(0xFF22C55E),
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
+                      border: Border.all(color: cardColor, width: 2),
                     ),
                   ),
                 ),
@@ -351,7 +350,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Text(
             member.name,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.textPrimary,
+                  color: textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
             maxLines: 1,
@@ -371,13 +370,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildDocumentCard(BuildContext context, _DocumentCardData item) {
+  Widget _buildDocumentCard(BuildContext context, _DocumentCardData item, Color cardColor, Color borderColor, Color textPrimary, Color textSecondary) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _cardColor,
+        color: cardColor,
         borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-        border: Border.all(color: AppTheme.borderColor),
+        border: Border.all(color: borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -394,7 +393,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Text(
             item.title,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.textPrimary,
+                  color: textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
           ),
@@ -402,7 +401,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Text(
             item.subtitle,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppTheme.textSecondary,
+                  color: textSecondary,
                 ),
           ),
         ],

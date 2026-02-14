@@ -245,7 +245,53 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
 
-              const SizedBox(height: 28),
+              const SizedBox(height: 32),
+
+              Text(
+                'Preferences',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkSurface : Colors.white,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusL),
+                  border: Border.all(
+                    color: isDark ? AppTheme.darkBorder : AppTheme.borderColor,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      value: ref.watch(themeModeProvider) == ThemeMode.dark,
+                      onChanged: (value) {
+                        ref.read(themeModeProvider.notifier).toggleTheme();
+                      },
+                      title: Text(
+                        'Dark Theme',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      subtitle: Text(
+                        'Enable dark mode for all screens',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      secondary: Icon(
+                        isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                        color: isDark ? AppTheme.accentColor : AppTheme.warningColor,
+                      ),
+                      activeColor: AppTheme.primaryColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusL),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 32),
 
               OutlinedButton.icon(
                 onPressed: _confirmSignOut,

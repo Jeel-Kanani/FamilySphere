@@ -1111,7 +1111,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
     final imageTools = [
       _LabToolData(icon: Icons.photo_size_select_small_rounded, label: 'Compress'),
       _LabToolData(icon: Icons.aspect_ratio_rounded, label: 'Resize', route: '/image-resize'),
-      _LabToolData(icon: Icons.crop_rounded, label: 'Crop Image'),
+      _LabToolData(icon: Icons.crop_rounded, label: 'Crop Image', route: '/crop-image'),
       _LabToolData(icon: Icons.transform_rounded, label: 'Convert'),
       _LabToolData(icon: Icons.picture_as_pdf_rounded, label: 'Image to PDF', route: '/image-process'),
       _LabToolData(icon: Icons.auto_fix_high_rounded, label: 'BG Remover'),
