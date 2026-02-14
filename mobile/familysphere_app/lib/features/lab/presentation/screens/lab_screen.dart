@@ -1091,8 +1091,9 @@ class _LabScreenState extends ConsumerState<LabScreen> {
       _LabToolData(icon: Icons.call_split_rounded, label: 'Split PDF', route: '/split-pdf'),
       _LabToolData(icon: Icons.compress_rounded, label: 'Compress'),
       _LabToolData(icon: Icons.text_snippet_rounded, label: 'To Word'),
-      _LabToolData(icon: Icons.lock_rounded, label: 'Protect'),
+      _LabToolData(icon: Icons.lock_rounded, label: 'Protect', route: '/protect-pdf'),
       _LabToolData(icon: Icons.rotate_right_rounded, label: 'Rotate'),
+      _LabToolData(icon: Icons.lock_open_rounded, label: 'Unlock PDF', route: '/unlock-pdf'),
     ];
 
     return _buildToolGridSection(

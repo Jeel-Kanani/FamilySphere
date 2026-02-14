@@ -12,6 +12,7 @@ class MergeResultSheet extends StatelessWidget {
     this.outputSizeBytes,
     this.outputFileName,
     this.successTitle,
+    this.errorTitle,
     this.errorMessage,
     this.onRetry,
     this.onDone,
@@ -22,6 +23,7 @@ class MergeResultSheet extends StatelessWidget {
   final int? outputSizeBytes;
   final String? outputFileName;
   final String? successTitle;
+  final String? errorTitle;
   final String? errorMessage;
   final VoidCallback? onRetry;
   final VoidCallback? onDone;
@@ -57,6 +59,7 @@ class MergeResultSheet extends StatelessWidget {
     required String errorMessage,
     required VoidCallback onRetry,
     required VoidCallback onDone,
+    String? errorTitle,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -65,6 +68,7 @@ class MergeResultSheet extends StatelessWidget {
       builder: (_) => MergeResultSheet._(
         isSuccess: false,
         errorMessage: errorMessage,
+        errorTitle: errorTitle,
         onRetry: onRetry,
         onDone: onDone,
       ),
@@ -243,7 +247,7 @@ class MergeResultSheet extends StatelessWidget {
 
         // Title
         Text(
-          'Couldn\'t Merge Files',
+          errorTitle ?? 'Couldn\'t Merge Files',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
