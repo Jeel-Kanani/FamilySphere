@@ -4,12 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/core/utils/routes.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/auth_checker.dart';
+import 'package:familysphere_app/features/lab/domain/services/lab_file_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Initialize Hive for local cache (if needed for documents, etc.)
   await Hive.initFlutter();
+  
+  // Clean up any leftover temp files from interrupted Lab operations
+  LabFileManager().cleanupAllTemp();
   
   runApp(
     // Wrap app with ProviderScope for Riverpod

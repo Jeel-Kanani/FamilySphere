@@ -13,6 +13,8 @@ import 'package:familysphere_app/features/documents/presentation/screens/documen
 import 'package:familysphere_app/features/documents/presentation/screens/scanner_screen.dart';
 import 'package:familysphere_app/features/documents/domain/entities/document_entity.dart';
 import 'package:familysphere_app/features/lab/presentation/screens/lab_screen.dart';
+import 'package:familysphere_app/features/lab/presentation/screens/merge_pdf_screen.dart';
+import 'package:familysphere_app/features/lab/presentation/screens/image_to_pdf_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/auth_checker.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/phone_login_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/otp_verification_screen.dart';
@@ -38,6 +40,7 @@ class AppRoutes {
   static const String otpVerification = '/otp-verification';
   static const String scanner = '/scanner';
   static const String lab = '/lab';
+  static const String mergePdf = '/merge-pdf';
   static const String imageProcess = '/image-process';
   static const String folderDetails = '/folder-details';
   static const String memberDocs = '/member-docs';
@@ -109,7 +112,12 @@ class AppRoutes {
       case lab:
         return MaterialPageRoute(builder: (_) => const LabScreen());
 
+      case mergePdf:
+        return MaterialPageRoute(builder: (_) => const MergePdfScreen());
+
       case imageProcess:
+        return MaterialPageRoute(builder: (_) => const ImageToPdfScreen());
+
       case folderDetails:
       case memberDocs:
       case privateLocker:

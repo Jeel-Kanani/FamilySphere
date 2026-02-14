@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
-import 'package:familysphere_app/features/documents/presentation/providers/document_provider.dart';
-import 'package:familysphere_app/features/documents/domain/entities/document_entity.dart';
+import 'package:familysphere_app/features/lab/presentation/providers/lab_recent_files_provider.dart';
+import 'package:familysphere_app/features/lab/domain/services/lab_file_manager.dart';
+import 'package:familysphere_app/features/vault/document_preview_screen.dart';
 
 class LabScreen extends ConsumerStatefulWidget {
   const LabScreen({super.key});
@@ -21,17 +22,14 @@ class _LabScreenState extends ConsumerState<LabScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final docState = ref.read(documentProvider);
-      if (!docState.isLoading && docState.documents.isEmpty) {
-        ref.read(documentProvider.notifier).loadDocuments();
-      }
+      ref.read(labRecentFilesProvider.notifier).refresh();
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final documentsState = ref.watch(documentProvider);
+    final labRecentFiles = ref.watch(labRecentFilesProvider);
 
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkBackground : _pageBackground,
@@ -51,8 +49,8 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                     // Search Bar
                     _buildSearchBar(context, isDark),
 
-                    // Recent Files (dynamic from documentProvider)
-                    _buildRecentFilesSection(context, isDark, documentsState),
+                    // Recent Files (from Lab tool outputs)
+                    _buildRecentFilesSection(context, isDark, labRecentFiles),
 
                     // PDF Lab
                     _buildPdfLabSection(context, isDark),
@@ -248,12 +246,9 @@ class _LabScreenState extends ConsumerState<LabScreen> {
   Widget _buildRecentFilesSection(
     BuildContext context,
     bool isDark,
-    DocumentState documentsState,
+    List<LabRecentFile> recentFiles,
   ) {
-    // Sort documents by upload date (most recent first) and take up to 10
-    final recentDocs = List<DocumentEntity>.from(documentsState.documents)
-      ..sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
-    final displayDocs = recentDocs.take(10).toList();
+    final displayFiles = recentFiles.take(10).toList();
 
     return Padding(
       padding: const EdgeInsets.only(top: 16),
@@ -272,16 +267,10 @@ class _LabScreenState extends ConsumerState<LabScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Loading state
-          if (documentsState.isLoading && documentsState.documents.isEmpty)
-            const SizedBox(
-              height: 170,
-              child: Center(child: CircularProgressIndicator()),
-            )
           // Empty state
-          else if (displayDocs.isEmpty)
+          if (displayFiles.isEmpty)
             _buildEmptyRecentFiles(context, isDark)
-          // Documents list
+          // Files list
           else
             SizedBox(
               height: 170,
@@ -289,10 +278,10 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 physics: const BouncingScrollPhysics(),
-                itemCount: displayDocs.length,
+                itemCount: displayFiles.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 14),
                 itemBuilder: (context, index) {
-                  return _buildRecentFileCard(context, displayDocs[index], isDark);
+                  return _buildLabRecentFileCard(context, displayFiles[index], isDark);
                 },
               ),
             ),
@@ -332,7 +321,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Your recently uploaded files will appear here',
+              'Files from Lab tools will appear here',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary,
                   ),
@@ -343,77 +332,117 @@ class _LabScreenState extends ConsumerState<LabScreen> {
     );
   }
 
-  Widget _buildRecentFileCard(
+  Widget _buildLabRecentFileCard(
     BuildContext context,
-    DocumentEntity doc,
+    LabRecentFile file,
     bool isDark,
   ) {
-    final iconInfo = _getFileIconInfo(doc.fileType, doc.title);
-    final isImage = _isImageFile(doc.fileType, doc.title);
+    // Determine icon based on file extension
+    final ext = file.fileName.split('.').last.toLowerCase();
+    final iconData = ext == 'pdf'
+        ? Icons.picture_as_pdf_rounded
+        : ext == 'jpg' || ext == 'jpeg' || ext == 'png' || ext == 'webp'
+            ? Icons.image_rounded
+            : Icons.insert_drive_file_rounded;
+    final iconColor = ext == 'pdf'
+        ? const Color(0xFFEF4444)
+        : const Color(0xFF2563EB);
+
+    // Time ago label
+    final diff = DateTime.now().difference(file.createdAt);
+    final timeLabel = diff.inMinutes < 1
+        ? 'Just now'
+        : diff.inMinutes < 60
+            ? '${diff.inMinutes}m ago'
+            : diff.inHours < 24
+                ? '${diff.inHours}h ago'
+                : diff.inDays < 7
+                    ? '${diff.inDays}d ago'
+                    : '${file.createdAt.day}/${file.createdAt.month}/${file.createdAt.year}';
 
     return GestureDetector(
       onTap: () {
-        // Navigate to document viewer
-        Navigator.pushNamed(context, '/document-viewer', arguments: doc);
+        // Open in the in-app PDF viewer
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DocumentPreviewScreen(documentUrl: file.filePath),
+          ),
+        );
       },
       child: SizedBox(
         width: 136,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Thumbnail
+            // Thumbnail area with icon and tool badge
             Container(
-              height: 130,
+              height: 110,
               width: 136,
               decoration: BoxDecoration(
-                color: isDark ? AppTheme.darkSurface : const Color(0xFFE2E8F0),
+                color: isDark ? AppTheme.darkSurface : const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(AppTheme.radiusL),
+                border: Border.all(
+                  color: isDark ? AppTheme.darkBorder : const Color(0xFFE2E8F0),
+                  width: 0.5,
+                ),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppTheme.radiusL),
-                child: isImage && doc.fileUrl.isNotEmpty
-                    ? Image.network(
-                        doc.fileUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Center(
-                          child: Icon(
-                            iconInfo.icon,
-                            size: 40,
-                            color: iconInfo.color,
-                          ),
-                        ),
-                        loadingBuilder: (_, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Center(
-                            child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
-                                  : null,
-                              strokeWidth: 2,
-                              color: _primaryBlue,
-                            ),
-                          );
-                        },
-                      )
-                    : Center(
-                        child: Icon(
-                          iconInfo.icon,
-                          size: 40,
-                          color: iconInfo.color,
+              child: Stack(
+                children: [
+                  Center(
+                    child: Icon(
+                      iconData,
+                      size: 40,
+                      color: iconColor,
+                    ),
+                  ),
+                  // Tool badge (top-right)
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _primaryBlue.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        file.toolLabel,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: _primaryBlue,
                         ),
                       ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             // File name
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
-                doc.title,
+                file.fileName,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w600,
                       color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                    ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(height: 2),
+            // Size + time
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                '${LabFileManager.formatFileSize(file.sizeBytes)} • $timeLabel',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary,
+                      fontSize: 10,
                     ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -429,7 +458,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
 
   Widget _buildPdfLabSection(BuildContext context, bool isDark) {
     final pdfTools = [
-      _LabToolData(icon: Icons.call_merge_rounded, label: 'Merge PDF'),
+      _LabToolData(icon: Icons.call_merge_rounded, label: 'Merge PDF', route: '/merge-pdf'),
       _LabToolData(icon: Icons.call_split_rounded, label: 'Split PDF'),
       _LabToolData(icon: Icons.compress_rounded, label: 'Compress'),
       _LabToolData(icon: Icons.text_snippet_rounded, label: 'To Word'),
@@ -454,7 +483,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
       _LabToolData(icon: Icons.aspect_ratio_rounded, label: 'Resize'),
       _LabToolData(icon: Icons.crop_rounded, label: 'Crop Image'),
       _LabToolData(icon: Icons.transform_rounded, label: 'Convert'),
-      _LabToolData(icon: Icons.picture_as_pdf_rounded, label: 'Image to PDF'),
+      _LabToolData(icon: Icons.picture_as_pdf_rounded, label: 'Image to PDF', route: '/image-process'),
       _LabToolData(icon: Icons.auto_fix_high_rounded, label: 'BG Remover'),
     ];
 
@@ -526,7 +555,9 @@ class _LabScreenState extends ConsumerState<LabScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
-          // TODO: Navigate to tool screen
+          if (tool.route != null) {
+            Navigator.pushNamed(context, tool.route!);
+          }
         },
         borderRadius: BorderRadius.circular(AppTheme.radiusL),
         child: Container(
@@ -676,9 +707,11 @@ class _FileIconInfo {
 class _LabToolData {
   final IconData icon;
   final String label;
+  final String? route;
 
   const _LabToolData({
     required this.icon,
     required this.label,
+    this.route,
   });
 }
