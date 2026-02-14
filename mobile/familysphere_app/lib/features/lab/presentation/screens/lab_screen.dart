@@ -459,7 +459,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
   Widget _buildPdfLabSection(BuildContext context, bool isDark) {
     final pdfTools = [
       _LabToolData(icon: Icons.call_merge_rounded, label: 'Merge PDF', route: '/merge-pdf'),
-      _LabToolData(icon: Icons.call_split_rounded, label: 'Split PDF'),
+      _LabToolData(icon: Icons.call_split_rounded, label: 'Split PDF', route: '/split-pdf'),
       _LabToolData(icon: Icons.compress_rounded, label: 'Compress'),
       _LabToolData(icon: Icons.text_snippet_rounded, label: 'To Word'),
       _LabToolData(icon: Icons.lock_rounded, label: 'Protect'),
