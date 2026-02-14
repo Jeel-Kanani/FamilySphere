@@ -16,6 +16,7 @@ import 'package:familysphere_app/features/lab/presentation/screens/lab_screen.da
 import 'package:familysphere_app/features/lab/presentation/screens/merge_pdf_screen.dart';
 import 'package:familysphere_app/features/lab/presentation/screens/image_to_pdf_screen.dart';
 import 'package:familysphere_app/features/lab/presentation/screens/split_pdf_screen.dart';
+import 'package:familysphere_app/features/lab/presentation/screens/image_resize_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/auth_checker.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/phone_login_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/otp_verification_screen.dart';
@@ -44,6 +45,7 @@ class AppRoutes {
   static const String mergePdf = '/merge-pdf';
   static const String imageProcess = '/image-process';
   static const String splitPdf = '/split-pdf';
+  static const String imageResize = '/image-resize';
   static const String folderDetails = '/folder-details';
   static const String memberDocs = '/member-docs';
   static const String privateLocker = '/private-locker';
@@ -123,6 +125,12 @@ class AppRoutes {
       case splitPdf:
         return MaterialPageRoute(
           builder: (_) => const SplitPdfScreen(),
+          settings: settings,
+        );
+
+      case imageResize:
+        return MaterialPageRoute(
+          builder: (_) => const ImageResizeScreen(),
           settings: settings,
         );
 

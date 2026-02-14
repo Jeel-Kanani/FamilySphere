@@ -1,6 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:photo_view/photo_view.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
+import 'package:familysphere_app/core/services/notification_service.dart';
 import 'package:familysphere_app/features/lab/presentation/providers/lab_recent_files_provider.dart';
 import 'package:familysphere_app/features/lab/domain/services/lab_file_manager.dart';
 import 'package:familysphere_app/features/vault/document_preview_screen.dart';
@@ -362,13 +369,26 @@ class _LabScreenState extends ConsumerState<LabScreen> {
 
     return GestureDetector(
       onTap: () {
-        // Open in the in-app PDF viewer
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => DocumentPreviewScreen(documentUrl: file.filePath),
-          ),
-        );
+        // Determine if file is image or PDF
+        final isImage = ext == 'jpg' || ext == 'jpeg' || ext == 'png' || ext == 'webp';
+        
+        if (isImage) {
+          // Open image in image viewer
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => _ImageViewerScreen(imagePath: file.filePath),
+            ),
+          );
+        } else {
+          // Open in PDF viewer
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DocumentPreviewScreen(documentUrl: file.filePath),
+            ),
+          );
+        }
       },
       child: SizedBox(
         width: 136,
@@ -396,10 +416,10 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                       color: iconColor,
                     ),
                   ),
-                  // Tool badge (top-right)
+                  // Tool badge (top-left)
                   Positioned(
                     top: 6,
-                    right: 6,
+                    left: 6,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
@@ -414,6 +434,92 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                           fontWeight: FontWeight.w700,
                           color: _primaryBlue,
                         ),
+                      ),
+                    ),
+                  ),
+                  // Three-dot menu (top-right)
+                  Positioned(
+                    top: 2,
+                    right: 2,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: PopupMenuButton<String>(
+                        icon: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: (isDark ? Colors.black : Colors.white).withValues(alpha: 0.7),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.more_vert,
+                            size: 16,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        onSelected: (value) => _handleFileMenuAction(context, value, file, isDark),
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            value: 'download',
+                            child: Row(
+                              children: [
+                                Icon(Icons.download_rounded, size: 18, color: isDark ? Colors.white70 : Colors.black87),
+                                const SizedBox(width: 12),
+                                const Text('Download'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'share',
+                            child: Row(
+                              children: [
+                                Icon(Icons.share_rounded, size: 18, color: isDark ? Colors.white70 : Colors.black87),
+                                const SizedBox(width: 12),
+                                const Text('Share'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'rename',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit_rounded, size: 18, color: isDark ? Colors.white70 : Colors.black87),
+                                const SizedBox(width: 12),
+                                const Text('Rename'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'details',
+                            child: Row(
+                              children: [
+                                Icon(Icons.info_outline_rounded, size: 18, color: isDark ? Colors.white70 : Colors.black87),
+                                const SizedBox(width: 12),
+                                const Text('Details'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'copy_path',
+                            child: Row(
+                              children: [
+                                Icon(Icons.copy_rounded, size: 18, color: isDark ? Colors.white70 : Colors.black87),
+                                const SizedBox(width: 12),
+                                const Text('Copy Path'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuDivider(),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                const Icon(Icons.delete_rounded, size: 18, color: Colors.red),
+                                const SizedBox(width: 12),
+                                Text('Delete', style: TextStyle(color: Colors.red)),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -454,6 +560,529 @@ class _LabScreenState extends ConsumerState<LabScreen> {
     );
   }
 
+  /// Handles file menu actions (download, share, rename, delete, etc.)
+  void _handleFileMenuAction(BuildContext context, String action, LabRecentFile file, bool isDark) async {
+    switch (action) {
+      case 'download':
+        await _downloadFile(context, file);
+        break;
+      case 'share':
+        await _shareFile(context, file);
+        break;
+      case 'rename':
+        await _renameFile(context, file, isDark);
+        break;
+      case 'details':
+        _showFileDetails(context, file, isDark);
+        break;
+      case 'copy_path':
+        await _copyFilePath(context, file);
+        break;
+      case 'delete':
+        await _deleteFile(context, file, isDark);
+        break;
+    }
+  }
+
+  /// Downloads file to public Downloads folder
+  Future<void> _downloadFile(BuildContext context, LabRecentFile file) async {
+    try {
+      // Check and request storage permissions
+      PermissionStatus storageStatus;
+      if (Platform.isAndroid) {
+        // Android 13+ requires different permissions
+        final androidInfo = await Permission.storage.request();
+        if (androidInfo.isDenied || androidInfo.isPermanentlyDenied) {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Storage permission is required to download files'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+          await openAppSettings();
+          return;
+        }
+        storageStatus = androidInfo;
+      } else {
+        storageStatus = await Permission.storage.request();
+        if (!storageStatus.isGranted) {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Storage permission is required to download files'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
+
+      // Show loading indicator
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+              const SizedBox(width: 16),
+              const Text('Downloading...'),
+            ],
+          ),
+          duration: Duration(hours: 1), // Keep showing until we hide it
+        ),
+      );
+
+      final sourceFile = File(file.filePath);
+      if (!await sourceFile.exists()) {
+        throw Exception('Source file not found');
+      }
+
+      final fileName = file.fileName;
+      
+      // Get Downloads directory with multiple fallbacks
+      Directory? downloadsDir;
+      
+      if (Platform.isAndroid) {
+        // Try multiple Android Downloads paths
+        final possiblePaths = [
+          '/storage/emulated/0/Download',
+          '/storage/emulated/0/Downloads',
+          '/sdcard/Download',
+          '/sdcard/Downloads',
+        ];
+        
+        for (final path in possiblePaths) {
+          final dir = Directory(path);
+          if (await dir.exists()) {
+            downloadsDir = dir;
+            break;
+          }
+        }
+        
+        // Fallback to getDownloadsDirectory
+        downloadsDir ??= await getDownloadsDirectory();
+      } else {
+        downloadsDir = await getDownloadsDirectory();
+      }
+      
+      // Final fallback to external storage directory
+      downloadsDir ??= await getApplicationDocumentsDirectory();
+      
+      // Ensure the directory exists
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
+
+      // Build destination path
+      var destPath = '${downloadsDir.path}${Platform.pathSeparator}$fileName';
+      
+      // Handle duplicate file names
+      var counter = 1;
+      while (await File(destPath).exists()) {
+        final nameParts = fileName.split('.');
+        if (nameParts.length > 1) {
+          final ext = nameParts.last;
+          final baseName = nameParts.sublist(0, nameParts.length - 1).join('.');
+          destPath = '${downloadsDir.path}${Platform.pathSeparator}$baseName ($counter).$ext';
+        } else {
+          destPath = '${downloadsDir.path}${Platform.pathSeparator}$fileName ($counter)';
+        }
+        counter++;
+      }
+      
+      // Copy the file
+      await sourceFile.copy(destPath);
+      
+      // Verify the file was copied
+      final copiedFile = File(destPath);
+      if (!await copiedFile.exists()) {
+        throw Exception('File copy verification failed');
+      }
+      
+      final finalFileName = destPath.split(Platform.pathSeparator).last;
+      
+      // Show system notification
+      await NotificationService().showDownloadNotification(
+        fileName: finalFileName,
+        filePath: destPath,
+      );
+      
+      if (!context.mounted) return;
+      // Hide loading and show success
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.download_done, color: Colors.white, size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Downloaded Successfully!',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      finalFileName,
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Saved to: ${downloadsDir.path}',
+                      style: TextStyle(fontSize: 11),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Check your notification & file manager',
+                style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 6),
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.all(16),
+          action: SnackBarAction(
+            label: 'OK',
+            textColor: Colors.white,
+            onPressed: () {},
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.error_outline, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Text('Download Failed', style: TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                e.toString(),
+                style: TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 5),
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.all(16),
+        ),
+      );
+    }
+  }
+
+  /// Shares file using share_plus
+  Future<void> _shareFile(BuildContext context, LabRecentFile file) async {
+    try {
+      await Share.shareXFiles(
+        [XFile(file.filePath)],
+        text: file.fileName,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to share file'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  /// Renames the file
+  Future<void> _renameFile(BuildContext context, LabRecentFile file, bool isDark) async {
+    final controller = TextEditingController(text: file.fileName);
+    
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+        title: Text('Rename File', style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
+          decoration: InputDecoration(
+            labelText: 'New file name',
+            labelStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: Text('Rename'),
+          ),
+        ],
+      ),
+    );
+
+    if (newName == null || newName.isEmpty || newName == file.fileName) return;
+
+    try {
+      final oldFile = File(file.filePath);
+      final directory = oldFile.parent;
+      final newPath = '${directory.path}${Platform.pathSeparator}$newName';
+      
+      // Check if new file name already exists
+      if (await File(newPath).exists()) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('A file with this name already exists'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+      
+      // Rename the file
+      await oldFile.rename(newPath);
+
+      // Update the recent files entry with new path (keeps it in the list!)
+      await ref.read(labRecentFilesProvider.notifier).updateFilePath(
+        file.filePath,
+        newPath,
+      );
+
+      // Show system notification
+      await NotificationService().showRenameNotification(
+        file.fileName,
+        newName,
+      );
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Renamed to: $newName'),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to rename: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  /// Shows file details dialog
+  void _showFileDetails(BuildContext context, LabRecentFile file, bool isDark) {
+    final fileObj = File(file.filePath);
+    final ext = file.fileName.split('.').last.toUpperCase();
+    final createdDate = file.createdAt.toString().split('.')[0];
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+        title: Text('File Details', style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow('Name', file.fileName, isDark),
+            const SizedBox(height: 12),
+            _buildDetailRow('Type', ext, isDark),
+            const SizedBox(height: 12),
+            _buildDetailRow('Size', LabFileManager.formatFileSize(file.sizeBytes), isDark),
+            const SizedBox(height: 12),
+            _buildDetailRow('Tool', file.toolLabel, isDark),
+            const SizedBox(height: 12),
+            _buildDetailRow('Created', createdDate, isDark),
+            const SizedBox(height: 12),
+            _buildDetailRow('Location', file.filePath, isDark, isPath: true),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, bool isDark, {bool isPath = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 13,
+            color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+          ),
+          maxLines: isPath ? 3 : 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  /// Copies file path to clipboard
+  Future<void> _copyFilePath(BuildContext context, LabRecentFile file) async {
+    await Clipboard.setData(ClipboardData(text: file.filePath));
+    
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('File path copied to clipboard'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// Deletes the file with confirmation dialog
+  /// IMPORTANT: Shows confirmation dialog FIRST, only deletes if user confirms
+  Future<void> _deleteFile(BuildContext context, LabRecentFile file, bool isDark) async {
+    // Step 1: Show confirmation dialog BEFORE deleting anything
+    final confirm = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false, // Prevent accidental dismissal
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+            const SizedBox(width: 8),
+            Text('Delete File', style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete "${file.fileName}"?\n\nThis action cannot be undone.',
+          style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: TextStyle(fontSize: 16)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: Colors.red,
+            ),
+            child: Text('Delete', style: TextStyle(fontSize: 16)),
+          ),
+        ],
+      ),
+    );
+
+    // Step 2: Only proceed with deletion if user clicked "Delete" button
+    if (confirm != true) {
+      // User clicked Cancel or dismissed dialog - NO deletion happens
+      return;
+    }
+
+    // Step 3: User confirmed - now delete the file
+    try {
+      final fileObj = File(file.filePath);
+      if (await fileObj.exists()) {
+        await fileObj.delete();
+      }
+
+      // Refresh recent files list
+      ref.read(labRecentFilesProvider.notifier).refresh();
+
+      // Show system notification
+      await NotificationService().showDeleteNotification(file.fileName);
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Text('File deleted successfully'),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete file: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   // ─── PDF LAB ──────────────────────────────────────────────────────────────────
 
   Widget _buildPdfLabSection(BuildContext context, bool isDark) {
@@ -480,7 +1109,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
   Widget _buildImageLabSection(BuildContext context, bool isDark) {
     final imageTools = [
       _LabToolData(icon: Icons.photo_size_select_small_rounded, label: 'Compress'),
-      _LabToolData(icon: Icons.aspect_ratio_rounded, label: 'Resize'),
+      _LabToolData(icon: Icons.aspect_ratio_rounded, label: 'Resize', route: '/image-resize'),
       _LabToolData(icon: Icons.crop_rounded, label: 'Crop Image'),
       _LabToolData(icon: Icons.transform_rounded, label: 'Convert'),
       _LabToolData(icon: Icons.picture_as_pdf_rounded, label: 'Image to PDF', route: '/image-process'),
@@ -689,6 +1318,63 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── IMAGE VIEWER SCREEN ──────────────────────────────────────────────────────
+
+class _ImageViewerScreen extends StatelessWidget {
+  final String imagePath;
+
+  const _ImageViewerScreen({required this.imagePath});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: isDark ? Colors.black : Colors.grey[900],
+      appBar: AppBar(
+        backgroundColor: isDark ? Colors.black : Colors.grey[900],
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          imagePath.split(Platform.pathSeparator).last,
+          style: const TextStyle(color: Colors.white),
+        ),
+      ),
+      body: PhotoView(
+        imageProvider: FileImage(File(imagePath)),
+        minScale: PhotoViewComputedScale.contained,
+        maxScale: PhotoViewComputedScale.covered * 3,
+        backgroundDecoration: BoxDecoration(
+          color: isDark ? Colors.black : Colors.grey[900],
+        ),
+        loadingBuilder: (context, event) => Center(
+          child: CircularProgressIndicator(
+            value: event == null
+                ? 0
+                : event.cumulativeBytesLoaded / (event.expectedTotalBytes ?? 1),
+          ),
+        ),
+        errorBuilder: (context, error, stackTrace) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                'Could not load image',
+                style: TextStyle(color: Colors.white),
+              ),
+            ],
           ),
         ),
       ),

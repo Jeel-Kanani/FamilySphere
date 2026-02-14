@@ -114,6 +114,36 @@ class LabRecentFilesStorage {
     );
   }
 
+  /// Updates the file path for an existing entry (useful for rename operations).
+  Future<void> updateFilePath(String oldPath, String newPath) async {
+    final box = await _openBox();
+    final entries = _readEntries(box);
+    
+    // Find the entry with the old path
+    final index = entries.indexWhere((e) => e.filePath == oldPath);
+    if (index != -1) {
+      // Update the file path and file name
+      final oldEntry = entries[index];
+      final newFileName = newPath.split(Platform.pathSeparator).last;
+      
+      final updatedEntry = LabRecentFile(
+        filePath: newPath,
+        fileName: newFileName,
+        sizeBytes: oldEntry.sizeBytes,
+        toolId: oldEntry.toolId,
+        toolLabel: oldEntry.toolLabel,
+        createdAt: oldEntry.createdAt,
+      );
+      
+      entries[index] = updatedEntry;
+      
+      await box.put(
+        'entries',
+        entries.map((e) => e.toJson()).toList(),
+      );
+    }
+  }
+
   /// Clears all recent file entries.
   Future<void> clearAll() async {
     final box = await _openBox();
@@ -161,6 +191,12 @@ class LabRecentFilesNotifier extends StateNotifier<List<LabRecentFile>> {
   /// Remove a specific entry.
   Future<void> remove(String filePath) async {
     await _storage.removeEntry(filePath);
+    state = await _storage.getRecentFiles();
+  }
+
+  /// Update file path (for rename operations).
+  Future<void> updateFilePath(String oldPath, String newPath) async {
+    await _storage.updateFilePath(oldPath, newPath);
     state = await _storage.getRecentFiles();
   }
 }
