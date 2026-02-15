@@ -50,6 +50,7 @@ class DocumentState {
   final double? uploadProgress; 
   final int storageUsed;
   final int storageLimit;
+  final DateTime? lastStorageSync;
 
   const DocumentState({
     this.documents = const [],
@@ -60,6 +61,7 @@ class DocumentState {
     this.uploadProgress,
     this.storageUsed = 0,
     this.storageLimit = 25 * 1024 * 1024 * 1024, // 25 GB default
+    this.lastStorageSync,
   });
 
   factory DocumentState.initial() => const DocumentState();
@@ -73,6 +75,7 @@ class DocumentState {
     double? uploadProgress,
     int? storageUsed,
     int? storageLimit,
+    DateTime? lastStorageSync,
   }) {
     return DocumentState(
       documents: documents ?? this.documents,
@@ -83,7 +86,13 @@ class DocumentState {
       uploadProgress: uploadProgress ?? this.uploadProgress,
       storageUsed: storageUsed ?? this.storageUsed,
       storageLimit: storageLimit ?? this.storageLimit,
+      lastStorageSync: lastStorageSync ?? this.lastStorageSync,
     );
+  }
+
+  /// Calculate storage dynamically from current documents list
+  int calculateDynamicStorage() {
+    return documents.fold<int>(0, (sum, doc) => sum + doc.sizeBytes.toInt());
   }
 }
 
@@ -174,10 +183,24 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
       if (kDebugMode) {
         debugPrint('DocumentNotifier: Loaded ${fetchedDocs.length} documents, kept ${filteredDocs.length} after category guard');
       }
+      
+      // Get storage from backend, or calculate dynamically as fallback
+      int finalStorageUsed = result['storageUsed'] ?? 0;
+      final backendStorageLimit = result['storageLimit'] ?? (25 * 1024 * 1024 * 1024);
+      
+      // If backend storage seems off (0 or negative), calculate from documents
+      if (finalStorageUsed <= 0 && filteredDocs.isNotEmpty) {
+        finalStorageUsed = filteredDocs.fold<int>(0, (sum, doc) => sum + doc.sizeBytes.toInt());
+        if (kDebugMode) {
+          debugPrint('DocumentNotifier: Backend storage was $finalStorageUsed, calculated from docs: $finalStorageUsed');
+        }
+      }
+      
       state = state.copyWith(
         documents: filteredDocs,
-        storageUsed: result['storageUsed'],
-        storageLimit: result['storageLimit'],
+        storageUsed: finalStorageUsed,
+        storageLimit: backendStorageLimit,
+        lastStorageSync: DateTime.now(),
         isLoading: false,
       );
       _lastLoadedDocumentsQueryKey = queryKey;
@@ -242,10 +265,15 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
       if (kDebugMode) {
         debugPrint('DocumentNotifier: Upload successful. New Doc ID: ${newDoc.id}');
       }
-      // Update list locally
+      
+      // Calculate new storage - add uploaded document size
+      final newStorageUsed = state.storageUsed + (newDoc.sizeBytes).toInt();
+      
+      // Update list locally with new storage calculation
       state = state.copyWith(
         documents: [newDoc, ...state.documents],
-        storageUsed: state.storageUsed + (newDoc.sizeBytes).toInt(),
+        storageUsed: newStorageUsed,
+        lastStorageSync: DateTime.now(),
         isLoading: false,
       );
       _documentsByQueryCache.clear();
@@ -264,10 +292,14 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
     // Optimistically remove from list
     final previousList = state.documents;
     final previousStorage = state.storageUsed;
+    
+    // Calculate new storage - subtract deleted document size
+    final newStorageUsed = (state.storageUsed - (document.sizeBytes).toInt()).clamp(0, double.maxFinite.toInt());
 
     state = state.copyWith(
       documents: state.documents.where((d) => d.id != document.id).toList(),
-      storageUsed: state.storageUsed - (document.sizeBytes).toInt(),
+      storageUsed: newStorageUsed,
+      lastStorageSync: DateTime.now(),
     );
 
     try {
@@ -295,6 +327,47 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
       return null;
     }
   }
+
+  /// Recalculate storage from current documents (useful for sync verification)
+  void recalculateStorage() {
+    if (state.documents.isEmpty) {
+      if (kDebugMode) {
+        debugPrint('DocumentNotifier: No documents to calculate storage from');
+      }
+      return;
+    }
+    
+    final calculatedStorage = state.documents.fold<int>(
+      0, 
+      (sum, doc) => sum + doc.sizeBytes.toInt()
+    );
+    
+    if (calculatedStorage != state.storageUsed) {
+      if (kDebugMode) {
+        debugPrint('DocumentNotifier: Storage recalculated - Old: ${state.storageUsed}, New: $calculatedStorage');
+      }
+      state = state.copyWith(
+        storageUsed: calculatedStorage,
+        lastStorageSync: DateTime.now(),
+      );
+    }
+  }
+
+  /// Force refresh storage from backend
+  Future<void> refreshStorage() async {
+    final user = _ref.read(authProvider).user;
+    if (user == null || user.familyId == null) return;
+    
+    try {
+      // Reload documents to get fresh storage info
+      await loadDocuments();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('DocumentNotifier: Failed to refresh storage: $e');
+      }
+    }
+  }
+
 
   Future<void> loadFolders({required String category, String? memberId}) async {
     final user = _ref.read(authProvider).user;

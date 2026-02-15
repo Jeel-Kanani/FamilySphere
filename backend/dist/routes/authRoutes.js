@@ -8,6 +8,8 @@ const authController_1 = require("../controllers/authController");
 const authMiddleware_1 = require("../middleware/authMiddleware");
 const router = express_1.default.Router();
 router.post('/register', authController_1.registerUser);
+router.post('/send-email-otp', authController_1.sendEmailOtpController);
+router.post('/verify-email-otp', authController_1.verifyEmailOtpController);
 router.post('/login', authController_1.loginUser);
 router.post('/google', authController_1.googleAuth);
 router.post('/logout', authMiddleware_1.protect, authController_1.logoutUser);

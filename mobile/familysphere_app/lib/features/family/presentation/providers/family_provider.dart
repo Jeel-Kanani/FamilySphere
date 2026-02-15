@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Family;
 import 'package:familysphere_app/features/family/domain/entities/family.dart';
 import 'package:familysphere_app/features/family/domain/entities/family_activity.dart';
 import 'package:familysphere_app/features/family/domain/entities/family_member.dart';
+import 'package:familysphere_app/features/family/domain/entities/family_invite.dart';
 import 'package:familysphere_app/features/family/domain/usecases/create_family.dart';
 import 'package:familysphere_app/features/family/domain/usecases/join_family.dart';
 import 'package:familysphere_app/features/family/domain/usecases/get_family.dart';
@@ -12,6 +13,9 @@ import 'package:familysphere_app/features/family/domain/usecases/leave_family.da
 import 'package:familysphere_app/features/family/domain/usecases/update_family_settings.dart';
 import 'package:familysphere_app/features/family/domain/usecases/update_member_role.dart';
 import 'package:familysphere_app/features/family/domain/usecases/transfer_ownership.dart';
+import 'package:familysphere_app/features/family/domain/usecases/join_family_with_invite.dart';
+import 'package:familysphere_app/features/family/domain/usecases/create_family_invite.dart';
+import 'package:familysphere_app/features/family/domain/usecases/validate_family_invite.dart';
 import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:familysphere_app/features/family/data/repositories/family_repository_impl.dart';
 import 'package:familysphere_app/features/family/data/datasources/family_remote_datasource.dart';
@@ -76,6 +80,18 @@ final transferOwnershipUseCaseProvider = Provider((ref) {
   return TransferOwnership(ref.read(familyRepositoryProvider));
 });
 
+final joinFamilyWithInviteUseCaseProvider = Provider((ref) {
+  return JoinFamilyWithInvite(ref.read(familyRepositoryProvider));
+});
+
+final createFamilyInviteUseCaseProvider = Provider((ref) {
+  return CreateFamilyInvite(ref.read(familyRepositoryProvider));
+});
+
+final validateFamilyInviteUseCaseProvider = Provider((ref) {
+  return ValidateFamilyInvite(ref.read(familyRepositoryProvider));
+});
+
 
 // State
 class FamilyState {
@@ -123,12 +139,14 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
   final GetFamily _getFamily;
   final GetFamilyMembers _getFamilyMembers;
   final GenerateInviteCode _generateInviteCode;
-  // ignore: unused_field
   final RemoveMember _removeMember;
   final LeaveFamily _leaveFamily;
   final UpdateFamilySettings _updateFamilySettings;
   final UpdateMemberRole _updateMemberRole;
   final TransferOwnership _transferOwnership;
+  final JoinFamilyWithInvite _joinFamilyWithInvite;
+  final CreateFamilyInvite _createFamilyInvite;
+  final ValidateFamilyInvite _validateFamilyInvite;
   bool _isLoadingFamily = false;
   DateTime? _lastFamilyLoadAt;
 
@@ -144,6 +162,9 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
     required UpdateFamilySettings updateFamilySettings,
     required UpdateMemberRole updateMemberRole,
     required TransferOwnership transferOwnership,
+    required JoinFamilyWithInvite joinFamilyWithInvite,
+    required CreateFamilyInvite createFamilyInvite,
+    required ValidateFamilyInvite validateFamilyInvite,
   })  : _createFamily = createFamily,
         _joinFamily = joinFamily,
         _getFamily = getFamily,
@@ -154,6 +175,9 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
         _updateFamilySettings = updateFamilySettings,
         _updateMemberRole = updateMemberRole,
         _transferOwnership = transferOwnership,
+        _joinFamilyWithInvite = joinFamilyWithInvite,
+        _createFamilyInvite = createFamilyInvite,
+        _validateFamilyInvite = validateFamilyInvite,
         super(FamilyState.initial());
 
   Future<void> loadFamily({bool force = false}) async {
@@ -414,6 +438,50 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
       rethrow;
     }
   }
+  Future<void> joinWithInvite({String? token, String? code}) async {
+    final user = _ref.read(authProvider).user;
+    if (user == null) return;
+
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final family = await _joinFamilyWithInvite(token: token, code: code);
+      
+      // Refresh user to get new family ID
+      await _ref.read(authProvider.notifier).refreshUser();
+      
+      final members = await _getFamilyMembers(family.id);
+      
+      state = state.copyWith(
+        family: family,
+        members: members,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
+
+  Future<FamilyInvite> createFamilyInvite(String type) async {
+    final familyId = state.family?.id;
+    if (familyId == null) throw Exception('No family found');
+
+    try {
+      return await _createFamilyInvite(familyId, type);
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> validateInvite({String? token, String? code}) async {
+    try {
+      return await _validateFamilyInvite(token: token, code: code);
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      rethrow;
+    }
+  }
 }
 
 final familyProvider = StateNotifierProvider<FamilyNotifier, FamilyState>((ref) {
@@ -429,5 +497,8 @@ final familyProvider = StateNotifierProvider<FamilyNotifier, FamilyState>((ref) 
     updateFamilySettings: ref.read(updateFamilySettingsUseCaseProvider),
     updateMemberRole: ref.read(updateMemberRoleUseCaseProvider),
     transferOwnership: ref.read(transferOwnershipUseCaseProvider),
+    joinFamilyWithInvite: ref.read(joinFamilyWithInviteUseCaseProvider),
+    createFamilyInvite: ref.read(createFamilyInviteUseCaseProvider),
+    validateFamilyInvite: ref.read(validateFamilyInviteUseCaseProvider),
   );
 });

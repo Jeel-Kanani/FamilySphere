@@ -6,11 +6,11 @@ class ApiConfig {
   static const String _localIOSSimulator = 'http://localhost:5000';
   static const String _localWeb = 'http://localhost:5000';
   static const String _localPhysicalDevice = 'http://10.205.131.206:5000'; // Current PC IP
-  static const String _productionUrl = 'https://familysphere-api.example.com'; 
+  static const String _productionUrl = 'https://familysphere.onrender.com'; 
   static const String _overrideBaseUrl = String.fromEnvironment('API_BASE_URL');
   
   // Current environment
-  static const bool _isProduction = false;
+  static const bool _isProduction = true;
   static const bool _isIOS = false; 
   static const bool _isPhysicalDevice = true; // Use true for your physical phone
   

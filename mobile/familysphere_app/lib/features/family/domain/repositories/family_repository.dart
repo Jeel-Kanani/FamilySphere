@@ -1,6 +1,7 @@
 import 'package:familysphere_app/features/family/domain/entities/family.dart';
 import 'package:familysphere_app/features/family/domain/entities/family_activity.dart';
 import 'package:familysphere_app/features/family/domain/entities/family_member.dart';
+import 'package:familysphere_app/features/family/domain/entities/family_invite.dart';
 
 /// Family Repository Interface
 /// 
@@ -112,4 +113,15 @@ abstract class FamilyRepository {
 
   /// Get family activity feed
   Future<List<FamilyActivity>> getFamilyActivity(String familyId);
+
+  /// Create a new invite
+  /// [type] - qr, code, or link
+  Future<FamilyInvite> createInvite(String familyId, String type);
+
+  /// Validate an invite
+  /// Returns family details if valid
+  Future<Map<String, dynamic>> validateInvite({String? token, String? code});
+
+  /// Join family with secure invite
+  Future<Family> joinFamilyWithInvite({String? token, String? code});
 }

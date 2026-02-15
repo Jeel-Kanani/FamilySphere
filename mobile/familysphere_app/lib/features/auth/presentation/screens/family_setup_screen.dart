@@ -146,10 +146,10 @@ class _FamilySetupScreenState extends ConsumerState<FamilySetupScreen>
                       _buildActionCard(
                         context,
                         title: 'Join a Family',
-                        desc: 'Enter a code from a family member',
+                        desc: 'Enter a code or scan a QR code',
                         icon: Icons.group_add_rounded,
                         color: AppTheme.secondaryColor,
-                        onTap: _showJoinDialog,
+                        onTap: () => Navigator.pushNamed(context, '/join-family'),
                       ),
                       const Spacer(),
                       TextButton(

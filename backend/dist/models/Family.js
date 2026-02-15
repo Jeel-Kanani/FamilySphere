@@ -31,6 +31,14 @@ const familySchema = new mongoose_1.Schema({
             type: Boolean,
             default: false
         }
+    },
+    storageUsed: {
+        type: Number,
+        default: 0
+    },
+    storageLimit: {
+        type: Number,
+        default: 25 * 1024 * 1024 * 1024 // 25 GB
     }
 }, {
     timestamps: true

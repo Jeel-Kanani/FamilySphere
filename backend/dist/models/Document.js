@@ -37,11 +37,15 @@ const mongoose_1 = __importStar(require("mongoose"));
 const documentSchema = new mongoose_1.Schema({
     title: { type: String, required: true },
     category: { type: String, required: true },
+    folder: { type: String, default: 'General' },
+    memberId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User' },
     fileUrl: { type: String, required: true },
     fileType: { type: String, required: true },
     fileSize: { type: Number, required: true }, // in bytes
     cloudinaryId: { type: String, required: true },
     familyId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Family', required: true },
     uploadedBy: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
+    deleted: { type: Boolean, default: false },
+    deletedAt: { type: Date },
 }, { timestamps: true });
 exports.default = mongoose_1.default.model('Document', documentSchema);

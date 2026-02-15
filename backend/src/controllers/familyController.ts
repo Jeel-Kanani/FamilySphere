@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import Family from '../models/Family';
 import User from '../models/User';
 import FamilyActivity from '../models/FamilyActivity';
+import Invite from '../models/Invite';
 
 async function logFamilyActivity(params: {
     familyId: string;
@@ -111,6 +112,77 @@ export const joinFamily = async (req: Request, res: Response) => {
         res.json(family);
     } catch (error: any) {
         console.error('Join family error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Join family with secure invite (QR/Code/Link)
+export const joinFamilyWithInvite = async (req: Request, res: Response) => {
+    try {
+        const { token, code } = req.body;
+        const userId = (req as any).user?.id;
+
+        if (!userId) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        let query: any = {};
+        if (token) {
+            query.token = token;
+        } else if (code) {
+            query.code = String(code).toUpperCase();
+        } else {
+            return res.status(400).json({ message: 'Token or code is required' });
+        }
+
+        const invite = await Invite.findOne(query);
+        if (!invite) {
+            return res.status(404).json({ message: 'Invite not found or expired' });
+        }
+
+        if (invite.usedCount >= invite.maxUses) {
+            return res.status(400).json({ message: 'Invite has already been used' });
+        }
+
+        if (new Date() > invite.expiresAt) {
+            return res.status(400).json({ message: 'Invite has expired' });
+        }
+
+        const family = await Family.findById(invite.familyId);
+        if (!family) {
+            return res.status(404).json({ message: 'Family not found' });
+        }
+
+        // Check if user already in a family
+        const user = await User.findById(userId);
+        if (user?.familyId) {
+            return res.status(400).json({ message: 'You already belong to a family' });
+        }
+
+        // Join family
+        family.memberIds.push(userId as any);
+        await family.save();
+
+        // Update user
+        await User.findByIdAndUpdate(userId, {
+            familyId: family._id,
+            role: 'member'
+        });
+
+        // Update invite
+        invite.usedCount += 1;
+        await invite.save();
+
+        await logFamilyActivity({
+            familyId: family._id.toString(),
+            actorId: userId,
+            type: 'member_joined',
+            message: `Joined the family via ${invite.type} invite`,
+        });
+
+        res.json(family);
+    } catch (error: any) {
+        console.error('Join family with invite error:', error);
         res.status(500).json({ message: error.message });
     }
 };

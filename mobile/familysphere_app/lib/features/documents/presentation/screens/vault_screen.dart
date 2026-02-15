@@ -28,11 +28,14 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
     );
     _animationController.forward();
     
-    Future.microtask(() {
+    Future.microtask(() async {
       final documents = ref.read(documentProvider.notifier).loadDocuments();
       final folders = ref.read(documentProvider.notifier).loadFolders(category: 'Shared');
       final family = ref.read(familyProvider.notifier).loadFamily();
-      unawaited(Future.wait([documents, folders, family]));
+      await Future.wait([documents, folders, family]);
+      
+      // Recalculate storage after loading documents to ensure accuracy
+      ref.read(documentProvider.notifier).recalculateStorage();
     });
   }
 
@@ -49,6 +52,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
     final documents = ref.watch(documentProvider.select((s) => s.documents));
     final storageUsed = ref.watch(documentProvider.select((s) => s.storageUsed));
     final storageLimit = ref.watch(documentProvider.select((s) => s.storageLimit));
+    final lastStorageSync = ref.watch(documentProvider.select((s) => s.lastStorageSync));
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surface = isDark ? AppTheme.darkSurface : Colors.white;
     final border = isDark ? AppTheme.darkBorder : AppTheme.borderColor;
@@ -85,7 +89,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
               const SizedBox(height: 16),
               
               // Storage Card with better design
-              _buildStorageCard(context, storageUsedStr, storageLimitStr, progress),
+              _buildStorageCard(context, storageUsedStr, storageLimitStr, progress, lastStorageSync),
               const SizedBox(height: 20),
               
               // Quick Actions
@@ -475,9 +479,25 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildStorageCard(BuildContext context, String used, String limit, double progress) {
+  Widget _buildStorageCard(BuildContext context, String used, String limit, double progress, DateTime? lastSync) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isAlmostFull = progress > 0.8;
+    
+    // Format last sync time
+    String lastSyncText = 'Never synced';
+    if (lastSync != null) {
+      final now = DateTime.now();
+      final diff = now.difference(lastSync);
+      if (diff.inSeconds < 60) {
+        lastSyncText = 'Just now';
+      } else if (diff.inMinutes < 60) {
+        lastSyncText = '${diff.inMinutes}m ago';
+      } else if (diff.inHours < 24) {
+        lastSyncText = '${diff.inHours}h ago';
+      } else {
+        lastSyncText = '${diff.inDays}d ago';
+      }
+    }
     
     return Container(
       padding: const EdgeInsets.all(18),
@@ -559,11 +579,23 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
             ],
           ),
           const SizedBox(height: 14),
-          Text(
-            '$used of $limit used',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '$used of $limit used',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                lastSyncText,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppTheme.textTertiary,
+                  fontSize: 11,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           Stack(

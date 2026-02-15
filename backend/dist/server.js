@@ -12,6 +12,7 @@ const db_1 = __importDefault(require("./config/db"));
 const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
 const familyRoutes_1 = __importDefault(require("./routes/familyRoutes"));
 const documentRoutes_1 = __importDefault(require("./routes/documentRoutes"));
+const vaultRoutes_1 = __importDefault(require("./routes/vaultRoutes"));
 dotenv_1.default.config();
 (0, db_1.default)();
 const app = (0, express_1.default)();
@@ -26,6 +27,7 @@ app.use(express_1.default.json());
 app.use('/api/auth', authRoutes_1.default);
 app.use('/api/families', familyRoutes_1.default);
 app.use('/api/documents', documentRoutes_1.default);
+app.use('/api/vault', vaultRoutes_1.default);
 const PORT = process.env.PORT || 5000;
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server running on all interfaces at port ${PORT}`);

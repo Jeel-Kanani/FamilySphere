@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
+import 'package:familysphere_app/features/family/domain/entities/family.dart' as family_entity;
+import 'package:familysphere_app/features/family/domain/entities/family_activity.dart';
+import 'package:familysphere_app/features/family/domain/entities/family_member.dart';
 import 'package:familysphere_app/features/family/presentation/providers/family_provider.dart';
 import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
-import 'package:familysphere_app/features/family/domain/entities/family_member.dart';
-import 'package:familysphere_app/features/family/domain/entities/family_activity.dart';
-import 'package:intl/intl.dart';
-import 'package:flutter/services.dart';
 
 class FamilyDetailsScreen extends ConsumerStatefulWidget {
   const FamilyDetailsScreen({super.key});
@@ -19,7 +18,6 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    // Load family data when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(familyProvider.notifier).loadFamily();
     });
@@ -28,594 +26,356 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final familyState = ref.watch(familyProvider);
-    final currentUser = ref.watch(authProvider).user;
     final family = familyState.family;
+    final user = ref.watch(authProvider).user;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (familyState.isLoading && family == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (family == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Family Details')),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('No family info found'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  ref.read(familyProvider.notifier).loadFamily();
-                },
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
+        appBar: AppBar(title: const Text('Family')),
+        body: const Center(child: Text('No family group found.')),
       );
     }
 
-    final isAdmin = family.isAdmin(currentUser?.id ?? '');
+    final isAdmin = family.isAdmin(user?.id ?? '');
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Family Settings'),
-        centerTitle: true,
-        actions: [
-          if (isAdmin)
-            IconButton(
-              icon: const Icon(Icons.person_add),
-              onPressed: () {
-                Navigator.pushNamed(context, '/invite-member');
-              },
-            ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () => ref.read(familyProvider.notifier).loadFamily(),
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            // Family Header
-            Center(
+      body: CustomScrollView(
+        slivers: [
+          _buildSliverAppBar(context, family, isAdmin, isDark),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                    child: Text(
-                      family.name.isNotEmpty ? family.name[0].toUpperCase() : 'F',
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
-                  ),
+                  _buildAdminBanner(isAdmin, isDark),
+                  const SizedBox(height: 24),
+                  _buildSectionHeader(context, 'Family Members', '${familyState.members.length} total'),
                   const SizedBox(height: 16),
-                  Text(
-                    family.name,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Created ${DateFormat.yMMMd().format(family.createdAt)}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey,
-                        ),
-                  ),
+                  _buildMembersList(familyState.members, family, user?.id, isDark),
+                  const SizedBox(height: 32),
+                  _buildSectionHeader(context, 'Recent Activity', 'View all'),
+                  const SizedBox(height: 16),
+                  _buildActivityFeed(familyState.activities, isDark),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
-            
-              const SizedBox(height: 32),
+          ),
+        ],
+      ),
+      floatingActionButton: isAdmin
+          ? FloatingActionButton.extended(
+              onPressed: () => Navigator.pushNamed(context, '/invite-member'),
+              icon: const Icon(Icons.person_add_rounded),
+              label: const Text('Invite'),
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+            )
+          : null,
+    );
+  }
 
-            // Family Controls
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.tune_rounded, color: AppTheme.primaryColor, size: 18),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Family Controls',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.qr_code_rounded, color: AppTheme.primaryColor),
-                    title: const Text('Invite Code'),
-                    subtitle: Text(
-                      family.inviteCode,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2,
-                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-                      ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                            tooltip: 'Copy code',
-                          icon: const Icon(Icons.copy_rounded, color: AppTheme.primaryColor),
-                          onPressed: () async {
-                            await Clipboard.setData(ClipboardData(text: family.inviteCode));
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Invite code copied')),
-                              );
-                              }
-                            },
-                          ),
-                        IconButton(
-                          tooltip: 'Regenerate code',
-                          icon: const Icon(Icons.refresh_rounded, color: AppTheme.primaryColor),
-                          onPressed: isAdmin
-                              ? () async {
-                                    final confirm = await showDialog<bool>(
-                                      context: context,
-                                      builder: (context) => AlertDialog(
-                                        title: const Text('Regenerate invite code?'),
-                                        content: const Text(
-                                          'Old invite links will stop working. Share the new code with your family.',
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(context, false),
-                                            child: const Text('Cancel'),
-                                          ),
-                                          ElevatedButton(
-                                            onPressed: () => Navigator.pop(context, true),
-                                            child: const Text('Regenerate'),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-
-                                    if (confirm != true) return;
-
-                                    final newCode = await ref.read(familyProvider.notifier).generateNewInviteCode();
-                                    if (context.mounted && newCode != null) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('New invite code generated')),
-                                      );
-                                    }
-                                  }
-                              : null,
-                        ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1),
-                    SwitchListTile(
-                      secondary: const Icon(Icons.group_add_rounded, color: AppTheme.primaryColor),
-                      title: const Text('Allow Member Invites'),
-                      subtitle: const Text('Let members invite others to the family'),
-                      value: family.settings.allowMemberInvites,
-                      onChanged: isAdmin && !familyState.isUpdatingSettings
-                          ? (value) async {
-                              try {
-                                await ref.read(familyProvider.notifier).updateSettings(
-                                      allowMemberInvites: value,
-                                    );
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Failed to update: $e')),
-                                  );
-                                }
-                              }
-                            }
-                          : null,
-                    ),
-                    SwitchListTile(
-                      secondary: const Icon(Icons.verified_user_rounded, color: AppTheme.primaryColor),
-                      title: const Text('Require Approval'),
-                      subtitle: const Text('New members need admin approval'),
-                      value: family.settings.requireApproval,
-                      onChanged: isAdmin && !familyState.isUpdatingSettings
-                          ? (value) async {
-                              try {
-                                await ref.read(familyProvider.notifier).updateSettings(
-                                      requireApproval: value,
-                                    );
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Failed to update: $e')),
-                                  );
-                                }
-                              }
-                            }
-                          : null,
-                    ),
-                    if (familyState.isUpdatingSettings)
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 12),
-                        child: LinearProgressIndicator(minHeight: 2),
-                      ),
+  Widget _buildSliverAppBar(BuildContext context, family_entity.Family family, bool isAdmin, bool isDark) {
+    return SliverAppBar(
+      expandedHeight: 200,
+      pinned: true,
+      flexibleSpace: FlexibleSpaceBar(
+        title: Text(
+          family.name,
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black87,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        background: Stack(
+          fit: StackFit.expand,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppTheme.primaryColor.withValues(alpha: 0.1),
+                    AppTheme.primaryColor.withValues(alpha: 0.02),
                   ],
                 ),
               ),
-
-              const SizedBox(height: 32),
-
-            // Members Section
-              Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Members (${familyState.members.length})',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+            ),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
                 ),
-                if (isAdmin)
-                  TextButton.icon(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/invite-member');
-                    },
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Invite'),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: familyState.members.length,
-                separatorBuilder: (context, index) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final member = familyState.members[index];
-                  final isMe = member.userId == currentUser?.id;
-                  final isCreator = member.userId == family.createdBy;
-                  final isCurrentUserCreator = currentUser?.id == family.createdBy;
-                  
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.grey.shade200,
-                      backgroundImage: member.photoUrl != null 
-                          ? NetworkImage(member.photoUrl!) 
-                          : null,
-                      child: member.photoUrl == null
-                          ? Text(
-                              member.displayName.isNotEmpty 
-                                  ? member.displayName[0].toUpperCase() 
-                                  : '?',
-                              style: const TextStyle(color: Colors.grey),
-                            )
-                          : null,
-                    ),
-                    title: Text(
-                      isMe ? '${member.displayName} (You)' : member.displayName,
-                      style: TextStyle(
-                        fontWeight: isMe ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                    subtitle: Text(member.role.displayName),
-                    trailing: isAdmin && !isMe
-                        ? (isCreator
-                            ? const Icon(Icons.lock_rounded, color: Colors.grey)
-                            : PopupMenuButton<String>(
-                                onSelected: (value) async {
-                                  if (value == 'remove') {
-                                    await _confirmRemoveMember(context, ref, member.displayName, member.userId);
-                                  } else if (value == 'make_admin') {
-                                    await _confirmRoleChange(context, ref, member.displayName, member.userId, 'admin');
-                                  } else if (value == 'make_member') {
-                                    await _confirmRoleChange(context, ref, member.displayName, member.userId, 'member');
-                                  } else if (value == 'transfer') {
-                                    await _confirmTransferOwnership(context, ref, member.displayName, member.userId);
-                                  }
-                                },
-                                itemBuilder: (context) => [
-                                  if (isCurrentUserCreator)
-                                    const PopupMenuItem(
-                                      value: 'transfer',
-                                      child: Text('Transfer Ownership'),
-                                    ),
-                                  if (member.role != FamilyRole.admin)
-                                    const PopupMenuItem(
-                                      value: 'make_admin',
-                                      child: Text('Make Admin'),
-                                    ),
-                                  if (member.role != FamilyRole.member)
-                                    const PopupMenuItem(
-                                      value: 'make_member',
-                                      child: Text('Make Member'),
-                                    ),
-                                  const PopupMenuItem(
-                                    value: 'remove',
-                                    child: Text('Remove Member'),
-                                  ),
-                                ],
-                                child: const Icon(Icons.more_vert),
-                              ))
-                        : null,
-                  );
-                },
-              ),
-            ),
-            
-            const SizedBox(height: 32),
-
-            // Activity Section
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Recent Activity',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                child: const Icon(
+                  Icons.family_restroom_rounded,
+                  size: 64,
+                  color: AppTheme.primaryColor,
                 ),
-                TextButton(
-                  onPressed: () => ref.read(familyProvider.notifier).refreshActivity(),
-                  child: const Text('Refresh'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: familyState.activities.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text('No recent activity yet.'),
-                    )
-                  : ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: familyState.activities.length,
-                      separatorBuilder: (context, index) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final activity = familyState.activities[index];
-                        final time = DateFormat('MMM d, h:mm a').format(activity.createdAt);
-                        return ListTile(
-                          leading: _activityIcon(activity),
-                          title: Text(activity.message),
-                          subtitle: Text('${activity.actorName ?? 'System'} • $time'),
-                        );
-                      },
-                    ),
-            ),
-
-            const SizedBox(height: 32),
-            
-            // Danger Zone
-            Text(
-              'Danger Zone',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.exit_to_app, color: Colors.red),
-                    title: const Text('Leave Family', style: TextStyle(color: Colors.red)),
-                    subtitle: const Text('You will need an invite to rejoin'),
-                    onTap: () => _confirmLeaveFamily(context, ref),
-                  ),
-                ],
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  void _confirmLeaveFamily(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Leave Family?'),
-        content: const Text(
-          'Are you sure you want to leave this family? You will lose access to all shared content.',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.settings_outlined),
+          onPressed: () {
+            // TODO: Family Settings
+          },
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+      ],
+    );
+  }
+
+  Widget _buildAdminBanner(bool isAdmin, bool isDark) {
+    if (!isAdmin) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.shield_rounded, color: AppTheme.primaryColor, size: 20),
+          const SizedBox(width: 12),
+          const Text(
+            'Admin View',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AppTheme.primaryColor,
+            ),
           ),
+          const Spacer(),
           TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await ref.read(familyProvider.notifier).leave();
-                if (context.mounted) {
-                  Navigator.pushReplacementNamed(context, '/family-setup');
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to leave family: $e')),
-                  );
-                }
-              }
+            onPressed: () {
+              // TODO: Manage permissions
             },
-            child: const Text('Leave', style: TextStyle(color: Colors.red)),
+            child: const Text('Manage Permissions'),
           ),
         ],
       ),
     );
   }
 
-  Widget _activityIcon(FamilyActivity activity) {
-    switch (activity.type) {
-      case 'family_created':
-        return const Icon(Icons.family_restroom_rounded, color: AppTheme.primaryColor);
+  Widget _buildSectionHeader(BuildContext context, String title, String subtitle) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          subtitle,
+          style: const TextStyle(color: AppTheme.textTertiary, fontSize: 13),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMembersList(List<FamilyMember> members, family_entity.Family family, String? currentUserId, bool isDark) {
+    return Column(
+      children: members.map((member) {
+        final isMe = member.userId == currentUserId;
+        final isAdmin = member.role == 'admin';
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: isDark
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+          ),
+          child: Row(
+            children: [
+              _buildAvatar(member.displayName, isDark),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          isMe ? '${member.displayName} (You)' : member.displayName,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        if (isAdmin) ...[
+                          const SizedBox(width: 6),
+                          const Icon(Icons.verified_user_rounded, color: AppTheme.primaryColor, size: 14),
+                        ],
+                      ],
+                    ),
+                    Text(
+                      isAdmin ? 'Family Admin' : 'Family Member',
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textTertiary),
+                    ),
+                  ],
+                ),
+              ),
+              if (!isMe && family.isAdmin(currentUserId ?? ''))
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert_rounded),
+                  onSelected: (value) => _handleMemberAction(value, member),
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'role', child: Text('Change Role')),
+                    const PopupMenuItem(
+                      value: 'remove',
+                      child: Text('Remove Member', style: TextStyle(color: AppTheme.errorColor)),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildAvatar(String name, bool isDark) {
+    final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withValues(alpha: 1),
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(
+          initials,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActivityFeed(List<FamilyActivity> activities, bool isDark) {
+    if (activities.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: Text('No recent activity', style: TextStyle(color: AppTheme.textTertiary)),
+        ),
+      );
+    }
+
+    return Column(
+      children: activities.take(5).map((activity) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _getActivityColor(activity.type).withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _getActivityIcon(activity.type),
+                  color: _getActivityColor(activity.type),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RichText(
+                      text: TextSpan(
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black87,
+                          fontSize: 14,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: activity.actorName ?? 'Someone ',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          TextSpan(text: ' ${activity.message}'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatDateTime(activity.createdAt),
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textTertiary),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Color _getActivityColor(String type) {
+    switch (type) {
       case 'member_joined':
-        return const Icon(Icons.person_add_alt_1_rounded, color: AppTheme.successColor);
+        return AppTheme.successColor;
       case 'member_left':
-        return const Icon(Icons.exit_to_app_rounded, color: AppTheme.warningColor);
       case 'member_removed':
-        return const Icon(Icons.remove_circle_outline, color: AppTheme.errorColor);
-      case 'role_changed':
-        return const Icon(Icons.security_rounded, color: AppTheme.primaryColor);
-      case 'ownership_transferred':
-        return const Icon(Icons.workspace_premium_rounded, color: AppTheme.primaryColor);
-      case 'invite_regenerated':
-        return const Icon(Icons.refresh_rounded, color: AppTheme.primaryColor);
-      case 'settings_updated':
-        return const Icon(Icons.tune_rounded, color: AppTheme.primaryColor);
+        return AppTheme.errorColor;
+      case 'family_created':
+        return AppTheme.primaryColor;
       default:
-        return const Icon(Icons.info_outline, color: AppTheme.textSecondary);
+        return AppTheme.secondaryColor;
     }
   }
 
-  Future<void> _confirmRemoveMember(
-    BuildContext context,
-    WidgetRef ref,
-    String name,
-    String userId,
-  ) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Remove member?'),
-        content: Text('Remove $name from the family?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remove', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
-    try {
-      await ref.read(familyProvider.notifier).removeMember(userId);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Member removed')),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to remove: $e')),
-        );
-      }
+  IconData _getActivityIcon(String type) {
+    switch (type) {
+      case 'member_joined':
+        return Icons.person_add_rounded;
+      case 'member_left':
+      case 'member_removed':
+        return Icons.person_remove_rounded;
+      case 'family_created':
+        return Icons.home_work_rounded;
+      case 'settings_updated':
+        return Icons.tune_rounded;
+      default:
+        return Icons.info_outline_rounded;
     }
   }
 
-  Future<void> _confirmRoleChange(
-    BuildContext context,
-    WidgetRef ref,
-    String name,
-    String userId,
-    String role,
-  ) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Change role?'),
-        content: Text('Change $name to ${role == 'admin' ? 'Admin' : 'Member'}?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirm'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
-    try {
-      await ref.read(familyProvider.notifier).changeMemberRole(userId, role);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Role updated')),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update role: $e')),
-        );
-      }
-    }
+  String _formatDateTime(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${dt.day}/${dt.month}/${dt.year}';
   }
 
-  Future<void> _confirmTransferOwnership(
-    BuildContext context,
-    WidgetRef ref,
-    String name,
-    String userId,
-  ) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Transfer ownership?'),
-        content: Text('Make $name the new owner? You will become a member.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Transfer'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
-    try {
-      await ref.read(familyProvider.notifier).transferOwnership(userId);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ownership transferred')),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to transfer: $e')),
-        );
-      }
-    }
+  void _handleMemberAction(String action, FamilyMember member) {
+    // TODO: Implement member management actions
   }
 }

@@ -77,6 +77,13 @@ export const uploadDocument = async (req: Request, res: Response) => {
         });
 
         await newDocument.save();
+
+        // Update family storage
+        const Family = (await import('../models/Family')).default;
+        await Family.findByIdAndUpdate(familyId, {
+            $inc: { storageUsed: file.size || 0 }
+        });
+
         res.status(201).json(newDocument);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -135,14 +142,27 @@ export const getDocuments = async (req: Request, res: Response) => {
             .sort({ createdAt: -1 })
             .populate('uploadedBy', 'name');
 
-        // Calculate total storage usage for this family (excluding deleted documents)
-        const allDocs = await Document.find({ familyId, deleted: false });
-        const totalSize = allDocs.reduce((acc, doc) => acc + (doc.fileSize || 0), 0);
+        // Get storage from family model (cached value)
+        const Family = (await import('../models/Family')).default;
+        const family = await Family.findById(familyId);
+        
+        let storageUsed = family?.storageUsed || 0;
+        const storageLimit = family?.storageLimit || (25 * 1024 * 1024 * 1024);
+
+        // Periodically recalculate storage to fix any discrepancies (every 10th request)
+        if (Math.random() < 0.1) {
+            const allDocs = await Document.find({ familyId, deleted: false });
+            const actualSize = allDocs.reduce((acc, doc) => acc + (doc.fileSize || 0), 0);
+            if (Math.abs(actualSize - storageUsed) > 1024) { // Update if difference > 1KB
+                storageUsed = actualSize;
+                await Family.findByIdAndUpdate(familyId, { storageUsed: actualSize });
+            }
+        }
 
         res.status(200).json({
             documents,
-            storageUsed: totalSize,
-            storageLimit: 25 * 1024 * 1024 * 1024, // 25 GB limit
+            storageUsed,
+            storageLimit,
         });
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -157,6 +177,12 @@ export const deleteDocument = async (req: Request, res: Response) => {
         if (!document) {
             return res.status(404).json({ message: 'Document not found' });
         }
+
+        // Update family storage
+        const Family = (await import('../models/Family')).default;
+        await Family.findByIdAndUpdate(document.familyId, {
+            $inc: { storageUsed: -(document.fileSize || 0) }
+        });
 
         // Soft delete - mark as deleted
         document.deleted = true;

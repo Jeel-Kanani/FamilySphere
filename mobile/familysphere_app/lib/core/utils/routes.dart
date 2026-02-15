@@ -21,6 +21,8 @@ import 'package:familysphere_app/features/lab/presentation/screens/protect_pdf_s
 import 'package:familysphere_app/features/lab/presentation/screens/unlock_pdf_screen.dart';
 import 'package:familysphere_app/features/lab/presentation/screens/crop_image_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/auth_checker.dart';
+import 'package:familysphere_app/features/family/presentation/screens/join_family_screen.dart';
+import 'package:familysphere_app/features/family/presentation/screens/join_success_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/phone_login_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/otp_verification_screen.dart';
 
@@ -28,13 +30,14 @@ import 'package:familysphere_app/features/auth/presentation/screens/otp_verifica
 /// 
 /// Centralized route management for the app.
 class AppRoutes {
-  // Route names
   static const String root = '/';
   static const String login = '/login';
   static const String register = '/register';
   static const String profileSetup = '/profile-setup';
   static const String profile = '/profile';
   static const String familySetup = '/family-setup';
+  static const String joinFamily = '/join-family';
+  static const String joinSuccess = '/join-success';
   static const String home = '/home';
   static const String familyDetails = '/family-details';
   static const String inviteMember = '/invite-member';
@@ -83,6 +86,12 @@ class AppRoutes {
 
       case familySetup:
         return MaterialPageRoute(builder: (_) => const FamilySetupScreen());
+
+      case joinFamily:
+        return MaterialPageRoute(builder: (_) => const JoinFamilyScreen());
+
+      case joinSuccess:
+        return MaterialPageRoute(builder: (_) => const JoinSuccessScreen());
 
       case home:
         return MaterialPageRoute(builder: (_) => const MainNavigationScreen());

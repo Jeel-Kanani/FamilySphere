@@ -4,6 +4,7 @@ import 'package:familysphere_app/features/family/data/models/family_model.dart';
 import 'package:familysphere_app/features/family/data/models/family_member_model.dart';
 import 'package:familysphere_app/features/family/domain/entities/family_activity.dart';
 import 'package:familysphere_app/features/family/domain/entities/family.dart';
+import 'package:familysphere_app/features/family/domain/entities/family_invite.dart';
 
 /// Remote Data Source - Backend API Operations
 class FamilyRemoteDataSource {
@@ -132,6 +133,39 @@ class FamilyRemoteDataSource {
         createdAt: createdAt != null ? DateTime.parse(createdAt) : DateTime.now(),
       );
     }).toList();
+  }
+
+  /// Create a new secure invite
+  Future<FamilyInvite> createInvite(String familyId, String type) async {
+    final response = await _apiClient.post(
+      '/api/families/$familyId/invites',
+      data: {'type': type},
+    );
+    return FamilyInvite.fromJson(response.data);
+  }
+
+  /// Validate an invite
+  Future<Map<String, dynamic>> validateInvite({String? token, String? code}) async {
+    final response = await _apiClient.get(
+      '/api/families/invites/validate',
+      queryParameters: {
+        if (token != null) 'token': token,
+        if (code != null) 'code': code,
+      },
+    );
+    return response.data;
+  }
+
+  /// Join family with invite
+  Future<FamilyModel> joinWithInvite({String? token, String? code}) async {
+    final response = await _apiClient.post(
+      '/api/families/join-invite',
+      data: {
+        if (token != null) 'token': token,
+        if (code != null) 'code': code,
+      },
+    );
+    return FamilyModel.fromJson(response.data);
   }
 
   /// Generate 6-char random alphanumeric code

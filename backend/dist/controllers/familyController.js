@@ -12,10 +12,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getFamilyActivity = exports.updateFamilySettings = exports.updateInviteCode = exports.leaveFamily = exports.transferOwnership = exports.updateMemberRole = exports.removeFamilyMember = exports.getFamilyMembers = exports.getFamily = exports.joinFamily = exports.createFamily = void 0;
+exports.getFamilyActivity = exports.updateFamilySettings = exports.updateInviteCode = exports.leaveFamily = exports.transferOwnership = exports.updateMemberRole = exports.removeFamilyMember = exports.getFamilyMembers = exports.getFamily = exports.joinFamilyWithInvite = exports.joinFamily = exports.createFamily = void 0;
 const Family_1 = __importDefault(require("../models/Family"));
 const User_1 = __importDefault(require("../models/User"));
 const FamilyActivity_1 = __importDefault(require("../models/FamilyActivity"));
+const Invite_1 = __importDefault(require("../models/Invite"));
 function logFamilyActivity(params) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -115,6 +116,69 @@ const joinFamily = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
     }
 });
 exports.joinFamily = joinFamily;
+// Join family with secure invite (QR/Code/Link)
+const joinFamilyWithInvite = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        const { token, code } = req.body;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+        if (!userId) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+        let query = {};
+        if (token) {
+            query.token = token;
+        }
+        else if (code) {
+            query.code = String(code).toUpperCase();
+        }
+        else {
+            return res.status(400).json({ message: 'Token or code is required' });
+        }
+        const invite = yield Invite_1.default.findOne(query);
+        if (!invite) {
+            return res.status(404).json({ message: 'Invite not found or expired' });
+        }
+        if (invite.usedCount >= invite.maxUses) {
+            return res.status(400).json({ message: 'Invite has already been used' });
+        }
+        if (new Date() > invite.expiresAt) {
+            return res.status(400).json({ message: 'Invite has expired' });
+        }
+        const family = yield Family_1.default.findById(invite.familyId);
+        if (!family) {
+            return res.status(404).json({ message: 'Family not found' });
+        }
+        // Check if user already in a family
+        const user = yield User_1.default.findById(userId);
+        if (user === null || user === void 0 ? void 0 : user.familyId) {
+            return res.status(400).json({ message: 'You already belong to a family' });
+        }
+        // Join family
+        family.memberIds.push(userId);
+        yield family.save();
+        // Update user
+        yield User_1.default.findByIdAndUpdate(userId, {
+            familyId: family._id,
+            role: 'member'
+        });
+        // Update invite
+        invite.usedCount += 1;
+        yield invite.save();
+        yield logFamilyActivity({
+            familyId: family._id.toString(),
+            actorId: userId,
+            type: 'member_joined',
+            message: `Joined the family via ${invite.type} invite`,
+        });
+        res.json(family);
+    }
+    catch (error) {
+        console.error('Join family with invite error:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+exports.joinFamilyWithInvite = joinFamilyWithInvite;
 // Get family by ID
 const getFamily = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {

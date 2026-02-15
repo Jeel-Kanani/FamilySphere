@@ -1,6 +1,7 @@
 import 'package:familysphere_app/features/family/domain/entities/family.dart';
 import 'package:familysphere_app/features/family/domain/entities/family_activity.dart';
 import 'package:familysphere_app/features/family/domain/entities/family_member.dart';
+import 'package:familysphere_app/features/family/domain/entities/family_invite.dart';
 import 'package:familysphere_app/features/family/domain/repositories/family_repository.dart';
 import 'package:familysphere_app/features/family/data/datasources/family_remote_datasource.dart';
 import 'package:familysphere_app/features/family/data/datasources/family_local_datasource.dart';
@@ -151,5 +152,22 @@ class FamilyRepositoryImpl implements FamilyRepository {
   @override
   Future<List<FamilyActivity>> getFamilyActivity(String familyId) async {
     return remoteDataSource.getFamilyActivity(familyId);
+  }
+
+  @override
+  Future<FamilyInvite> createInvite(String familyId, String type) async {
+    return await remoteDataSource.createInvite(familyId, type);
+  }
+
+  @override
+  Future<Map<String, dynamic>> validateInvite({String? token, String? code}) async {
+    return await remoteDataSource.validateInvite(token: token, code: code);
+  }
+
+  @override
+  Future<Family> joinFamilyWithInvite({String? token, String? code}) async {
+    final family = await remoteDataSource.joinWithInvite(token: token, code: code);
+    await localDataSource.cacheFamily(family);
+    return family;
   }
 }
