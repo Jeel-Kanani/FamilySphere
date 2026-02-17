@@ -126,7 +126,7 @@ class UnlockPdfNotifier extends StateNotifier<UnlockPdfState> {
           path: file.path ?? '',
           sizeBytes: file.size,
         ),
-        outputFileName: file.name.replaceAll('.pdf', '_unlocked.pdf'),
+        outputFileName: file.name,
         status: UnlockStatus.idle,
       );
     } catch (e) {
@@ -206,7 +206,7 @@ class UnlockPdfNotifier extends StateNotifier<UnlockPdfState> {
         status: UnlockStatus.error,
         errorMessage: e.userMessage,
       );
-    } on UnlockCancelledError catch (e) {
+    } on UnlockCancelledError {
       state = state.copyWith(
         status: UnlockStatus.idle,
       );

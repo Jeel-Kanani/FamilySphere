@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAMID.com.jeelkanani.familysphere",
+        "paths": [ "/join*" ]
+      }
+    ]
+  }
+}

@@ -4,8 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/core/services/notification_service.dart';
 import 'package:familysphere_app/features/lab/presentation/providers/lab_recent_files_provider.dart';
@@ -200,55 +198,6 @@ class _LabScreenState extends ConsumerState<LabScreen> {
   }
 
   // ─── RECENT FILES (DYNAMIC) ───────────────────────────────────────────────────
-
-  /// Returns the appropriate icon and color for a given file type
-  _FileIconInfo _getFileIconInfo(String fileType, String title) {
-    final type = fileType.toLowerCase();
-    final lowerTitle = title.toLowerCase();
-
-    if (type == 'pdf' || lowerTitle.endsWith('.pdf')) {
-      return _FileIconInfo(Icons.picture_as_pdf_rounded, const Color(0xFFEF4444));
-    } else if (type == 'image' ||
-        lowerTitle.endsWith('.jpg') ||
-        lowerTitle.endsWith('.jpeg') ||
-        lowerTitle.endsWith('.png') ||
-        lowerTitle.endsWith('.webp')) {
-      return _FileIconInfo(Icons.image_rounded, const Color(0xFF3B82F6));
-    } else if (type == 'doc' ||
-        type == 'docx' ||
-        lowerTitle.endsWith('.docx') ||
-        lowerTitle.endsWith('.doc')) {
-      return _FileIconInfo(Icons.description_rounded, const Color(0xFF3B82F6));
-    } else if (type == 'zip' ||
-        type == 'rar' ||
-        lowerTitle.endsWith('.zip') ||
-        lowerTitle.endsWith('.rar')) {
-      return _FileIconInfo(Icons.folder_zip_rounded, const Color(0xFFF97316));
-    } else if (type == 'xls' ||
-        type == 'xlsx' ||
-        lowerTitle.endsWith('.xlsx') ||
-        lowerTitle.endsWith('.xls')) {
-      return _FileIconInfo(Icons.table_chart_rounded, const Color(0xFF10B981));
-    } else if (type == 'ppt' ||
-        type == 'pptx' ||
-        lowerTitle.endsWith('.pptx') ||
-        lowerTitle.endsWith('.ppt')) {
-      return _FileIconInfo(Icons.slideshow_rounded, const Color(0xFFF97316));
-    } else {
-      return _FileIconInfo(Icons.insert_drive_file_rounded, const Color(0xFF64748B));
-    }
-  }
-
-  /// Whether the file is an image that can show a thumbnail
-  bool _isImageFile(String fileType, String title) {
-    final type = fileType.toLowerCase();
-    final lowerTitle = title.toLowerCase();
-    return type == 'image' ||
-        lowerTitle.endsWith('.jpg') ||
-        lowerTitle.endsWith('.jpeg') ||
-        lowerTitle.endsWith('.png') ||
-        lowerTitle.endsWith('.webp');
-  }
 
   Widget _buildRecentFilesSection(
     BuildContext context,
@@ -585,44 +534,13 @@ class _LabScreenState extends ConsumerState<LabScreen> {
   }
 
   /// Downloads file to public Downloads folder
+  /// Android 10+ uses Scoped Storage - no permission needed for Downloads
   Future<void> _downloadFile(BuildContext context, LabRecentFile file) async {
     try {
-      // Check and request storage permissions
-      PermissionStatus storageStatus;
-      if (Platform.isAndroid) {
-        // Android 13+ requires different permissions
-        final androidInfo = await Permission.storage.request();
-        if (androidInfo.isDenied || androidInfo.isPermanentlyDenied) {
-          if (!context.mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Storage permission is required to download files'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 3),
-            ),
-          );
-          await openAppSettings();
-          return;
-        }
-        storageStatus = androidInfo;
-      } else {
-        storageStatus = await Permission.storage.request();
-        if (!storageStatus.isGranted) {
-          if (!context.mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Storage permission is required to download files'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
-      }
-
       // Show loading indicator
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Row(
             children: [
               SizedBox(
@@ -630,8 +548,8 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                 height: 20,
                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
               ),
-              const SizedBox(width: 16),
-              const Text('Downloading...'),
+              SizedBox(width: 16),
+              Text('Downloading...'),
             ],
           ),
           duration: Duration(hours: 1), // Keep showing until we hide it
@@ -643,74 +561,16 @@ class _LabScreenState extends ConsumerState<LabScreen> {
         throw Exception('Source file not found');
       }
 
-      final fileName = file.fileName;
+      // Use LabFileManager to save to public Downloads
+      final fileManager = LabFileManager();
+      final downloadedPath = await fileManager.saveToDownloads(file.filePath, file.toolLabel);
       
-      // Get Downloads directory with multiple fallbacks
-      Directory? downloadsDir;
-      
-      if (Platform.isAndroid) {
-        // Try multiple Android Downloads paths
-        final possiblePaths = [
-          '/storage/emulated/0/Download',
-          '/storage/emulated/0/Downloads',
-          '/sdcard/Download',
-          '/sdcard/Downloads',
-        ];
-        
-        for (final path in possiblePaths) {
-          final dir = Directory(path);
-          if (await dir.exists()) {
-            downloadsDir = dir;
-            break;
-          }
-        }
-        
-        // Fallback to getDownloadsDirectory
-        downloadsDir ??= await getDownloadsDirectory();
-      } else {
-        downloadsDir = await getDownloadsDirectory();
-      }
-      
-      // Final fallback to external storage directory
-      downloadsDir ??= await getApplicationDocumentsDirectory();
-      
-      // Ensure the directory exists
-      if (!await downloadsDir.exists()) {
-        await downloadsDir.create(recursive: true);
-      }
-
-      // Build destination path
-      var destPath = '${downloadsDir.path}${Platform.pathSeparator}$fileName';
-      
-      // Handle duplicate file names
-      var counter = 1;
-      while (await File(destPath).exists()) {
-        final nameParts = fileName.split('.');
-        if (nameParts.length > 1) {
-          final ext = nameParts.last;
-          final baseName = nameParts.sublist(0, nameParts.length - 1).join('.');
-          destPath = '${downloadsDir.path}${Platform.pathSeparator}$baseName ($counter).$ext';
-        } else {
-          destPath = '${downloadsDir.path}${Platform.pathSeparator}$fileName ($counter)';
-        }
-        counter++;
-      }
-      
-      // Copy the file
-      await sourceFile.copy(destPath);
-      
-      // Verify the file was copied
-      final copiedFile = File(destPath);
-      if (!await copiedFile.exists()) {
-        throw Exception('File copy verification failed');
-      }
-      
-      final finalFileName = destPath.split(Platform.pathSeparator).last;
+      final finalFileName = downloadedPath.split(Platform.pathSeparator).last;
       
       // Show system notification
       await NotificationService().showDownloadNotification(
         fileName: finalFileName,
-        filePath: destPath,
+        filePath: downloadedPath,
       );
       
       if (!context.mounted) return;
@@ -723,9 +583,9 @@ class _LabScreenState extends ConsumerState<LabScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                children: [
+                children: const [
                   Icon(Icons.download_done, color: Colors.white, size: 24),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'Downloaded Successfully!',
@@ -738,7 +598,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
               Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Column(
@@ -752,17 +612,15 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Saved to: ${downloadsDir.path}',
+                      'Saved to Downloads folder',
                       style: TextStyle(fontSize: 11),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'Check your notification & file manager',
+                'Check your file manager',
                 style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
               ),
             ],
@@ -924,8 +782,8 @@ class _LabScreenState extends ConsumerState<LabScreen> {
   }
 
   /// Shows file details dialog
+  /// Shows file details dialog with download option
   void _showFileDetails(BuildContext context, LabRecentFile file, bool isDark) {
-    final fileObj = File(file.filePath);
     final ext = file.fileName.split('.').last.toUpperCase();
     final createdDate = file.createdAt.toString().split('.')[0];
 
@@ -933,28 +791,58 @@ class _LabScreenState extends ConsumerState<LabScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
-        title: Text('File Details', style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
           children: [
-            _buildDetailRow('Name', file.fileName, isDark),
-            const SizedBox(height: 12),
-            _buildDetailRow('Type', ext, isDark),
-            const SizedBox(height: 12),
-            _buildDetailRow('Size', LabFileManager.formatFileSize(file.sizeBytes), isDark),
-            const SizedBox(height: 12),
-            _buildDetailRow('Tool', file.toolLabel, isDark),
-            const SizedBox(height: 12),
-            _buildDetailRow('Created', createdDate, isDark),
-            const SizedBox(height: 12),
-            _buildDetailRow('Location', file.filePath, isDark, isPath: true),
+            Icon(
+              Icons.info_outline_rounded,
+              color: _primaryBlue,
+              size: 24,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'File Details',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildDetailRow('File Name', file.fileName, isDark),
+              const Divider(height: 24),
+              _buildDetailRow('Type', ext, isDark),
+              const Divider(height: 24),
+              _buildDetailRow('Size', LabFileManager.formatFileSize(file.sizeBytes), isDark),
+              const Divider(height: 24),
+              _buildDetailRow('Tool', file.toolLabel, isDark),
+              const Divider(height: 24),
+              _buildDetailRow('Created', createdDate, isDark),
+              const Divider(height: 24),
+              _buildDetailRow('Path', file.filePath, isDark, isPath: true),
+            ],
+          ),
+        ),
         actions: [
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              _downloadFile(context, file);
+            },
+            icon: const Icon(Icons.download_rounded, size: 18),
+            label: const Text('Download'),
+            style: TextButton.styleFrom(
+              foregroundColor: _primaryBlue,
+            ),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Close'),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -968,19 +856,21 @@ class _LabScreenState extends ConsumerState<LabScreen> {
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
             color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         Text(
           value,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
             color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
           ),
-          maxLines: isPath ? 3 : 1,
+          maxLines: isPath ? 4 : 2,
           overflow: TextOverflow.ellipsis,
         ),
       ],
@@ -1089,7 +979,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
     final pdfTools = [
       _LabToolData(icon: Icons.call_merge_rounded, label: 'Merge PDF', route: '/merge-pdf'),
       _LabToolData(icon: Icons.call_split_rounded, label: 'Split PDF', route: '/split-pdf'),
-      _LabToolData(icon: Icons.compress_rounded, label: 'Compress'),
+      _LabToolData(icon: Icons.compress_rounded, label: 'Compress', route: '/compress-pdf'),
       _LabToolData(icon: Icons.text_snippet_rounded, label: 'To Word'),
       _LabToolData(icon: Icons.lock_rounded, label: 'Protect', route: '/protect-pdf'),
       _LabToolData(icon: Icons.rotate_right_rounded, label: 'Rotate'),
@@ -1384,12 +1274,6 @@ class _ImageViewerScreen extends StatelessWidget {
 }
 
 // ─── DATA MODELS ──────────────────────────────────────────────────────────────
-
-class _FileIconInfo {
-  final IconData icon;
-  final Color color;
-  const _FileIconInfo(this.icon, this.color);
-}
 
 class _LabToolData {
   final IconData icon;

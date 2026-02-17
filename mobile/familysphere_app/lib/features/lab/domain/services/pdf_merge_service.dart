@@ -74,7 +74,7 @@ class PdfMergeService {
   /// Validates, merges PDFs, and returns the output path.
   ///
   /// [inputFiles] — user-selected PDF files in desired order
-  /// [outputFileName] — desired name for the output (e.g. "merged_file.pdf")
+  /// [outputFileName] — desired name for the output (e.g. "document.pdf")
   /// [isCancelled] — callback checked between steps to support cancellation
   /// [onProgress] — reports progress 0.0 → 1.0
   Future<MergeResult> mergePdfs({

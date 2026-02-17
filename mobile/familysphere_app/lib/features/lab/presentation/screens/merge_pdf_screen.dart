@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/features/lab/presentation/providers/merge_pdf_provider.dart';
 import 'package:familysphere_app/features/lab/presentation/widgets/merge_result_sheet.dart';
-import 'package:familysphere_app/features/lab/domain/services/lab_file_manager.dart';
 
 /// Merge PDF Screen — fully wired to [mergePdfProvider].
 class MergePdfScreen extends ConsumerStatefulWidget {
@@ -23,7 +22,7 @@ class _MergePdfScreenState extends ConsumerState<MergePdfScreen> {
   @override
   void initState() {
     super.initState();
-    _outputNameController = TextEditingController(text: 'merged_file.pdf');
+    _outputNameController = TextEditingController(text: 'merged.pdf');
   }
 
   @override

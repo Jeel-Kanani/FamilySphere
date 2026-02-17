@@ -189,9 +189,6 @@ class CropImageService {
       if (cleanName.contains('.')) {
         cleanName = cleanName.substring(0, cleanName.lastIndexOf('.'));
       }
-      if (!cleanName.startsWith('cropped_')) {
-        cleanName = 'cropped_$cleanName';
-      }
 
       final outputPath = await _fileManager.generateUniqueOutputPath(
         outputDir,

@@ -20,6 +20,7 @@ import 'package:familysphere_app/features/lab/presentation/screens/image_resize_
 import 'package:familysphere_app/features/lab/presentation/screens/protect_pdf_screen.dart';
 import 'package:familysphere_app/features/lab/presentation/screens/unlock_pdf_screen.dart';
 import 'package:familysphere_app/features/lab/presentation/screens/crop_image_screen.dart';
+import 'package:familysphere_app/features/lab/presentation/screens/compress_pdf_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/auth_checker.dart';
 import 'package:familysphere_app/features/family/presentation/screens/join_family_screen.dart';
 import 'package:familysphere_app/features/family/presentation/screens/join_success_screen.dart';
@@ -58,6 +59,7 @@ class AppRoutes {
   static const String folderDetails = '/folder-details';
   static const String memberDocs = '/member-docs';
   static const String privateLocker = '/private-locker';
+  static const String compressPdf = '/compress-pdf';
 
   // Route generator
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -164,6 +166,12 @@ class AppRoutes {
       case cropImage:
         return MaterialPageRoute(
           builder: (_) => const CropImageScreen(),
+          settings: settings,
+        );
+
+      case compressPdf:
+        return MaterialPageRoute(
+          builder: (_) => const CompressPdfScreen(),
           settings: settings,
         );
 

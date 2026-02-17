@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/features/lab/presentation/providers/protect_pdf_provider.dart';
 import 'package:familysphere_app/features/lab/presentation/widgets/merge_result_sheet.dart';
-import 'dart:io';
 
 class ProtectPdfScreen extends ConsumerStatefulWidget {
   const ProtectPdfScreen({super.key});

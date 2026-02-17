@@ -59,7 +59,7 @@ class ImageResizeState {
     this.targetHeight,
     this.lockAspectRatio = true,
     this.format = ImageOutputFormat.original,
-    this.outputFileName = 'resized_image',
+    this.outputFileName = 'image',
     this.status = ResizeStatus.idle,
     this.progress = 0.0,
     this.progressMessage = '',
@@ -156,7 +156,7 @@ class ImageResizeNotifier extends StateNotifier<ImageResizeState> {
           sizeBytes: await file.length(),
         ),
         status: ResizeStatus.idle,
-        outputFileName: 'resized_${xFile.name.split('.').first}',
+        outputFileName: xFile.name.split('.').first,
       );
     } catch (e) {
       state = state.copyWith(

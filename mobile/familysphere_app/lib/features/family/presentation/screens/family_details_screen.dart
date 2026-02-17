@@ -375,7 +375,71 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
     return '${dt.day}/${dt.month}/${dt.year}';
   }
 
-  void _handleMemberAction(String action, FamilyMember member) {
-    // TODO: Implement member management actions
+  Future<void> _handleMemberAction(String action, FamilyMember member) async {
+    if (action == 'remove') {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Remove Member?'),
+          content: Text('Are you sure you want to remove ${member.displayName} from the family?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Remove', style: TextStyle(color: AppTheme.errorColor)),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm == true) {
+        try {
+          await ref.read(familyProvider.notifier).removeMember(member.userId);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('${member.displayName} removed')),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.errorColor),
+            );
+          }
+        }
+      }
+    } else if (action == 'role') {
+      final isNowAdmin = member.role == 'admin';
+      final newRole = isNowAdmin ? 'member' : 'admin';
+      
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Change Role?'),
+          content: Text('Make ${member.displayName} a ${isNowAdmin ? 'Member' : 'Admin'}?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirm')),
+          ],
+        ),
+      );
+
+      if (confirm == true) {
+        try {
+          await ref.read(familyProvider.notifier).changeMemberRole(member.userId, newRole);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Role updated for ${member.displayName}')),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.errorColor),
+            );
+          }
+        }
+      }
+    }
   }
 }

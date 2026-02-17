@@ -13,7 +13,6 @@ class DocumentPreviewScreen extends StatefulWidget {
 class _DocumentPreviewScreenState extends State<DocumentPreviewScreen> {
   int _currentPage = 0;
   int _totalPages = 0;
-  PDFViewController? _pdfViewController;
   bool _showPageIndicator = true;
 
   @override
@@ -79,9 +78,6 @@ class _DocumentPreviewScreenState extends State<DocumentPreviewScreen> {
                 _totalPages = pages ?? 0;
               });
               debugPrint('Rendered $_totalPages pages');
-            },
-            onViewCreated: (PDFViewController pdfViewController) {
-              _pdfViewController = pdfViewController;
             },
             onPageChanged: (int? page, int? total) {
               setState(() {

@@ -49,17 +49,6 @@ class _FamilySetupScreenState extends ConsumerState<FamilySetupScreen>
     }
   }
 
-  void _handleJoinFamily() async {
-    final code = _joinCodeController.text.trim().toUpperCase();
-    if (code.length != 6) return;
-    Navigator.pop(context);
-    try {
-      await ref.read(familyProvider.notifier).join(code);
-    } catch (e) {
-      _showError(e.toString());
-    }
-  }
-
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: AppTheme.errorColor, behavior: SnackBarBehavior.floating),
@@ -79,27 +68,6 @@ class _FamilySetupScreenState extends ConsumerState<FamilySetupScreen>
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           ElevatedButton(onPressed: _handleCreateFamily, child: const Text('Create')),
-        ],
-      ),
-    );
-  }
-
-  void _showJoinDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Join Family'),
-        content: TextField(
-          controller: _joinCodeController,
-          decoration: const InputDecoration(labelText: 'Invite Code', hintText: 'ABC123'),
-          maxLength: 6,
-          textCapitalization: TextCapitalization.characters,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 4),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(onPressed: _handleJoinFamily, child: const Text('Join')),
         ],
       ),
     );

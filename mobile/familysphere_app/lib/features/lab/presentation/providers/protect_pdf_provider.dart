@@ -51,7 +51,7 @@ class ProtectPdfState {
     this.confirmPassword = '',
     this.allowPrinting = false,
     this.allowCopyContent = false,
-    this.outputFileName = 'protected_document.pdf',
+    this.outputFileName = 'document.pdf',
     this.status = ProtectStatus.idle,
     this.progress = 0.0,
     this.progressMessage = '',
@@ -204,7 +204,7 @@ class ProtectPdfNotifier extends StateNotifier<ProtectPdfState> {
           pageCount: pageCount,
         ),
         status: ProtectStatus.idle,
-        outputFileName: '${platformFile.name.replaceAll('.pdf', '')}_protected.pdf',
+        outputFileName: platformFile.name,
       );
     } catch (e) {
       state = state.copyWith(

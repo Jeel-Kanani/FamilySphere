@@ -25,7 +25,6 @@ class _JoinSuccessScreenState extends ConsumerState<JoinSuccessScreen> {
   @override
   Widget build(BuildContext context) {
     final family = ref.watch(familyProvider).family;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: AppTheme.primaryColor,

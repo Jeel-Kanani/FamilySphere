@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
+import 'package:familysphere_app/core/services/notification_service.dart';
 import 'package:familysphere_app/features/lab/domain/services/lab_file_manager.dart';
 
 /// Reusable bottom sheet for showing Lab tool results (success or error).
@@ -145,7 +146,7 @@ class MergeResultSheet extends StatelessWidget {
 
         // File info
         Text(
-          '${outputFileName ?? 'merged_file.pdf'} • ${LabFileManager.formatFileSize(outputSizeBytes ?? 0)}',
+          '${outputFileName ?? 'merged.pdf'} • ${LabFileManager.formatFileSize(outputSizeBytes ?? 0)}',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: isDark
                     ? AppTheme.darkTextSecondary
@@ -178,13 +179,14 @@ class MergeResultSheet extends StatelessWidget {
         ),
         const SizedBox(height: 24),
 
-        // Action buttons: Save | Share | Done
+        // Action buttons: Download | Share | Done
         Row(
           children: [
-            // Save to Downloads
+            // Download to public Downloads
             Expanded(
-              child: _SaveButton(
+              child: _DownloadButton(
                 filePath: outputFilePath,
+                fileName: outputFileName,
                 isDark: isDark,
               ),
             ),
@@ -385,38 +387,92 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
-// ─── SAVE BUTTON (stateful — shows "Saved ✓" after download) ─────────────────
+// ─── DOWNLOAD BUTTON (stateful — shows "Downloaded ✓" after download) ────────
 
-class _SaveButton extends StatefulWidget {
-  const _SaveButton({
+class _DownloadButton extends StatefulWidget {
+  const _DownloadButton({
     required this.filePath,
+    required this.fileName,
     required this.isDark,
   });
 
   final String? filePath;
+  final String? fileName;
   final bool isDark;
 
   @override
-  State<_SaveButton> createState() => _SaveButtonState();
+  State<_DownloadButton> createState() => _DownloadButtonState();
 }
 
-class _SaveButtonState extends State<_SaveButton> {
-  bool _saving = false;
-  bool _saved = false;
+class _DownloadButtonState extends State<_DownloadButton> {
+  bool _downloading = false;
+  bool _downloaded = false;
 
-  Future<void> _save() async {
-    if (widget.filePath == null || _saving || _saved) return;
-    setState(() => _saving = true);
+  Future<void> _download() async {
+    if (widget.filePath == null || _downloading || _downloaded) return;
+    setState(() => _downloading = true);
 
     try {
+      // Save to public Downloads folder using native Android MediaStore
       final fileManager = LabFileManager();
-      await fileManager.saveToDownloads(widget.filePath!, 'MergePDF');
-      if (mounted) setState(() { _saving = false; _saved = true; });
+      final downloadedPath = await fileManager.saveToDownloads(widget.filePath!, 'Lab');
+      
+      // Show system notification
+      await NotificationService().showDownloadNotification(
+        fileName: widget.fileName ?? 'file',
+        filePath: downloadedPath,
+      );
+      
+      if (mounted) {
+        setState(() { _downloading = false; _downloaded = true; });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: const [
+                    Icon(Icons.check_circle, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text('Downloaded Successfully!', 
+                         style: TextStyle(fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                SizedBox(height: 4),
+                Text('Saved to Downloads folder',
+                     style: TextStyle(fontSize: 12)),
+              ],
+            ),
+            backgroundColor: Color(0xFF10B981),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
-        setState(() => _saving = false);
+        setState(() => _downloading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not save to Downloads')),
+          SnackBar(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: const [
+                    Icon(Icons.error_outline, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text('Download Failed', 
+                         style: TextStyle(fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                SizedBox(height: 4),
+                Text(e.toString(), style: TextStyle(fontSize: 12)),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
         );
       }
     }
@@ -427,28 +483,28 @@ class _SaveButtonState extends State<_SaveButton> {
     return SizedBox(
       height: 50,
       child: OutlinedButton.icon(
-        onPressed: _saved ? null : _save,
-        icon: _saving
+        onPressed: _downloaded ? null : _download,
+        icon: _downloading
             ? const SizedBox(
                 width: 16, height: 16,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             : Icon(
-                _saved ? Icons.check_rounded : Icons.download_rounded,
+                _downloaded ? Icons.check_circle_rounded : Icons.download_rounded,
                 size: 20,
-                color: _saved ? const Color(0xFF10B981) : null,
+                color: _downloaded ? const Color(0xFF10B981) : null,
               ),
         label: Text(
-          _saved ? 'Saved ✓' : 'Save',
+          _downloaded ? 'Downloaded' : 'Download',
           style: TextStyle(
             fontWeight: FontWeight.w600,
-            color: _saved ? const Color(0xFF10B981) : null,
+            color: _downloaded ? const Color(0xFF10B981) : null,
           ),
         ),
         style: OutlinedButton.styleFrom(
           foregroundColor: widget.isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
           side: BorderSide(
-            color: _saved
+            color: _downloaded
                 ? const Color(0xFF10B981)
                 : widget.isDark
                     ? AppTheme.darkBorder

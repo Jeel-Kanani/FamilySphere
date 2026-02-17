@@ -37,7 +37,7 @@ class CropImageState {
     this.flipVertical = false,
     this.aspectRatio,
     this.outputFormat = ImageOutputFormat.original,
-    this.outputFileName = 'cropped_image.jpg',
+    this.outputFileName = 'image.jpg',
     this.processingProgress = 0,
     this.processingStatus = '',
     this.imageWidth,
@@ -104,7 +104,7 @@ class CropImageNotifier extends StateNotifier<CropImageState> {
       
       state = state.copyWith(
         imageFile: file,
-        outputFileName: 'cropped_${pickedFile.name}',
+        outputFileName: pickedFile.name,
         imageWidth: image?.width,
         imageHeight: image?.height,
       );
@@ -117,7 +117,7 @@ class CropImageNotifier extends StateNotifier<CropImageState> {
     
     state = state.copyWith(
       imageFile: file,
-      outputFileName: 'cropped_${file.path.split(Platform.pathSeparator).last}',
+      outputFileName: file.path.split(Platform.pathSeparator).last,
       imageWidth: image?.width,
       imageHeight: image?.height,
     );

@@ -53,7 +53,7 @@ class MergePdfState {
 
   const MergePdfState({
     this.selectedFiles = const [],
-    this.outputFileName = 'merged_file.pdf',
+    this.outputFileName = 'merged.pdf',
     this.status = MergeStatus.idle,
     this.progress = 0.0,
     this.progressMessage = '',

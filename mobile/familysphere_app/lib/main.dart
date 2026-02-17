@@ -7,12 +7,14 @@ import 'package:familysphere_app/features/auth/presentation/screens/auth_checker
 import 'package:familysphere_app/features/lab/domain/services/lab_file_manager.dart';
 import 'package:familysphere_app/core/services/notification_service.dart';
 import 'package:familysphere_app/core/services/deep_link_service.dart';
+import 'package:familysphere_app/features/family/data/datasources/family_local_datasource.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Hive for local cache (if needed for documents, etc.)
+  // Initialize Hive for local cache
   await Hive.initFlutter();
+  await FamilyLocalDataSource().init();
   
   // Initialize notification service for system notifications
   await NotificationService().initialize();
