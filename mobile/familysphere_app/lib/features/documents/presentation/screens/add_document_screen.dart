@@ -11,7 +11,17 @@ import 'package:familysphere_app/features/family/presentation/providers/family_p
 
 class AddDocumentScreen extends ConsumerStatefulWidget {
   final List<String>? initialImagePaths;
-  const AddDocumentScreen({super.key, this.initialImagePaths});
+  final String? initialCategory;
+  final String? initialFolder;
+  final String? initialMemberId;
+
+  const AddDocumentScreen({
+    super.key,
+    this.initialImagePaths,
+    this.initialCategory,
+    this.initialFolder,
+    this.initialMemberId,
+  });
 
   @override
   ConsumerState<AddDocumentScreen> createState() => _AddDocumentScreenState();
@@ -53,14 +63,23 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedCategory = widget.initialCategory ?? 'Shared';
+    _selectedFolder = widget.initialFolder ??
+        (_builtInByCategory[_selectedCategory] ?? const ['General']).first;
+    _selectedMemberId = widget.initialMemberId;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(documentProvider.notifier).loadFolders(category: _selectedCategory);
+      ref
+          .read(documentProvider.notifier)
+          .loadFolders(category: _selectedCategory, memberId: _selectedMemberId);
       ref.read(familyProvider.notifier).loadFamily().then((_) {
         if (!mounted) return;
-        if (_selectedCategory == 'Shared') {
-          setState(() => _selectedMemberId = null);
-        } else {
-          setState(() => _selectedMemberId = ref.read(authProvider).user?.id);
+        if (widget.initialMemberId == null && widget.initialCategory == null) {
+          if (_selectedCategory == 'Shared') {
+            setState(() => _selectedMemberId = null);
+          } else {
+            setState(() => _selectedMemberId = ref.read(authProvider).user?.id);
+          }
         }
       });
     });
@@ -103,7 +122,12 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
     final result = await Navigator.pushNamed(
       context,
       AppRoutes.scanner,
-      arguments: const {'returnOnly': true},
+      arguments: {
+        'returnOnly': true,
+        'category': _selectedCategory,
+        'folder': _selectedFolder,
+        'memberId': _selectedMemberId,
+      },
     );
     if (result != null && result is List<String>) {
       setState(() {

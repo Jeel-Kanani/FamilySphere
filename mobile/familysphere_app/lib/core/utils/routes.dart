@@ -115,8 +115,29 @@ class AppRoutes {
         );
 
       case addDocument:
-        final paths = settings.arguments as List<String>?;
-        return MaterialPageRoute(builder: (_) => AddDocumentScreen(initialImagePaths: paths));
+        final args = settings.arguments;
+        List<String>? paths;
+        String? category;
+        String? folder;
+        String? memberId;
+
+        if (args is List<String>) {
+          paths = args;
+        } else if (args is Map) {
+          paths = args['paths'] as List<String>?;
+          category = args['category'] as String?;
+          folder = args['folder'] as String?;
+          memberId = args['memberId'] as String?;
+        }
+
+        return MaterialPageRoute(
+          builder: (_) => AddDocumentScreen(
+            initialImagePaths: paths,
+            initialCategory: category,
+            initialFolder: folder,
+            initialMemberId: memberId,
+          ),
+        );
 
       case documentViewer:
         final document = settings.arguments as DocumentEntity;
@@ -125,10 +146,24 @@ class AppRoutes {
       case scanner:
         final args = settings.arguments;
         bool returnOnly = false;
-        if (args is Map && args['returnOnly'] is bool) {
-          returnOnly = args['returnOnly'] as bool;
+        String? category;
+        String? folder;
+        String? memberId;
+
+        if (args is Map) {
+          returnOnly = args['returnOnly'] as bool? ?? false;
+          category = args['category'] as String?;
+          folder = args['folder'] as String?;
+          memberId = args['memberId'] as String?;
         }
-        return MaterialPageRoute(builder: (_) => ScannerScreen(returnOnly: returnOnly));
+        return MaterialPageRoute(
+          builder: (_) => ScannerScreen(
+            returnOnly: returnOnly,
+            initialCategory: category,
+            initialFolder: folder,
+            initialMemberId: memberId,
+          ),
+        );
 
       case lab:
         return MaterialPageRoute(builder: (_) => const LabScreen());

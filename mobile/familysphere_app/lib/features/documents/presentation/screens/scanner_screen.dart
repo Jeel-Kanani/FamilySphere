@@ -8,8 +8,17 @@ import 'package:familysphere_app/core/utils/routes.dart';
 
 class ScannerScreen extends StatefulWidget {
   final bool returnOnly;
+  final String? initialCategory;
+  final String? initialFolder;
+  final String? initialMemberId;
 
-  const ScannerScreen({super.key, this.returnOnly = false});
+  const ScannerScreen({
+    super.key,
+    this.returnOnly = false,
+    this.initialCategory,
+    this.initialFolder,
+    this.initialMemberId,
+  });
 
   @override
   State<ScannerScreen> createState() => _ScannerScreenState();
@@ -407,7 +416,12 @@ class _ScannerScreenState extends State<ScannerScreen> {
                     Navigator.pushReplacementNamed(
                       this.context,
                       AppRoutes.addDocument,
-                      arguments: pages,
+                      arguments: {
+                        'paths': pages,
+                        'category': widget.initialCategory,
+                        'folder': widget.initialFolder,
+                        'memberId': widget.initialMemberId,
+                      },
                     );
                   },
                 ),

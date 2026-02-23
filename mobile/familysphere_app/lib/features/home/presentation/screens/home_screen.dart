@@ -13,124 +13,135 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with TickerProviderStateMixin {
+  late final AnimationController _staggerController;
+  late final List<Animation<double>> _fadeAnimations;
+  late final List<Animation<Offset>> _slideAnimations;
+
+  static const int _sectionCount = 5;
+
+  @override
+  void initState() {
+    super.initState();
+    _staggerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+
+    _fadeAnimations = List.generate(_sectionCount, (i) {
+      final start = i * 0.15;
+      final end = (start + 0.4).clamp(0.0, 1.0);
+      return CurvedAnimation(
+        parent: _staggerController,
+        curve: Interval(start, end, curve: Curves.easeOut),
+      );
+    });
+
+    _slideAnimations = List.generate(_sectionCount, (i) {
+      final start = i * 0.15;
+      final end = (start + 0.4).clamp(0.0, 1.0);
+      return Tween<Offset>(
+        begin: const Offset(0, 0.15),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(
+        parent: _staggerController,
+        curve: Interval(start, end, curve: Curves.easeOutCubic),
+      ));
+    });
+
+    _staggerController.forward();
+  }
+
+  @override
+  void dispose() {
+    _staggerController.dispose();
+    super.dispose();
+  }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }
+
+  String _getGreetingEmoji() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return '☀️';
+    if (hour < 17) return '🌤️';
+    return '🌙';
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
     final familyState = ref.watch(familyProvider);
     final documentsState = ref.watch(documentProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    final displayName = user?.displayName ?? 'User';
-    final familyName = familyState.family?.name ?? '${displayName} Family';
-    final members = _buildMemberCards(familyState);
-    final docCards = _buildDocumentCards(documentsState);
 
-    final pageBackground = isDark ? AppTheme.darkBackground : AppTheme.backgroundColor;
-    final cardColor = isDark ? AppTheme.darkSurface : Colors.white;
-    final primaryBlue = AppTheme.primaryColor;
-    final lightBlue = isDark ? AppTheme.darkSurfaceVariant : const Color(0xFFEFF6FF);
-    final borderColor = isDark ? AppTheme.darkBorder : AppTheme.borderColor;
-    final textSecondary = isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary;
-    final textPrimary = isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary;
+    final displayName = user?.displayName ?? 'User';
+    final firstName = displayName.split(' ').first;
+    final familyName = familyState.family?.name ?? '$displayName Family';
+    final memberCount = familyState.members.length;
+    final docCount = documentsState.documents.length;
+    final storageUsed = documentsState.storageUsed;
+    final storageLimit = documentsState.storageLimit;
+    final storagePercent =
+        storageLimit > 0 ? (storageUsed / storageLimit).clamp(0.0, 1.0) : 0.0;
+
+    final bg = isDark ? AppTheme.darkBackground : AppTheme.backgroundColor;
+    final cardBg = isDark ? AppTheme.darkSurface : Colors.white;
+    final border = isDark ? AppTheme.darkBorder : AppTheme.borderColor;
+    final textP = isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary;
+    final textS = isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary;
 
     return Scaffold(
-      backgroundColor: pageBackground,
+      backgroundColor: bg,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(context, familyName, cardColor, borderColor, textPrimary, textSecondary),
+              // ── Section 0: Header ──
+              _animatedSection(
+                index: 0,
+                child: _buildHeader(
+                    context, firstName, cardBg, border, textP, textS, isDark),
+              ),
+              const SizedBox(height: 28),
+
+              // ── Section 1: Family Overview Card ──
+              _animatedSection(
+                index: 1,
+                child: _buildFamilyCard(
+                    context, familyName, memberCount, familyState, textP, cardBg, isDark),
+              ),
               const SizedBox(height: 24),
-              _buildSectionTitle(context, title: 'Quick Actions', textSecondary: textSecondary),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildQuickAction(
-                      context,
-                      title: 'Scan Document',
-                      icon: Icons.document_scanner_rounded,
-                      color: primaryBlue,
-                      borderColor: borderColor,
-                      onTap: () => Navigator.pushNamed(context, AppRoutes.scanner),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _buildQuickAction(
-                      context,
-                      title: 'Upload File',
-                      icon: Icons.cloud_upload_rounded,
-                      color: lightBlue,
-                      borderColor: borderColor,
-                      onTap: () => Navigator.pushNamed(context, AppRoutes.addDocument),
-                    ),
-                  ),
-                ],
+
+              // ── Section 2: Quick Actions ──
+              _animatedSection(
+                index: 2,
+                child: _buildQuickActions(context, isDark, cardBg, border, textP),
               ),
-              const SizedBox(height: 26),
-              _buildSectionTitle(
-                context,
-                title: 'Family Members',
-                textSecondary: textSecondary,
-                trailing: TextButton(
-                  onPressed: () => Navigator.pushNamed(context, AppRoutes.familyDetails),
-                  child: Text('Manage', style: TextStyle(color: primaryBlue)),
-                ),
+              const SizedBox(height: 24),
+
+              // ── Section 3: Storage Overview ──
+              _animatedSection(
+                index: 3,
+                child: _buildStorageCard(
+                    context, storageUsed, storageLimit, storagePercent, docCount,
+                    cardBg, border, textP, textS, isDark),
               ),
-              const SizedBox(height: 14),
-              if (familyState.isLoading && familyState.members.isEmpty)
-                const SizedBox(
-                  height: 138,
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (members.isEmpty)
-                Container(
-                  height: 90,
-                  width: double.infinity,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(AppTheme.radiusL),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Text(
-                    'No family members found',
-                    style: TextStyle(color: textSecondary),
-                  ),
-                )
-              else
-                SizedBox(
-                  height: 138,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: members.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) => _buildMemberCard(context, members[index], textPrimary, cardColor),
-                  ),
-                ),
-              const SizedBox(height: 26),
-              _buildSectionTitle(
-                context,
-                title: 'Common Documents',
-                textSecondary: textSecondary,
-                trailing: TextButton(
-                  onPressed: () => Navigator.pushNamed(context, AppRoutes.documents),
-                  child: Text('See All', style: TextStyle(color: primaryBlue)),
-                ),
-              ),
-              const SizedBox(height: 14),
-              GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                physics: const NeverScrollableScrollPhysics(),
-                childAspectRatio: 1.1,
-                children: docCards.map((item) => _buildDocumentCard(context, item, cardColor, borderColor, textPrimary, textSecondary)).toList(),
+              const SizedBox(height: 24),
+
+              // ── Section 4: Recent Activity ──
+              _animatedSection(
+                index: 4,
+                child: _buildRecentDocs(
+                    context, documentsState, cardBg, border, textP, textS, isDark),
               ),
             ],
           ),
@@ -139,362 +150,832 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context, String familyName, Color cardColor, Color borderColor, Color textPrimary, Color textSecondary) {
+  // ────────────────────────────────────────────────────────────
+  //  Animated section wrapper
+  // ────────────────────────────────────────────────────────────
+  Widget _animatedSection({required int index, required Widget child}) {
+    return FadeTransition(
+      opacity: _fadeAnimations[index],
+      child: SlideTransition(
+        position: _slideAnimations[index],
+        child: child,
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────
+  //  0 · Header
+  // ────────────────────────────────────────────────────────────
+  Widget _buildHeader(BuildContext context, String firstName, Color cardBg,
+      Color border, Color textP, Color textS, bool isDark) {
     return Row(
       children: [
+        // Gradient avatar
         Container(
-          height: 50,
-          width: 50,
+          height: 52,
+          width: 52,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF2563EB), Color(0xFF3B82F6)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(14),
+            gradient: AppTheme.primaryGradient,
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF2563EB).withValues(alpha: 0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+                color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
-          child: const Icon(Icons.group_rounded, color: Colors.white, size: 26),
+          child: const Icon(Icons.home_rounded, color: Colors.white, size: 26),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Good morning,',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: textSecondary,
+                '${_getGreeting()} ${_getGreetingEmoji()}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: textS,
+                      fontWeight: FontWeight.w500,
                     ),
               ),
               const SizedBox(height: 2),
               Text(
-                familyName,
+                firstName,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: textPrimary,
+                      color: textP,
                       fontWeight: FontWeight.bold,
+                      fontSize: 22,
                     ),
               ),
             ],
           ),
         ),
-        Container(
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(AppTheme.radiusL),
-            border: Border.all(color: borderColor),
-          ),
-          child: IconButton(
-            icon: const Icon(Icons.notifications_rounded),
-            color: textPrimary,
-            onPressed: () {},
-          ),
+        _HeaderIconButton(
+          icon: Icons.notifications_none_rounded,
+          cardBg: cardBg,
+          border: border,
+          textP: textP,
+          onTap: () {},
         ),
       ],
     );
   }
 
-  Widget _buildSectionTitle(
-    BuildContext context, {
-    required String title,
-    required Color textSecondary,
-    Widget? trailing,
-  }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title.toUpperCase(),
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: textSecondary,
-                letterSpacing: 1.0,
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        if (trailing != null)
-          DefaultTextStyle(
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppTheme.primaryColor,
-                  fontWeight: FontWeight.w600,
-                ) ??
-                const TextStyle(color: AppTheme.primaryColor),
-            child: trailing,
-          ),
-      ],
-    );
-  }
+  // ────────────────────────────────────────────────────────────
+  //  1 · Family Overview Card
+  // ────────────────────────────────────────────────────────────
+  Widget _buildFamilyCard(BuildContext context, String familyName,
+      int memberCount, FamilyState familyState, Color textP, Color cardBg, bool isDark) {
+    final members = familyState.members.take(5).toList();
 
-  Widget _buildQuickAction(
-    BuildContext context, {
-    required String title,
-    required IconData icon,
-    required Color color,
-    required Color borderColor,
-    required VoidCallback onTap,
-  }) {
-    final isPrimary = color == AppTheme.primaryColor;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isPrimary ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.primaryColor);
-    final iconColor = isPrimary ? Colors.white : AppTheme.primaryColor;
-    final iconBg = isPrimary 
-        ? Colors.white.withValues(alpha: 0.2) 
-        : AppTheme.primaryColor.withValues(alpha: 0.1);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(context, AppRoutes.familyDetails),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(16),
-          border: !isPrimary ? Border.all(color: borderColor) : null,
-          boxShadow: isPrimary
-              ? [
-                  BoxShadow(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.25),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ]
-              : null,
-        ),
-        child: SizedBox(
-          height: 90,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: iconBg,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  icon,
-                  color: iconColor,
-                  size: 24,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: textColor,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ],
+          gradient: LinearGradient(
+            colors: isDark
+                ? [const Color(0xFF1E3A5F), const Color(0xFF0F172A)]
+                : [const Color(0xFF2563EB), const Color(0xFF3B82F6)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primaryColor.withValues(alpha: isDark ? 0.2 : 0.3),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Family name + arrow
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        familyName,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$memberCount ${memberCount == 1 ? 'member' : 'members'}',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.8),
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+
+            // Member avatars row
+            if (familyState.isLoading && members.isEmpty)
+              SizedBox(
+                height: 40,
+                child: Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
+              )
+            else if (members.isEmpty)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Invite your family members',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.85),
+                      ),
+                ),
+              )
+            else
+              Row(
+                children: [
+                  // Stacked avatars
+                  SizedBox(
+                    height: 40,
+                    width: (members.length.clamp(1, 5) * 28.0) + 12,
+                    child: Stack(
+                      children: List.generate(members.length.clamp(0, 5), (i) {
+                        final m = members[i];
+                        final initials = _getInitials(m.displayName);
+                        return Positioned(
+                          left: i * 28.0,
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: _avatarGradient(i),
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isDark
+                                    ? const Color(0xFF1E3A5F)
+                                    : AppTheme.primaryColor,
+                                width: 2.5,
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                initials,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Manage',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildMemberCard(BuildContext context, _MemberCardData member, Color textPrimary, Color cardColor) {
-    return SizedBox(
-      width: 92,
-      child: Column(
-        children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: 66,
-                height: 66,
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppTheme.primaryColor, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    member.initials,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: AppTheme.primaryColor,
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                ),
+  // ────────────────────────────────────────────────────────────
+  //  2 · Quick Actions
+  // ────────────────────────────────────────────────────────────
+  Widget _buildQuickActions(BuildContext context, bool isDark, Color cardBg,
+      Color border, Color textP) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Quick Actions',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: textP,
+                fontWeight: FontWeight.bold,
               ),
-              if (member.isOnline)
-                Positioned(
-                  right: 2,
-                  bottom: 2,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF22C55E),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: cardColor, width: 2),
-                    ),
-                  ),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.document_scanner_rounded,
+                label: 'Scan',
+                gradient: AppTheme.primaryGradient,
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.scanner),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.cloud_upload_rounded,
+                label: 'Upload',
+                gradient: AppTheme.accentGradient,
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.addDocument),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.folder_rounded,
+                label: 'Vault',
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF10B981), Color(0xFF34D399)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            member.name,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: textPrimary,
-                  fontWeight: FontWeight.w600,
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.documents),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.science_rounded,
+                label: 'Lab',
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF97316), Color(0xFFFBBF24)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            member.subtitle,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppTheme.primaryColor,
-                ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+                onTap: () => Navigator.pushNamed(context, AppRoutes.lab),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────
+  //  3 · Storage Overview
+  // ────────────────────────────────────────────────────────────
+  Widget _buildStorageCard(
+      BuildContext context,
+      int storageUsed,
+      int storageLimit,
+      double storagePercent,
+      int docCount,
+      Color cardBg,
+      Color border,
+      Color textP,
+      Color textS,
+      bool isDark) {
+    // Show in MB if < 1 GB, otherwise in GB
+    final usedGB = storageUsed / (1024 * 1024 * 1024);
+    final limitGB = storageLimit / (1024 * 1024 * 1024);
+    final usedLabel = usedGB < 1
+        ? '${(storageUsed / (1024 * 1024)).toStringAsFixed(1)} MB'
+        : '${usedGB.toStringAsFixed(2)} GB';
+    final limitLabel = '${limitGB.toStringAsFixed(0)} GB';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildDocumentCard(BuildContext context, _DocumentCardData item, Color cardColor, Color borderColor, Color textPrimary, Color textSecondary) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-        border: Border.all(color: borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: item.iconBackground,
-              borderRadius: BorderRadius.circular(AppTheme.radiusM),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.cloud_done_rounded,
+                  color: AppTheme.primaryColor,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Storage',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: textP,
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    Text(
+                      '$docCount documents stored',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: textS,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '$usedLabel / $limitLabel',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: textS,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Progress bar
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: storagePercent),
+            duration: const Duration(milliseconds: 1000),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, _) {
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: value,
+                  minHeight: 8,
+                  backgroundColor: isDark
+                      ? AppTheme.darkSurfaceVariant
+                      : const Color(0xFFE2E8F0),
+                  valueColor: AlwaysStoppedAnimation(
+                    value > 0.85
+                        ? AppTheme.errorColor
+                        : value > 0.6
+                            ? AppTheme.warningColor
+                            : AppTheme.primaryColor,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () =>
+                  Navigator.pushNamed(context, AppRoutes.documents),
+              icon: const Icon(Icons.visibility_rounded, size: 18),
+              label: const Text('View All Documents'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.primaryColor,
+                side: BorderSide(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
             ),
-            child: Icon(item.icon, color: item.iconColor, size: 20),
-          ),
-          const Spacer(),
-          Text(
-            item.title,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            item.subtitle,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: textSecondary,
-                ),
           ),
         ],
       ),
     );
   }
 
-  List<_MemberCardData> _buildMemberCards(FamilyState familyState) {
-    if (familyState.members.isNotEmpty) {
-      return familyState.members.take(4).toList().asMap().entries.map((entry) {
-        final member = entry.value;
-        return _MemberCardData(
-          name: member.displayName.isEmpty ? 'Member' : member.displayName,
-          subtitle: member.role.displayName,
-          isOnline: entry.key == 0,
-        );
-      }).toList();
-    }
+  // ────────────────────────────────────────────────────────────
+  //  4 · Recent Documents
+  // ────────────────────────────────────────────────────────────
+  Widget _buildRecentDocs(
+      BuildContext context,
+      DocumentState documentsState,
+      Color cardBg,
+      Color border,
+      Color textP,
+      Color textS,
+      bool isDark) {
+    final recentDocs = documentsState.documents.take(3).toList();
 
-    return const [];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Recent Documents',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: textP,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            if (recentDocs.isNotEmpty)
+              GestureDetector(
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.documents),
+                child: Text(
+                  'See All',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        if (documentsState.isLoading && recentDocs.isEmpty)
+          Container(
+            height: 80,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: border),
+            ),
+            child: const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          )
+        else if (recentDocs.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 32),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: border),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.description_outlined,
+                  color: textS.withValues(alpha: 0.5),
+                  size: 36,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'No documents yet',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: textS,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Scan or upload your first document',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: textS.withValues(alpha: 0.7),
+                      ),
+                ),
+              ],
+            ),
+          )
+        else
+          ...recentDocs.asMap().entries.map((entry) {
+            final doc = entry.value;
+            final isLast = entry.key == recentDocs.length - 1;
+            return Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
+              child: _RecentDocTile(
+                title: doc.title,
+                category: doc.category,
+                cardBg: cardBg,
+                border: border,
+                textP: textP,
+                textS: textS,
+                onTap: () => Navigator.pushNamed(
+                  context,
+                  AppRoutes.documentViewer,
+                  arguments: doc,
+                ),
+              ),
+            );
+          }),
+      ],
+    );
   }
 
-  List<_DocumentCardData> _buildDocumentCards(DocumentState documentsState) {
-    final baseCount = documentsState.documents.length;
-    final identityCount = baseCount == 0 ? 12 : (baseCount / 4).round().clamp(1, 99);
-    final insuranceCount = baseCount == 0 ? 8 : (baseCount / 5).round().clamp(1, 99);
-    final utilityCount = baseCount == 0 ? 24 : (baseCount / 3).round().clamp(1, 99);
-    final propertyCount = baseCount == 0 ? 6 : (baseCount / 6).round().clamp(1, 99);
-
-    return [
-      _DocumentCardData(
-        title: 'Identity Proofs',
-        subtitle: '$identityCount Documents',
-        icon: Icons.badge_rounded,
-        iconColor: const Color(0xFF2563EB),
-        iconBackground: const Color(0xFFEFF6FF),
-      ),
-      _DocumentCardData(
-        title: 'Insurance Policies',
-        subtitle: '$insuranceCount Documents',
-        icon: Icons.shield_rounded,
-        iconColor: const Color(0xFF10B981),
-        iconBackground: const Color(0xFFECFDF5),
-      ),
-      _DocumentCardData(
-        title: 'Utility Bills',
-        subtitle: '$utilityCount Documents',
-        icon: Icons.receipt_long_rounded,
-        iconColor: const Color(0xFFF97316),
-        iconBackground: const Color(0xFFFFF7ED),
-      ),
-      _DocumentCardData(
-        title: 'Property Docs',
-        subtitle: '$propertyCount Documents',
-        icon: Icons.home_work_rounded,
-        iconColor: const Color(0xFF3B82F6),
-        iconBackground: const Color(0xFFDBEAFE),
-      ),
-    ];
-  }
-}
-
-class _MemberCardData {
-  final String name;
-  final String subtitle;
-  final bool isOnline;
-
-  const _MemberCardData({
-    required this.name,
-    required this.subtitle,
-    required this.isOnline,
-  });
-
-  String get initials {
+  // ────────────────────────────────────────────────────────────
+  //  Helpers
+  // ────────────────────────────────────────────────────────────
+  String _getInitials(String name) {
     if (name.isEmpty) return 'U';
-    final parts = name.split(' ').where((part) => part.isNotEmpty).toList();
+    final parts = name.split(' ').where((p) => p.isNotEmpty).toList();
     if (parts.length == 1) return parts.first[0].toUpperCase();
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
+
+  List<Color> _avatarGradient(int index) {
+    const palettes = [
+      [Color(0xFF6366F1), Color(0xFF818CF8)],
+      [Color(0xFF10B981), Color(0xFF34D399)],
+      [Color(0xFFF97316), Color(0xFFFBBF24)],
+      [Color(0xFFEC4899), Color(0xFFF472B6)],
+      [Color(0xFF8B5CF6), Color(0xFFA78BFA)],
+    ];
+    return palettes[index % palettes.length];
+  }
 }
 
-class _DocumentCardData {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBackground;
+// ══════════════════════════════════════════════════════════════
+//  Extracted Stateless Widgets
+// ══════════════════════════════════════════════════════════════
 
-  const _DocumentCardData({
-    required this.title,
-    required this.subtitle,
+class _HeaderIconButton extends StatelessWidget {
+  final IconData icon;
+  final Color cardBg;
+  final Color border;
+  final Color textP;
+  final VoidCallback onTap;
+
+  const _HeaderIconButton({
     required this.icon,
-    required this.iconColor,
-    required this.iconBackground,
+    required this.cardBg,
+    required this.border,
+    required this.textP,
+    required this.onTap,
   });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: cardBg,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: border),
+          ),
+          child: Icon(icon, color: textP, size: 22),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActionCard extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final LinearGradient gradient;
+  final VoidCallback onTap;
+
+  const _QuickActionCard({
+    required this.icon,
+    required this.label,
+    required this.gradient,
+    required this.onTap,
+  });
+
+  @override
+  State<_QuickActionCard> createState() => _QuickActionCardState();
+}
+
+class _QuickActionCardState extends State<_QuickActionCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _scaleCtrl;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 120),
+    );
+    _scale = Tween<double>(begin: 1.0, end: 0.92).animate(
+      CurvedAnimation(parent: _scaleCtrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _scaleCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _scaleCtrl.forward(),
+      onTapUp: (_) {
+        _scaleCtrl.reverse();
+        widget.onTap();
+      },
+      onTapCancel: () => _scaleCtrl.reverse(),
+      child: ScaleTransition(
+        scale: _scale,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          decoration: BoxDecoration(
+            gradient: widget.gradient,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: widget.gradient.colors.first.withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, color: Colors.white, size: 26),
+              const SizedBox(height: 8),
+              Text(
+                widget.label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecentDocTile extends StatelessWidget {
+  final String title;
+  final String category;
+  final Color cardBg;
+  final Color border;
+  final Color textP;
+  final Color textS;
+  final VoidCallback onTap;
+
+  const _RecentDocTile({
+    required this.title,
+    required this.category,
+    required this.cardBg,
+    required this.border,
+    required this.textP,
+    required this.textS,
+    required this.onTap,
+  });
+
+  IconData _iconForCategory(String cat) {
+    switch (cat.toLowerCase()) {
+      case 'identity':
+        return Icons.badge_rounded;
+      case 'insurance':
+        return Icons.shield_rounded;
+      case 'utility':
+        return Icons.receipt_long_rounded;
+      case 'property':
+        return Icons.home_work_rounded;
+      case 'medical':
+        return Icons.medical_services_rounded;
+      case 'education':
+        return Icons.school_rounded;
+      default:
+        return Icons.description_rounded;
+    }
+  }
+
+  Color _colorForCategory(String cat) {
+    switch (cat.toLowerCase()) {
+      case 'identity':
+        return const Color(0xFF2563EB);
+      case 'insurance':
+        return const Color(0xFF10B981);
+      case 'utility':
+        return const Color(0xFFF97316);
+      case 'property':
+        return const Color(0xFF3B82F6);
+      case 'medical':
+        return const Color(0xFFEC4899);
+      case 'education':
+        return const Color(0xFF8B5CF6);
+      default:
+        return const Color(0xFF64748B);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final iconColor = _colorForCategory(category);
+
+    return Material(
+      color: cardBg,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  _iconForCategory(category),
+                  color: iconColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: textP,
+                            fontWeight: FontWeight.w600,
+                          ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      category,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: textS,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: textS,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

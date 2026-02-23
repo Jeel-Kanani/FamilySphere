@@ -8,6 +8,7 @@ import 'package:familysphere_app/features/documents/presentation/screens/documen
 import 'package:familysphere_app/features/documents/presentation/screens/trash_screen.dart';
 import 'package:familysphere_app/features/family/domain/entities/family_member.dart';
 import 'package:familysphere_app/features/family/presentation/providers/family_provider.dart';
+import 'package:familysphere_app/core/utils/routes.dart';
 import 'package:intl/intl.dart';
 
 class DocumentListScreen extends ConsumerStatefulWidget {
@@ -73,11 +74,11 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
 
   String? _selectedCategory;
   String _selectedFolder = 'All';
+  List<String> _currentPath = [];
   String? _selectedMemberId;
   bool _expandMembers = true;
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
-  bool _isGridView = false;
   String _sortBy = 'date'; // date, name, size
   bool _sortAscending = false;
   bool _selectionMode = false;
@@ -124,9 +125,15 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     final notifier = ref.read(documentProvider.notifier);
     final memberId = _categoryScopedMemberId();
 
+    // Use full path for API call
+    String? folderParam;
+    if (_selectedFolder != 'All') {
+      folderParam = [..._currentPath, _selectedFolder].join('/');
+    }
+
     await notifier.loadDocuments(
       category: _selectedCategory,
-      folder: _selectedFolder == 'All' ? null : _selectedFolder,
+      folder: folderParam,
       memberId: memberId,
     );
 
@@ -170,10 +177,12 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     final folderName = result?.trim() ?? '';
     if (folderName.isEmpty || !mounted) return;
 
+    final fullFolderName = [..._currentPath, folderName].join('/');
+
     try {
       await ref.read(documentProvider.notifier).createFolder(
             category: _selectedCategory!,
-            name: folderName,
+            name: fullFolderName,
             memberId: _categoryScopedMemberId(),
           );
       setState(() => _selectedFolder = folderName);
@@ -188,15 +197,43 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
 
   List<String> _rootFolders(List<String> customFolders) {
     final custom = customFolders.where((f) => f.trim().isNotEmpty).toList();
-    if (_isShared) return [..._sharedFolders, ...custom].toSet().toList();
-    if (_isPersonal) return [..._personalFolders, ...custom].toSet().toList();
-    if (_isPrivate) return [..._privateFolders, ...custom].toSet().toList();
-    return custom;
+    List<String> all;
+    if (_isShared) {
+      all = [..._sharedFolders, ...custom];
+    } else if (_isPersonal) {
+      all = [..._personalFolders, ...custom];
+    } else if (_isPrivate) {
+      all = [..._privateFolders, ...custom];
+    } else {
+      all = custom;
+    }
+    return _filterHierarchy(all.toSet().toList());
   }
 
   List<String> _memberFolders(List<String> customFolders) {
     final custom = customFolders.where((f) => f.trim().isNotEmpty).toList();
-    return [..._memberDocFolders, ...custom].toSet().toList();
+    return _filterHierarchy([..._memberDocFolders, ...custom].toSet().toList());
+  }
+
+  List<String> _filterHierarchy(List<String> folders) {
+    final List<String> pathParts = [..._currentPath];
+    if (_selectedFolder != 'All') {
+      pathParts.add(_selectedFolder);
+    }
+    final currentPrefix = pathParts.isEmpty ? '' : '${pathParts.join('/')}/';
+    final currentPathStr = pathParts.join('/');
+
+    final Set<String> results = {};
+    for (final f in folders) {
+      if (f.startsWith(currentPrefix) && f != currentPathStr) {
+        final relative = f.substring(currentPrefix.length);
+        final firstPart = relative.split('/').first;
+        if (firstPart.isNotEmpty) {
+          results.add(firstPart);
+        }
+      }
+    }
+    return results.toList()..sort();
   }
 
   @override
@@ -218,23 +255,56 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.backgroundColor,
       appBar: AppBar(
+        backgroundColor: isDark ? AppTheme.darkBackground : const Color(0xFF0F364E), // Darker teal/navy for CamScanner look
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.menu_rounded, color: Colors.white),
+          onPressed: () {},
+        ),
         title: _isSearching
             ? TextField(
                 controller: _searchController,
                 autofocus: true,
+                style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(
-                  hintText: 'Search in selected folder...',
+                  hintText: 'Search...',
+                  hintStyle: TextStyle(color: Colors.white70),
                   border: InputBorder.none,
                 ),
                 onChanged: (_) => setState(() {}),
               )
-            : Text('${_selectedCategory ?? 'Vault'} Structure'),
+            : Text(
+                _selectedFolder == 'All' ? 'Doc Scanner' : _selectedFolder,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
         actions: [
-          if (_selectionMode) ...[
+          if (!_selectionMode) ...[
+            IconButton(
+              icon: const Icon(Icons.workspace_premium_rounded, color: Color(0xFFFFD700)), // Gold premium icon
+              onPressed: () {},
+              tooltip: 'Premium',
+            ),
+            IconButton(
+              icon: const Icon(Icons.search_rounded, color: Colors.white),
+              onPressed: () => setState(() => _isSearching = !_isSearching),
+            ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+              onSelected: (val) {
+                if (val == 'trash') {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const TrashScreen()));
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: 'import', child: Text('Import from Files')),
+                const PopupMenuItem(value: 'sort', child: Text('Sort by')),
+                const PopupMenuItem(value: 'trash', child: Text('Trash')),
+              ],
+            ),
+          ] else ...[
             IconButton(
               icon: const Icon(Icons.delete_outline_rounded),
               onPressed: _selectedDocIds.isEmpty ? null : _deleteSelected,
-              tooltip: 'Delete selected',
             ),
             IconButton(
               icon: const Icon(Icons.close_rounded),
@@ -242,193 +312,405 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                 _selectionMode = false;
                 _selectedDocIds.clear();
               }),
-              tooltip: 'Cancel',
-            ),
-          ] else ...[
-            if (_selectedFolder != 'All')
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.sort_rounded),
-                tooltip: 'Sort',
-                onSelected: (value) {
-                  setState(() {
-                    if (_sortBy == value) {
-                      _sortAscending = !_sortAscending;
-                    } else {
-                      _sortBy = value;
-                      _sortAscending = value == 'name';
-                    }
-                  });
-                },
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: 'date',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.calendar_today_rounded,
-                          size: 20,
-                          color: _sortBy == 'date' ? AppTheme.primaryColor : null,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Date',
-                          style: TextStyle(
-                            color: _sortBy == 'date' ? AppTheme.primaryColor : null,
-                            fontWeight: _sortBy == 'date' ? FontWeight.w700 : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'name',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.sort_by_alpha_rounded,
-                          size: 20,
-                          color: _sortBy == 'name' ? AppTheme.primaryColor : null,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Name',
-                          style: TextStyle(
-                            color: _sortBy == 'name' ? AppTheme.primaryColor : null,
-                            fontWeight: _sortBy == 'name' ? FontWeight.w700 : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'size',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.storage_rounded,
-                          size: 20,
-                          color: _sortBy == 'size' ? AppTheme.primaryColor : null,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Size',
-                          style: TextStyle(
-                            color: _sortBy == 'size' ? AppTheme.primaryColor : null,
-                            fontWeight: _sortBy == 'size' ? FontWeight.w700 : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            if (_selectedFolder != 'All')
-              IconButton(
-                icon: Icon(_isGridView ? Icons.view_list_rounded : Icons.grid_view_rounded),
-                onPressed: () => setState(() => _isGridView = !_isGridView),
-                tooltip: _isGridView ? 'List view' : 'Grid view',
-              ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline_rounded),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const TrashScreen(),
-                ),
-              ),
-              tooltip: 'Trash',
-            ),
-            IconButton(
-              icon: Icon(_isSearching ? Icons.close_rounded : Icons.search_rounded),
-              onPressed: () => setState(() {
-                _isSearching = !_isSearching;
-                if (!_isSearching) _searchController.clear();
-              }),
             ),
           ],
         ],
       ),
       body: _buildBody(isLoading, docs, members, customFolders),
-      floatingActionButton: _selectedFolder != 'All' && docs.isNotEmpty
-          ? FloatingActionButton.extended(
-              onPressed: () => setState(() => _selectionMode = !_selectionMode),
-              icon: Icon(_selectionMode ? Icons.close : Icons.checklist_rounded),
-              label: Text(_selectionMode ? 'Cancel' : 'Select'),
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {}, // Handled by separate buttons in row
+        label: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.camera_alt_rounded, color: Colors.white),
+              onPressed: () => Navigator.pushNamed(
+                context,
+                AppRoutes.scanner,
+                arguments: {
+                  'category': _selectedCategory,
+                  'folder': [..._currentPath, _selectedFolder].join('/'),
+                  'memberId': _categoryScopedMemberId(),
+                },
               ),
-            )
-          : null,
+            ),
+            Container(width: 1, height: 24, color: Colors.white30),
+            IconButton(
+              icon: const Icon(Icons.add_rounded, color: Colors.white),
+              onPressed: () => _showAddMenu(),
+            ),
+          ],
+        ),
+        backgroundColor: AppTheme.secondaryColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+      ),
     );
   }
 
   Widget _buildBody(bool isLoading, List<DocumentEntity> docs, List<FamilyMember> members, List<String> customFolders) {
-    if (_isSearching || _selectedFolder != 'All') {
+    if (_isSearching) {
       return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildPathHeader(members),
-          if (_selectedFolder != 'All' && docs.isNotEmpty)
-            _buildFilterChips(),
           Expanded(
-            child: _isGridView 
-              ? _buildDocumentGrid(isLoading, docs, members)
-              : _buildDocumentList(isLoading, docs, members),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 90),
+              children: [
+                if (docs.isEmpty && !isLoading)
+                  const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('No results found', style: TextStyle(color: AppTheme.textTertiary)))),
+                ...docs.map((doc) => _buildDocumentItem(doc, members)),
+                if (isLoading) const Center(child: CircularProgressIndicator()),
+              ],
+            ),
           ),
         ],
       );
     }
 
-    if (_isShared && _selectedMemberId == null) {
-      return _buildSharedRoot(members, _rootFolders(customFolders));
+    if (_isShared && _selectedMemberId == null && _currentPath.isEmpty && _selectedFolder == 'All') {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildPathHeader(members),
+          Expanded(child: _buildSharedRoot(members, _rootFolders(customFolders))),
+        ],
+      );
     }
 
-    if (_isShared && _selectedMemberId != null) {
-      return _buildSharedMemberFolders(members, _memberFolders(customFolders));
-    }
+    final currentFolders = (_isShared && _selectedMemberId != null) 
+        ? _memberFolders(customFolders)
+        : _rootFolders(customFolders);
 
-    return _buildTierFolders(_rootFolders(customFolders));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_currentPath.isNotEmpty || _selectedFolder != 'All' || (_isShared && _selectedMemberId != null))
+          _buildPathHeader(members),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 90),
+            children: [
+              if (currentFolders.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Folders (${currentFolders.length})',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.create_new_folder_outlined, size: 20),
+                        onPressed: _createFolderDialog,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
+                  ),
+                ),
+                ...currentFolders.map((f) => _folderTile(f)),
+                const SizedBox(height: 16),
+              ],
+              if (docs.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                  child: Text(
+                    'Documents (${docs.length})',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                ...docs.map((doc) => _buildDocumentItem(doc, members)),
+              ] else if (currentFolders.isEmpty && !isLoading)
+                _emptyState(),
+              if (isLoading) const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator())),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
-  Widget _buildFilterChips() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
+  Widget _folderTile(String title) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          if (_selectedFolder != 'All') {
+            _currentPath.add(_selectedFolder);
+          }
+          _selectedFolder = title;
+        });
+        _reloadData();
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkSurface : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.1)),
+        ),
         child: Row(
           children: [
-            Chip(
-              avatar: Icon(
-                _sortAscending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                size: 16,
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
               ),
-              label: Text(_sortBy == 'date' 
-                ? 'By Date' 
-                : _sortBy == 'name' 
-                  ? 'By Name' 
-                  : 'By Size'),
-              onDeleted: () {},
-              deleteIcon: const SizedBox.shrink(),
+              child: const Icon(Icons.folder_rounded, color: AppTheme.primaryColor, size: 30),
             ),
-            if (_selectionMode && _selectedDocIds.isNotEmpty) ...[
-              const SizedBox(width: 8),
-              Chip(
-                avatar: const Icon(Icons.check_circle_rounded, size: 16),
-                label: Text('${_selectedDocIds.length} selected'),
-                backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 2),
+                  Text('Updated Recently', style: TextStyle(color: AppTheme.textTertiary, fontSize: 12)),
+                ],
               ),
-            ],
+            ),
+            IconButton(
+              icon: const Icon(Icons.more_horiz, color: AppTheme.textTertiary),
+              onPressed: () => _showFolderOptions(title),
+            ),
           ],
         ),
       ),
     );
   }
 
+  void _showFolderOptions(String folderName) {
+    final folderDetails = ref.read(documentProvider.notifier).getFolderDetails(
+      category: _selectedCategory!,
+      memberId: _categoryScopedMemberId(),
+    );
+    final detail = folderDetails?.where((d) => d.name == folderName).firstOrNull;
+    final folderId = detail?.folderId;
+    final canDelete = detail?.canDelete ?? true;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Icon(Icons.folder_rounded, color: Color(0xFF133E59), size: 40),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(folderName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                      const Text('Recently Modified', style: TextStyle(color: AppTheme.textSecondary)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(),
+          if (canDelete) ...[
+            _actionListTile(Icons.edit_note_rounded, 'Rename', onTap: () {
+              Navigator.pop(context);
+              if (folderId != null) _renameFolderDialog(folderName, folderId);
+            }),
+            _actionListTile(Icons.delete_outline_rounded, 'Delete', color: Colors.red, onTap: () {
+              Navigator.pop(context);
+              _deleteFolder(folderName, folderId);
+            }),
+          ] else
+            const Padding(
+              padding: EdgeInsets.all(20),
+              child: Text('Built-in folders cannot be modified', style: TextStyle(color: AppTheme.textTertiary)),
+            ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+
+
+  Widget _emptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 40),
+        child: Column(
+          children: [
+            const Icon(Icons.folder_open_outlined, size: 100, color: Colors.grey),
+            const SizedBox(height: 20),
+            const Text('No Documents', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+            const SizedBox(height: 30),
+            ElevatedButton(
+              onPressed: () {},
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F364E),
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              ),
+              child: const Text('TRY A DEMO DOCUMENT'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+
+  void _showAddMenu() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('Create New', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          ),
+          const Divider(),
+          _actionListTile(Icons.create_new_folder_rounded, 'New Folder', onTap: () {
+            Navigator.pop(context);
+            _createFolderDialog();
+          }),
+          _actionListTile(Icons.file_upload_rounded, 'Upload File', onTap: () {
+            Navigator.pop(context);
+            Navigator.pushNamed(context, AppRoutes.addDocument, arguments: {
+              'category': _selectedCategory,
+              'folder': [..._currentPath, _selectedFolder].join('/'),
+            });
+          }),
+          _actionListTile(Icons.camera_alt_rounded, 'Scan Document', onTap: () {
+            Navigator.pop(context);
+            Navigator.pushNamed(context, AppRoutes.scanner, arguments: {
+              'category': _selectedCategory,
+              'folder': [..._currentPath, _selectedFolder].join('/'),
+            });
+          }),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionListTile(IconData icon, String label, {Color? color, VoidCallback? onTap}) {
+    return ListTile(
+      leading: Icon(icon, color: color ?? Colors.grey[700]),
+      title: Text(label, style: TextStyle(color: color)),
+      onTap: onTap ?? () => Navigator.pop(context),
+    );
+  }
+
+  Widget _buildDocumentItem(DocumentEntity doc, List<FamilyMember> members) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isPdf = doc.fileType.toLowerCase().contains('pdf') || doc.fileUrl.toLowerCase().endsWith('.pdf');
+    final isSelected = _selectedDocIds.contains(doc.id);
+
+    return InkWell(
+      onTap: () => _selectionMode ? _toggleSelection(doc.id) : _openDocument(doc),
+      onLongPress: () => setState(() { _selectionMode = true; _selectedDocIds.add(doc.id); }),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkSurface : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? AppTheme.secondaryColor : AppTheme.primaryColor.withValues(alpha: 0.1),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 60, height: 75,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(4),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: isPdf 
+                      ? const Center(child: Icon(Icons.picture_as_pdf_outlined, color: Colors.red, size: 30))
+                      : Image.network(doc.fileUrl, fit: BoxFit.cover, 
+                          errorBuilder: (_, __, ___) => const Icon(Icons.description_outlined, color: Colors.grey, size: 30)),
+                  ),
+                ),
+                if (_selectionMode)
+                  Positioned(
+                    top: 4, left: 4,
+                    child: Icon(isSelected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                        color: isSelected ? AppTheme.secondaryColor : Colors.white, size: 20),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(doc.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        child: Text(isPdf ? 'PDF' : 'JPG', 
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('${doc.fileSizeString}  ${_rowDateFormat.format(doc.uploadedAt)}',
+                          style: TextStyle(color: AppTheme.textTertiary, fontSize: 12)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.more_horiz, color: AppTheme.textTertiary),
+              onPressed: () {},
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
   Widget _buildPathHeader(List<FamilyMember> members) {
-    String label = 'All Documents';
-    if (_selectedFolder != 'All') label = _selectedFolder;
+    String categoryName = _selectedCategory ?? 'Vault';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    List<Widget> breadcrumbs = [];
+
+    // Category
+    breadcrumbs.add(
+      _breadcrumbItem(categoryName, true, () {
+        setState(() {
+          _currentPath = [];
+          _selectedFolder = 'All';
+          _selectedMemberId = null;
+        });
+        _reloadData();
+      }),
+    );
+
+    // Member (if shared)
     if (_isShared && _selectedMemberId != null) {
       String name = 'Member';
       for (final m in members) {
@@ -437,61 +719,121 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
           break;
         }
       }
-      label = '$name / $label';
+      breadcrumbs.add(const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 4),
+        child: Text('>', style: TextStyle(color: AppTheme.textTertiary, fontSize: 13, fontWeight: FontWeight.bold)),
+      ));
+      breadcrumbs.add(
+        _breadcrumbItem(name, false, () {
+          setState(() {
+            _currentPath = [];
+            _selectedFolder = 'All';
+          });
+          _reloadData();
+        }),
+      );
+    }
+
+    // Paths
+    for (int i = 0; i < _currentPath.length; i++) {
+      final part = _currentPath[i];
+      breadcrumbs.add(const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 4),
+        child: Text('>', style: TextStyle(color: AppTheme.textTertiary, fontSize: 13, fontWeight: FontWeight.bold)),
+      ));
+      breadcrumbs.add(
+        _breadcrumbItem(part, false, () {
+          setState(() {
+            _currentPath = _currentPath.sublist(0, i);
+            _selectedFolder = part;
+          });
+          _reloadData();
+        }),
+      );
+    }
+
+    // Current Folder (if not All)
+    if (_selectedFolder != 'All') {
+      breadcrumbs.add(const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 4),
+        child: Text('>', style: TextStyle(color: AppTheme.textTertiary, fontSize: 13, fontWeight: FontWeight.bold)),
+      ));
+      breadcrumbs.add(
+        Text(
+          _selectedFolder,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            color: AppTheme.primaryColor,
+          ),
+        ),
+      );
     }
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurface : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? AppTheme.darkBorder
-              : const Color(0xFFE2E8F0),
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            if (_selectedFolder != 'All' || _currentPath.isNotEmpty || (_isShared && _selectedMemberId != null))
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        if (_selectedFolder != 'All') {
+                          if (_currentPath.isNotEmpty) {
+                            _selectedFolder = _currentPath.last;
+                            _currentPath.removeLast();
+                          } else {
+                            _selectedFolder = 'All';
+                          }
+                        } else if (_isShared && _selectedMemberId != null) {
+                          _selectedMemberId = null;
+                        }
+                      });
+                      _reloadData();
+                    },
+                    child: const Icon(Icons.arrow_back_ios_new_rounded,
+                        size: 16, color: AppTheme.primaryColor),
+                  ),
+                ),
+              ),
+            ...breadcrumbs,
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Icon(
-            Icons.arrow_back_rounded,
-            color: AppTheme.primaryColor,
-            size: 20,
-          ),
+    );
+  }
+
+  Widget _breadcrumbItem(String label, bool isRoot, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isRoot) ...[
+              const Icon(Icons.grid_view_rounded, size: 14, color: AppTheme.primaryColor),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+          ],
         ),
-        title: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        onTap: () async {
-          var reloadFolders = true;
-          setState(() {
-            if (_selectedFolder != 'All') {
-              _selectedFolder = 'All';
-              reloadFolders = false;
-            } else if (_isShared && _selectedMemberId != null) {
-              _selectedMemberId = null;
-            }
-          });
-          await _reloadData(reloadFolders: reloadFolders);
-        },
       ),
     );
   }
@@ -521,7 +863,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
             color: isDark ? AppTheme.darkSurface : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isDark ? AppTheme.darkBorder : const Color(0xFFE2E8F0),
+              color: isDark ? AppTheme.darkBorder : AppTheme.primaryColor.withValues(alpha: 0.1),
             ),
             boxShadow: [
               BoxShadow(
@@ -595,67 +937,6 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     );
   }
 
-  Future<void> _showFolderOptions(String folderName, String? folderId, bool canDelete) async {
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: Row(
-                children: [
-                  const Icon(Icons.folder_outlined, size: 24),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      folderName,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(),
-            if (canDelete) ...[
-              ListTile(
-                leading: const Icon(Icons.edit_outlined),
-                title: const Text('Rename'),
-                onTap: () => Navigator.pop(context, 'rename'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.delete_outline, color: Colors.red),
-                title: const Text('Delete', style: TextStyle(color: Colors.red)),
-                onTap: () => Navigator.pop(context, 'delete'),
-              ),
-            ] else
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Text(
-                  'This is a built-in folder and cannot be modified',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.textSecondary,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-
-    if (result == 'delete') {
-      await _deleteFolder(folderName, folderId);
-    } else if (result == 'rename' && folderId != null) {
-      await _renameFolderDialog(folderName, folderId);
-    }
-  }
 
   Future<void> _renameFolderDialog(String currentName, String folderId) async {
     final controller = TextEditingController(text: currentName);
@@ -755,18 +1036,13 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
   }
 
   Widget _buildSharedRoot(List<FamilyMember> members, List<String> folders) {
-    final folderDetails = ref.read(documentProvider.notifier).getFolderDetails(
-      category: _selectedCategory!,
-      memberId: null,
-    );
-    
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 90),
       children: [
         _nodeTile(
           icon: Icons.groups_rounded,
-          title: 'Individual',
-          subtitle: _expandMembers ? 'Tap to collapse member list' : 'Tap to expand member list',
+          title: 'Individual Folders',
+          subtitle: _expandMembers ? 'Tap to collapse' : 'Tap to expand member list',
           onTap: () => setState(() => _expandMembers = !_expandMembers),
           iconColor: const Color(0xFF0EA5E9),
         ),
@@ -774,7 +1050,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
           ...members.map((m) => _nodeTile(
                 icon: Icons.person_outline_rounded,
                 title: m.displayName,
-                subtitle: 'Open member folders',
+                subtitle: 'View specific documents',
                 leftPad: 14,
                 onTap: () async {
                   setState(() {
@@ -784,419 +1060,33 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                   await _reloadData(reloadFolders: true);
                 },
               )),
-        const SizedBox(height: 4),
-        ...folders.map((f) {
-          final detail = folderDetails?.where((d) => d.name == f).firstOrNull;
-          return _nodeTile(
-            icon: Icons.folder_rounded,
-            title: f,
-            subtitle: 'Shared category folder',
-            onTap: () async {
-              setState(() => _selectedFolder = f);
-              await _reloadData(reloadFolders: false);
-            },
-            showMenu: true,
-            onMenuTap: () => _showFolderOptions(f, detail?.folderId, detail?.canDelete ?? true),
-            iconColor: AppTheme.primaryColor,
-          );
-        }),
         const SizedBox(height: 12),
-        ElevatedButton.icon(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          child: Text(
+            'General Shared Folders (${folders.length})',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+        ),
+        ...folders.map((f) => _folderTile(f)),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
           onPressed: _createFolderDialog,
           icon: const Icon(Icons.create_new_folder_outlined, size: 20),
-          label: const Text('Create Custom Folder'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryColor,
-            foregroundColor: Colors.white,
-            minimumSize: const Size(double.infinity, 50),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 0,
+          label: const Text('Create Shared Folder'),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildSharedMemberFolders(List<FamilyMember> members, List<String> folders) {
-    String name = 'Member';
-    for (final m in members) {
-      if (m.userId == _selectedMemberId) {
-        name = m.displayName;
-        break;
-      }
-    }
+  // Legacy document list logic removed in favor of mapping inside _buildBody
 
-    final folderDetails = ref.read(documentProvider.notifier).getFolderDetails(
-      category: _selectedCategory!,
-      memberId: _selectedMemberId,
-    );
+  // Legacy methods removed in favor of unified view
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 90),
-      children: [
-        _nodeTile(
-          icon: Icons.arrow_back_rounded,
-          title: '$name',
-          subtitle: 'Back to Shared root',
-          onTap: () async {
-            setState(() {
-              _selectedMemberId = null;
-              _selectedFolder = 'All';
-            });
-            await _reloadData(reloadFolders: true);
-          },
-          iconColor: const Color(0xFFF97316),
-        ),
-        ...folders.map((f) {
-          final detail = folderDetails?.where((d) => d.name == f).firstOrNull;
-          return _nodeTile(
-            icon: Icons.folder_rounded,
-            title: f,
-            subtitle: '$name - document type folder',
-            onTap: () async {
-              setState(() => _selectedFolder = f);
-              await _reloadData(reloadFolders: false);
-            },
-            showMenu: true,
-            onMenuTap: () => _showFolderOptions(f, detail?.folderId, detail?.canDelete ?? true),
-            iconColor: AppTheme.primaryColor,
-          );
-        }),
-        const SizedBox(height: 12),
-        ElevatedButton.icon(
-          onPressed: _createFolderDialog,
-          icon: const Icon(Icons.create_new_folder_outlined, size: 20),
-          label: const Text('Create Custom Folder'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryColor,
-            foregroundColor: Colors.white,
-            minimumSize: const Size(double.infinity, 50),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 0,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTierFolders(List<String> folders) {
-    final folderDetails = ref.read(documentProvider.notifier).getFolderDetails(
-      category: _selectedCategory!,
-      memberId: null,
-    );
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 90),
-      children: [
-        ...folders.map((f) {
-          final detail = folderDetails?.where((d) => d.name == f).firstOrNull;
-          return _nodeTile(
-            icon: Icons.folder_rounded,
-            title: f,
-            subtitle: 'Open folder documents',
-            onTap: () async {
-              setState(() => _selectedFolder = f);
-              await _reloadData(reloadFolders: false);
-            },
-            showMenu: true,
-            onMenuTap: () => _showFolderOptions(f, detail?.folderId, detail?.canDelete ?? true),
-            iconColor: AppTheme.primaryColor,
-          );
-        }),
-        const SizedBox(height: 12),
-        ElevatedButton.icon(
-          onPressed: _createFolderDialog,
-          icon: const Icon(Icons.create_new_folder_outlined, size: 20),
-          label: const Text('Create Custom Folder'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryColor,
-            foregroundColor: Colors.white,
-            minimumSize: const Size(double.infinity, 50),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 0,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDocumentList(bool isLoading, List<DocumentEntity> docs, List<FamilyMember> members) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    if (isLoading && docs.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (docs.isEmpty) {
-      return const Center(
-        child: Text('No documents found', style: TextStyle(color: AppTheme.textTertiary)),
-      );
-    }
-
-    String memberName(String? id) {
-      if (id == null || id.isEmpty) return '';
-      for (final m in members) {
-        if (m.userId == id) return m.displayName;
-      }
-      return '';
-    }
-
-    return RepaintBoundary(
-      child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 90),
-        itemCount: docs.length,
-        itemBuilder: (context, index) {
-          final doc = docs[index];
-          final isPdf = doc.fileType.toLowerCase().contains('pdf') ||
-              doc.fileUrl.toLowerCase().endsWith('.pdf') ||
-              doc.storagePath.toLowerCase().endsWith('.pdf') ||
-              doc.title.toLowerCase().endsWith('.pdf');
-          final ownerName = memberName(doc.memberId);
-          final isSelected = _selectedDocIds.contains(doc.id);
-
-          return InkWell(
-            onTap: () => _selectionMode 
-              ? _toggleSelection(doc.id)
-              : _openDocument(doc),
-            onLongPress: () {
-              if (!_selectionMode) {
-                setState(() {
-                  _selectionMode = true;
-                  _selectedDocIds.add(doc.id);
-                });
-              }
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: isSelected 
-                  ? AppTheme.primaryColor.withValues(alpha: 0.08)
-                  : (isDark ? AppTheme.darkSurface : Colors.white),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isSelected 
-                    ? AppTheme.primaryColor
-                    : (isDark ? AppTheme.darkBorder : const Color(0xFFE2E8F0)),
-                  width: isSelected ? 2 : 1,
-                ),
-                boxShadow: !isSelected
-                    ? [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.03),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Row(
-                children: [
-                  if (_selectionMode)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: Icon(
-                        isSelected 
-                          ? Icons.check_circle_rounded
-                          : Icons.circle_outlined,
-                        color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
-                      ),
-                    ),
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: isPdf 
-                        ? const Color(0xFFFEF2F2)
-                        : const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      isPdf ? Icons.picture_as_pdf_rounded : Icons.image_rounded,
-                      color: isPdf ? const Color(0xFFEF4444) : AppTheme.primaryColor,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          doc.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _isShared && ownerName.isNotEmpty
-                              ? '$ownerName - ${doc.folder} - ${_rowDateFormat.format(doc.uploadedAt)}'
-                              : '${doc.folder} - ${_rowDateFormat.format(doc.uploadedAt)}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!_selectionMode)
-                    const Icon(Icons.chevron_right_rounded),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildDocumentGrid(bool isLoading, List<DocumentEntity> docs, List<FamilyMember> members) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    if (isLoading && docs.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (docs.isEmpty) {
-      return const Center(
-        child: Text('No documents found', style: TextStyle(color: AppTheme.textTertiary)),
-      );
-    }
-
-    return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 90),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 0.85,
-      ),
-      itemCount: docs.length,
-      itemBuilder: (context, index) {
-        final doc = docs[index];
-        final isPdf = doc.fileType.toLowerCase().contains('pdf') ||
-            doc.fileUrl.toLowerCase().endsWith('.pdf');
-        final isSelected = _selectedDocIds.contains(doc.id);
-
-        return InkWell(
-          onTap: () => _selectionMode 
-            ? _toggleSelection(doc.id)
-            : _openDocument(doc),
-          onLongPress: () {
-            if (!_selectionMode) {
-              setState(() {
-                _selectionMode = true;
-                _selectedDocIds.add(doc.id);
-              });
-            }
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            decoration: BoxDecoration(
-              color: isSelected 
-                ? AppTheme.primaryColor.withValues(alpha: 0.08)
-                : (isDark ? AppTheme.darkSurface : Colors.white),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isSelected 
-                  ? AppTheme.primaryColor
-                  : (isDark ? AppTheme.darkBorder : const Color(0xFFE2E8F0)),
-                width: isSelected ? 2 : 1,
-              ),
-              boxShadow: !isSelected
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Stack(
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: isPdf
-                              ? const Color(0xFFFEF2F2)
-                              : const Color(0xFFEFF6FF),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(16),
-                            topRight: Radius.circular(16),
-                          ),
-                        ),
-                        child: Center(
-                          child: Icon(
-                            isPdf ? Icons.picture_as_pdf_rounded : Icons.image_rounded,
-                            color: isPdf ? const Color(0xFFEF4444) : AppTheme.primaryColor,
-                            size: 48,
-                          ),
-                        ),
-                      ),
-                      if (_selectionMode)
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: CircleAvatar(
-                            radius: 14,
-                            backgroundColor: isSelected 
-                              ? AppTheme.primaryColor
-                              : Colors.white.withOpacity(0.8),
-                            child: Icon(
-                              isSelected 
-                                ? Icons.check_rounded
-                                : Icons.circle_outlined,
-                              size: 16,
-                              color: isSelected ? Colors.white : AppTheme.textSecondary,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        doc.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _rowDateFormat.format(doc.uploadedAt),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 
   void _toggleSelection(String docId) {
     setState(() {
@@ -1251,11 +1141,9 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     if (confirmed != true || !mounted) return;
 
     try {
-      // Get documents to delete
       final allDocs = ref.read(documentProvider).documents;
       final docsToDelete = allDocs.where((doc) => _selectedDocIds.contains(doc.id)).toList();
       
-      // Delete each document
       for (final doc in docsToDelete) {
         await ref.read(documentProvider.notifier).delete(doc);
       }
