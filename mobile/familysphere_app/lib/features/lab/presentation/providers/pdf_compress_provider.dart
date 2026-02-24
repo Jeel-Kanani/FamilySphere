@@ -19,7 +19,10 @@ enum CompressStatus {
 class PdfCompressState {
   final File? inputFile;
   final int originalSize;
-  final int estimatedSize;
+  final int estimatedSizeMin;
+  final int estimatedSizeMax;
+  final double compressibilityScore;
+  final int actualCompressedSize;
   final CompressionLevel compressionLevel;
   final CompressStatus status;
   final double progress;
@@ -29,7 +32,10 @@ class PdfCompressState {
   const PdfCompressState({
     this.inputFile,
     this.originalSize = 0,
-    this.estimatedSize = 0,
+    this.estimatedSizeMin = 0,
+    this.estimatedSizeMax = 0,
+    this.compressibilityScore = 0.5,
+    this.actualCompressedSize = 0,
     this.compressionLevel = CompressionLevel.medium,
     this.status = CompressStatus.idle,
     this.progress = 0.0,
@@ -37,13 +43,19 @@ class PdfCompressState {
     this.errorMessage,
   });
 
+  /// Best single-point estimate (midpoint of range)
+  int get estimatedSize => ((estimatedSizeMin + estimatedSizeMax) / 2).toInt();
+
   bool get isProcessing => status == CompressStatus.analyzing || status == CompressStatus.compressing;
   bool get canCompress => status == CompressStatus.ready && !isProcessing;
 
   PdfCompressState copyWith({
     File? inputFile,
     int? originalSize,
-    int? estimatedSize,
+    int? estimatedSizeMin,
+    int? estimatedSizeMax,
+    double? compressibilityScore,
+    int? actualCompressedSize,
     CompressionLevel? compressionLevel,
     CompressStatus? status,
     double? progress,
@@ -54,7 +66,10 @@ class PdfCompressState {
     return PdfCompressState(
       inputFile: clearInput ? null : (inputFile ?? this.inputFile),
       originalSize: clearInput ? 0 : (originalSize ?? this.originalSize),
-      estimatedSize: clearInput ? 0 : (estimatedSize ?? this.estimatedSize),
+      estimatedSizeMin: clearInput ? 0 : (estimatedSizeMin ?? this.estimatedSizeMin),
+      estimatedSizeMax: clearInput ? 0 : (estimatedSizeMax ?? this.estimatedSizeMax),
+      compressibilityScore: clearInput ? 0.5 : (compressibilityScore ?? this.compressibilityScore),
+      actualCompressedSize: clearInput ? 0 : (actualCompressedSize ?? this.actualCompressedSize),
       compressionLevel: compressionLevel ?? this.compressionLevel,
       status: status ?? this.status,
       progress: progress ?? this.progress,
@@ -109,12 +124,16 @@ class PdfCompressNotifier extends StateNotifier<PdfCompressState> {
 
     try {
       final analysis = await _service.analyzePdf(file);
-      final estimated = _service.estimateCompressedSize(analysis.originalSize, state.compressionLevel);
+      final estimate = _service.estimateCompressedSize(
+        analysis.originalSize, state.compressionLevel, analysis.compressibilityScore,
+      );
 
       state = state.copyWith(
         inputFile: file,
         originalSize: analysis.originalSize,
-        estimatedSize: estimated,
+        estimatedSizeMin: estimate.min,
+        estimatedSizeMax: estimate.max,
+        compressibilityScore: analysis.compressibilityScore,
         status: CompressStatus.ready,
       );
     } catch (e) {
@@ -129,14 +148,18 @@ class PdfCompressNotifier extends StateNotifier<PdfCompressState> {
   void setCompressionLevel(CompressionLevel level) {
     if (state.isProcessing) return;
     
-    final estimated = state.inputFile != null 
-        ? _service.estimateCompressedSize(state.originalSize, level)
-        : 0;
-
-    state = state.copyWith(
-      compressionLevel: level,
-      estimatedSize: estimated,
-    );
+    if (state.inputFile != null) {
+      final estimate = _service.estimateCompressedSize(
+        state.originalSize, level, state.compressibilityScore,
+      );
+      state = state.copyWith(
+        compressionLevel: level,
+        estimatedSizeMin: estimate.min,
+        estimatedSizeMax: estimate.max,
+      );
+    } else {
+      state = state.copyWith(compressionLevel: level);
+    }
   }
 
   /// Executes the compression.
@@ -164,15 +187,16 @@ class PdfCompressNotifier extends StateNotifier<PdfCompressState> {
 
       if (!mounted) return;
 
-      // Add to recent files
+      // Get actual compressed file size
       final file = File(resultPath);
-      final size = await file.length();
+      final actualSize = await file.length();
       
+      // Add to recent files
       _ref.read(labRecentFilesProvider.notifier).addFile(
         LabRecentFile(
           filePath: resultPath,
           fileName: resultPath.split(Platform.pathSeparator).last,
-          sizeBytes: size,
+          sizeBytes: actualSize,
           toolId: 'pdf_compress',
           toolLabel: 'Compress PDF',
           createdAt: DateTime.now(),
@@ -182,6 +206,7 @@ class PdfCompressNotifier extends StateNotifier<PdfCompressState> {
       state = state.copyWith(
         status: CompressStatus.success,
         outputFilePath: resultPath,
+        actualCompressedSize: actualSize,
         progress: 1.0,
       );
     } catch (e) {

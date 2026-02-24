@@ -1017,21 +1017,9 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
       return;
     }
     
-    if (folderId == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Unable to delete "$folderName": Folder ID not found'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return;
-    }
-
     try {
       await ref.read(documentProvider.notifier).deleteFolder(
-        folderId: folderId,
+        folderId: folderId ?? 'builtin',
         folderName: folderName,
         familyId: familyId,
         category: _selectedCategory!,

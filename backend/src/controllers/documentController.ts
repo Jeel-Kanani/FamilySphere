@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import Document from '../models/Document';
 import VaultFolder from '../models/VaultFolder';
 import { cloudinary } from '../config/cloudinary';
@@ -370,8 +371,9 @@ export const deleteFolder = async (req: Request, res: Response) => {
         const { folderId } = req.params;
         const { folderName, familyId, category, memberId } = req.body;
 
-        // Try to find existing folder
-        let folder = folderId ? await VaultFolder.findById(folderId) : null;
+        // Try to find existing folder (validate ObjectId first to avoid cast errors)
+        const isValidId = folderId && mongoose.Types.ObjectId.isValid(folderId);
+        let folder = isValidId ? await VaultFolder.findById(folderId) : null;
 
         // If no folder found and folderName provided, this might be a built-in folder
         if (!folder && folderName && familyId && category) {

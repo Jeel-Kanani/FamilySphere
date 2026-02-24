@@ -30,7 +30,7 @@ class _CompressPdfScreenState extends ConsumerState<CompressPdfScreen> {
           MergeResultSheet.showSuccess(
             context,
             outputFilePath: next.outputFilePath!,
-            outputSizeBytes: next.estimatedSize, // Using estimated/final size
+            outputSizeBytes: next.actualCompressedSize, // Use actual compressed size
             successTitle: 'Compression Done!',
             onDone: () => notifier.reset(),
           );
@@ -314,6 +314,18 @@ class _CompressPdfScreenState extends ConsumerState<CompressPdfScreen> {
   }
 
   Widget _buildEstimatedSize(bool isDark, PdfCompressState state) {
+    final minStr = LabFileManager.formatFileSize(state.estimatedSizeMin);
+    final maxStr = LabFileManager.formatFileSize(state.estimatedSizeMax);
+    // Show range if min and max differ meaningfully, otherwise show single value
+    final sizeText = (state.estimatedSizeMax - state.estimatedSizeMin) > (state.originalSize * 0.05)
+        ? '$minStr – $maxStr'
+        : LabFileManager.formatFileSize(state.estimatedSize);
+    
+    // Calculate estimated reduction percentage from best estimate
+    final reductionPct = state.originalSize > 0
+        ? ((1 - state.estimatedSize / state.originalSize) * 100).round()
+        : 0;
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Container(
@@ -327,11 +339,29 @@ class _CompressPdfScreenState extends ConsumerState<CompressPdfScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Estimated Result', style: TextStyle(fontSize: 12)),
-                  Text(LabFileManager.formatFileSize(state.estimatedSize), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.blue)),
+                  Row(
+                    children: [
+                      const Text('Estimated Result', style: TextStyle(fontSize: 12)),
+                      if (reductionPct > 0) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '~$reductionPct% smaller',
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  Text(sizeText, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.blue)),
                   const SizedBox(height: 4),
                   Text(
-                    'Actual size may vary based on content',
+                    'Based on content analysis • actual size may vary slightly',
                     style: TextStyle(
                       fontSize: 10,
                       color: isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary,
