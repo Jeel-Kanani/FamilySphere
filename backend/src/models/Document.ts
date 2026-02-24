@@ -1,14 +1,14 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IDocument extends Document {
-    title: String;
-    category: String;
-    folder: String;
+    title: string;
+    category: string;
+    folder: string;
     memberId?: mongoose.Types.ObjectId;
-    fileUrl: String;
-    fileType: String;
+    fileUrl: string;
+    fileType: string;
     fileSize: number;
-    cloudinaryId: String;
+    cloudinaryId: string;
     familyId: mongoose.Types.ObjectId;
     uploadedBy: mongoose.Types.ObjectId;
     deleted: boolean;

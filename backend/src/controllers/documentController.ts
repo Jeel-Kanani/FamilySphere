@@ -126,8 +126,8 @@ export const getDocuments = async (req: Request, res: Response) => {
         const normalizedMemberId = typeof memberId === 'string' ? memberId.trim() : '';
         if (normalizedMemberId) {
             const memberScope = [
-                    { memberId: normalizedMemberId },
-                    { memberId: { $exists: false }, uploadedBy: normalizedMemberId },
+                { memberId: normalizedMemberId },
+                { memberId: { $exists: false }, uploadedBy: normalizedMemberId },
             ];
 
             if (query.$or) {
@@ -145,7 +145,7 @@ export const getDocuments = async (req: Request, res: Response) => {
         // Get storage from family model (cached value)
         const Family = (await import('../models/Family')).default;
         const family = await Family.findById(familyId);
-        
+
         let storageUsed = family?.storageUsed || 0;
         const storageLimit = family?.storageLimit || (25 * 1024 * 1024 * 1024);
 
@@ -228,7 +228,7 @@ export const getFolders = async (req: Request, res: Response) => {
         const customFolders = await VaultFolder.find(folderQuery)
             .sort({ createdAt: 1 })
             .lean();
-        
+
         // Get deleted built-in folders markers
         const deletedBuiltInQuery: any = {
             familyId,
@@ -249,7 +249,7 @@ export const getFolders = async (req: Request, res: Response) => {
         }
         const deletedBuiltIns = await VaultFolder.find(deletedBuiltInQuery).lean();
         const deletedBuiltInNames = new Set(deletedBuiltIns.map((f: any) => f.name));
-        
+
         const documentQuery: any = { familyId };
         if (category === 'Shared') {
             documentQuery.$or = [
@@ -369,15 +369,15 @@ export const deleteFolder = async (req: Request, res: Response) => {
     try {
         const { folderId } = req.params;
         const { folderName, familyId, category, memberId } = req.body;
-        
+
         // Try to find existing folder
         let folder = folderId ? await VaultFolder.findById(folderId) : null;
-        
+
         // If no folder found and folderName provided, this might be a built-in folder
         if (!folder && folderName && familyId && category) {
             const categoryValue = canonicalCategory(category);
             const builtInFolders = BUILT_IN_FOLDERS[categoryValue] || [];
-            
+
             if (builtInFolders.includes(folderName)) {
                 // Create a deleted marker for built-in folder
                 folder = await VaultFolder.create({
@@ -390,10 +390,10 @@ export const deleteFolder = async (req: Request, res: Response) => {
                 });
                 return res.status(200).json({ message: 'Built-in folder hidden successfully' });
             }
-            
+
             return res.status(404).json({ message: 'Folder not found' });
         }
-        
+
         if (!folder) {
             return res.status(404).json({ message: 'Folder not found' });
         }
@@ -412,9 +412,9 @@ export const deleteFolder = async (req: Request, res: Response) => {
         });
 
         if (documentsInSubtree > 0) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 message: 'Cannot delete folder containing documents. Please move or delete all documents in this folder and its subfolders first.',
-                documentCount: documentsInSubtree 
+                documentCount: documentsInSubtree
             });
         }
 
@@ -438,18 +438,15 @@ export const deleteFolder = async (req: Request, res: Response) => {
     }
 };
 
-// Helper to escape regex special characters
-function escapeRegex(string: string) {
-    return string.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
-}
+
 
 export const getTrashedDocuments = async (req: Request, res: Response) => {
     try {
         const { familyId } = req.params;
 
-        const documents = await Document.find({ 
-            familyId, 
-            deleted: true 
+        const documents = await Document.find({
+            familyId,
+            deleted: true
         })
             .sort({ deletedAt: -1 })
             .populate('uploadedBy', 'name');
