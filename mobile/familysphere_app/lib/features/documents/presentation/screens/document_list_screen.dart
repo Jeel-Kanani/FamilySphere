@@ -482,11 +482,18 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
   }
 
   void _showFolderOptions(String folderName) {
+    final List<String> pathParts = [..._currentPath];
+    if (_selectedFolder != 'All') {
+      pathParts.add(_selectedFolder);
+    }
+    final fullPath = pathParts.isEmpty ? folderName : '${pathParts.join('/')}/$folderName';
+
     final folderDetails = ref.read(documentProvider.notifier).getFolderDetails(
       category: _selectedCategory!,
       memberId: _categoryScopedMemberId(),
     );
-    final detail = folderDetails?.where((d) => d.name == folderName).firstOrNull;
+    
+    final detail = folderDetails?.where((d) => d.name == fullPath).firstOrNull;
     final folderId = detail?.folderId;
     final canDelete = detail?.canDelete ?? true;
 
@@ -1010,9 +1017,21 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
       return;
     }
     
+    if (folderId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unable to delete "$folderName": Folder ID not found'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
     try {
       await ref.read(documentProvider.notifier).deleteFolder(
-        folderId: folderId ?? 'placeholder',
+        folderId: folderId,
         folderName: folderName,
         familyId: familyId,
         category: _selectedCategory!,

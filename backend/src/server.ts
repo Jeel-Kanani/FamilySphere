@@ -27,6 +27,10 @@ app.use(helmet());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
+app.get('/ping', (req, res) => {
+    res.status(200).send('FamilySphere is awake!');
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/families', familyRoutes);
 app.use('/api/documents', documentRoutes);

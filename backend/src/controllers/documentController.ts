@@ -398,29 +398,50 @@ export const deleteFolder = async (req: Request, res: Response) => {
             return res.status(404).json({ message: 'Folder not found' });
         }
 
-        // Check if folder contains any documents
-        const documentsInFolder = await Document.countDocuments({
+        // Check if folder or any of its subfolders contains any documents
+        const folderPrefix = `${folder.name}/`;
+        const documentsInSubtree = await Document.countDocuments({
             familyId: folder.familyId,
             category: folder.category,
-            folder: folder.name,
+            $or: [
+                { folder: folder.name },
+                { folder: { $regex: `^${escapeRegex(folderPrefix)}` } }
+            ],
             ...(folder.memberId ? { memberId: folder.memberId } : {}),
+            deleted: false
         });
 
-        if (documentsInFolder > 0) {
+        if (documentsInSubtree > 0) {
             return res.status(400).json({ 
-                message: 'Cannot delete folder with documents. Please move or delete all documents first.',
-                documentCount: documentsInFolder 
+                message: 'Cannot delete folder containing documents. Please move or delete all documents in this folder and its subfolders first.',
+                documentCount: documentsInSubtree 
             });
         }
 
-        // Mark as deleted instead of actually deleting (for potential recovery)
-        await VaultFolder.findByIdAndUpdate(folder._id, { deleted: true });
+        // Mark this folder and all subfolders as deleted
+        await VaultFolder.updateMany(
+            {
+                familyId: folder.familyId,
+                category: folder.category,
+                $or: [
+                    { _id: folder._id },
+                    { name: { $regex: `^${escapeRegex(folderPrefix)}` } }
+                ],
+                ...(folder.memberId ? { memberId: folder.memberId } : {})
+            },
+            { deleted: true }
+        );
 
-        res.status(200).json({ message: 'Folder deleted successfully' });
+        res.status(200).json({ message: 'Folder and subfolders deleted successfully' });
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }
 };
+
+// Helper to escape regex special characters
+function escapeRegex(string: string) {
+    return string.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
+}
 
 export const getTrashedDocuments = async (req: Request, res: Response) => {
     try {
