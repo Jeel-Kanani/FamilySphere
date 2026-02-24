@@ -372,7 +372,7 @@ export const deleteFolder = async (req: Request, res: Response) => {
         const { folderName, familyId, category, memberId } = req.body;
 
         // Try to find existing folder (validate ObjectId first to avoid cast errors)
-        const isValidId = folderId && mongoose.Types.ObjectId.isValid(folderId);
+        const isValidId = folderId && mongoose.Types.ObjectId.isValid(folderId as string);
         let folder = isValidId ? await VaultFolder.findById(folderId) : null;
 
         // If no folder found and folderName provided, this might be a built-in folder
