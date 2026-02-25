@@ -107,19 +107,34 @@ class _InviteMemberScreenState extends ConsumerState<InviteMemberScreen> {
                   height: 200,
                   child: Center(child: CircularProgressIndicator()),
                 )
-              : QrImageView(
-                  data: _activeInvite?.token ?? '',
-                  version: QrVersions.auto,
-                  size: 200.0,
-                  eyeStyle: const QrEyeStyle(
-                    eyeShape: QrEyeShape.circle,
-                    color: AppTheme.primaryColor,
-                  ),
-                  dataModuleStyle: const QrDataModuleStyle(
-                    dataModuleShape: QrDataModuleShape.circle,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
+              : _activeInvite != null
+                  ? QrImageView(
+                      data: _activeInvite!.token,
+                      version: QrVersions.auto,
+                      size: 200.0,
+                      eyeStyle: const QrEyeStyle(
+                        eyeShape: QrEyeShape.circle,
+                        color: AppTheme.primaryColor,
+                      ),
+                      dataModuleStyle: const QrDataModuleStyle(
+                        dataModuleShape: QrDataModuleShape.circle,
+                        color: AppTheme.primaryColor,
+                      ),
+                    )
+                  : const SizedBox(
+                      width: 200,
+                      height: 200,
+                      child: Center(
+                        child: Text(
+                          'Generating...',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
         ),
         const SizedBox(height: 24),
         TextButton.icon(

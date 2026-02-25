@@ -13,7 +13,6 @@ const BUILT_IN_FOLDERS: Record<string, string[]> = {
         'Vehicle',
         'Finance & Tax',
         'Legal',
-        'Education',
         'Household Bills',
         'Family Identity',
     ],

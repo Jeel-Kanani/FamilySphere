@@ -27,16 +27,13 @@ export const createInvite = async (req: Request, res: Response) => {
         }
 
         const token = crypto.randomBytes(32).toString('hex');
-        let code = '';
-        if (type === 'code') {
-            code = crypto.randomInt(100000, 999999).toString();
-        }
+        const code = crypto.randomInt(100000, 999999).toString();
 
         const invite = await Invite.create({
             familyId,
             type,
             token,
-            code: type === 'code' ? code : undefined,
+            code,
             createdBy: userId,
             expiresAt: expiresAt || new Date(Date.now() + 10 * 60 * 1000), // Default 10 mins
             maxUses: maxUses || 1

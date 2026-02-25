@@ -30,7 +30,6 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     'Vehicle',
     'Finance & Tax',
     'Legal',
-    'Education',
     'Household Bills',
     'Family Identity',
   ];
