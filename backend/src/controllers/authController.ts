@@ -84,7 +84,13 @@ const sendEmailOtpController = async (req: AuthRequest, res: Response) => {
             { upsert: true, new: true },
         );
 
-        await sendEmailOtp(normalizedEmail, code);
+        // Try to send email, but don't fail the endpoint if SMTP is broken
+        try {
+            await sendEmailOtp(normalizedEmail, code);
+        } catch (emailError: any) {
+            console.error('Failed to send OTP email:', emailError.message);
+            // OTP is still saved in DB, continue
+        }
 
         const response: Record<string, unknown> = { message: 'OTP sent to email' };
         if (process.env.NODE_ENV !== 'production') {
