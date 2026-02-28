@@ -178,4 +178,14 @@ class DocumentRemoteDataSource {
   }) async {
     await _apiClient.delete('/api/documents/$documentId/permanent');
   }
+
+  /// Phase 6 – Poll OCR job status for a single document.
+  Future<Map<String, dynamic>> getOcrStatus({
+    required String documentId,
+  }) async {
+    final response = await _apiClient.get(
+      '/api/documents/$documentId/ocr-status',
+    );
+    return Map<String, dynamic>.from(response.data as Map);
+  }
 }

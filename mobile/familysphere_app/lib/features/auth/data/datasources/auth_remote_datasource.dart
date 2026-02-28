@@ -20,13 +20,20 @@ class AuthRemoteDataSource {
   })  : _apiClient = apiClient,
         _tokenService = tokenService;
 
-  /// Send email OTP for registration
-  Future<void> sendEmailOtp(String email) async {
+  /// Send email OTP for registration.
+  /// Returns the dev OTP code when the server exposes it (non-production mode).
+  Future<String?> sendEmailOtp(String email) async {
     try {
-      await _apiClient.post(
+      final response = await _apiClient.post(
         ApiConfig.sendEmailOtpEndpoint,
         data: {'email': email},
       );
+      // Backend returns devOtp when NODE_ENV != 'production'
+      final data = response.data;
+      if (data is Map && data['devOtp'] != null) {
+        return data['devOtp'].toString();
+      }
+      return null;
     } catch (e) {
       throw Exception('OTP send failed: ${e.toString()}');
     }

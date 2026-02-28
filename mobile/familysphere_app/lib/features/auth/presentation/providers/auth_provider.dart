@@ -169,12 +169,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Send email OTP before registration
+  /// Send email OTP before registration.
+  /// Stores [devOtp] in state when the server returns it (non-production mode).
   Future<void> sendEmailOtp(String email) async {
     try {
       state = state.copyWith(isLoading: true, error: null);
-      await _sendEmailOtp.call(email: email);
-      state = state.copyWith(isLoading: false);
+      final devOtp = await _sendEmailOtp.call(email: email);
+      state = state.copyWith(isLoading: false, devOtp: devOtp);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }

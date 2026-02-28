@@ -1,5 +1,7 @@
 import nodemailer from 'nodemailer';
 
+const SMTP_TIMEOUT_MS = 10_000; // 10 seconds max for SMTP operations
+
 const getTransporter = () => {
     const host = process.env.SMTP_HOST;
     const port = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined;
@@ -15,6 +17,9 @@ const getTransporter = () => {
         port,
         secure: port === 465,
         auth: { user, pass },
+        connectionTimeout: SMTP_TIMEOUT_MS,
+        greetingTimeout: SMTP_TIMEOUT_MS,
+        socketTimeout: SMTP_TIMEOUT_MS,
     });
 };
 
@@ -31,5 +36,11 @@ export const sendEmailOtp = async (to: string, code: string) => {
         return;
     }
 
-    await transporter.sendMail({ from, to, subject, text });
+    // Race against a timeout so we never hang the endpoint
+    const sendPromise = transporter.sendMail({ from, to, subject, text });
+    const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('SMTP send timed out')), SMTP_TIMEOUT_MS),
+    );
+
+    await Promise.race([sendPromise, timeoutPromise]);
 };

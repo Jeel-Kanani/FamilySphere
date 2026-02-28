@@ -2,7 +2,9 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:familysphere_app/core/services/smart_ocr_service.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/core/utils/routes.dart';
 
@@ -30,6 +32,29 @@ class _ScannerScreenState extends State<ScannerScreen> {
   int _activeIndex = 0;
   bool _isBusy = false;
 
+  // ── Smart OCR Intelligence ────────────────────────────────────────────────
+  SmartOcrResult? _ocrResult;
+  bool _isAnalyzing = false;
+
+  @override
+  void dispose() {
+    SmartOcrService.dispose();
+    super.dispose();
+  }
+
+  /// Run on-device OCR on the most recently added image.
+  Future<void> _analyzeLatestPage(String imagePath) async {
+    setState(() => _isAnalyzing = true);
+    try {
+      final result = await SmartOcrService.processImage(imagePath);
+      if (mounted) setState(() => _ocrResult = result);
+    } catch (_) {
+      // Silent — OCR is enhancement only, not blocking
+    } finally {
+      if (mounted) setState(() => _isAnalyzing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -37,8 +62,18 @@ class _ScannerScreenState extends State<ScannerScreen> {
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Scanner'),
+        title: const Text('Smart Scanner'),
         actions: [
+          if (_isAnalyzing)
+            const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: Center(
+                child: SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
           if (_imagePaths.isNotEmpty)
             IconButton(
               onPressed: _isBusy ? null : _clearAll,
@@ -60,6 +95,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
                   const SizedBox(height: 12),
                   _buildThumbStrip(context),
                 ],
+                const SizedBox(height: 12),
+                _buildDetectionFeedback(context),
               ],
             ),
           ),
@@ -242,6 +279,257 @@ class _ScannerScreenState extends State<ScannerScreen> {
     );
   }
 
+  // ─── Detection Feedback Panel ─────────────────────────────────────────────
+  //
+  // Shown immediately after a page is captured/picked.
+  // Displays what the on-device ML Kit detected before the upload starts.
+  Widget _buildDetectionFeedback(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Not yet scanned
+    if (_imagePaths.isEmpty) return const SizedBox.shrink();
+
+    // Scanning in progress
+    if (_isAnalyzing) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF0F172A) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppTheme.primaryColor.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 18, height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Analysing document…',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // No result yet (e.g. first open before any capture)
+    if (_ocrResult == null) return const SizedBox.shrink();
+
+    final result = _ocrResult!;
+    final hasIntel = result.hasIntelligence;
+    final accentColor = hasIntel
+        ? (result.needsReview ? Colors.orange : Colors.green)
+        : Colors.grey;
+
+    // Confidence badge colour
+    Color confidenceColor;
+    if (result.confidence >= 0.75) {
+      confidenceColor = Colors.green;
+    } else if (result.confidence >= 0.5) {
+      confidenceColor = Colors.orange;
+    } else {
+      confidenceColor = Colors.red;
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOut,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F172A) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accentColor.withValues(alpha: 0.4)),
+        boxShadow: [
+          if (!isDark)
+            BoxShadow(
+              color: accentColor.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row
+          Row(
+            children: [
+              Icon(
+                hasIntel ? Icons.psychology_outlined : Icons.help_outline_rounded,
+                size: 18,
+                color: accentColor,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  hasIntel ? 'Smart Detection' : 'No match found',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                    color: accentColor,
+                  ),
+                ),
+              ),
+              // Confidence badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: confidenceColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: confidenceColor.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  '${(result.confidence * 100).toStringAsFixed(0)}% ${result.confidenceLabel}',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: confidenceColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          if (hasIntel) ...[
+            const SizedBox(height: 12),
+            // Doc type chip
+            _detectionRow(
+              context,
+              icon: Icons.description_outlined,
+              label: 'Document Type',
+              value: result.docTypeLabel,
+              isDark: isDark,
+            ),
+
+            if (result.expiryDate != null) ...[
+              const SizedBox(height: 8),
+              _detectionRow(
+                context,
+                icon: Icons.event_outlined,
+                label: 'Expiry / Due Date',
+                value: _formatDate(result.expiryDate!),
+                isDark: isDark,
+                highlight: result.expiryDate!.isBefore(DateTime.now()),
+              ),
+            ],
+
+            if (result.amount != null) ...[
+              const SizedBox(height: 8),
+              _detectionRow(
+                context,
+                icon: Icons.currency_rupee,
+                label: 'Amount',
+                value: '₹${result.amount!.toStringAsFixed(2)}',
+                isDark: isDark,
+              ),
+            ],
+
+            // Script detected
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Icon(Icons.translate_rounded, size: 12, color: Colors.grey),
+                const SizedBox(width: 4),
+                Text(
+                  'Script: ${_scriptLabel(result.dominantScript)}',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 10,
+                    color: Colors.grey,
+                  ),
+                ),
+                if (result.needsReview) ...[
+                  const SizedBox(width: 12),
+                  const Icon(Icons.info_outline, size: 12, color: Colors.orange),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Review required on timeline',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10,
+                      color: Colors.orange,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ] else ...[
+            const SizedBox(height: 8),
+            Text(
+              'Ensure the document is well-lit and text is clearly visible.',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                color: isDark ? Colors.white54 : Colors.black45,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _detectionRow(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+    required bool isDark,
+    bool highlight = false,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 14, color: isDark ? Colors.white38 : Colors.black38),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label.toUpperCase(),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  color: isDark ? Colors.white38 : Colors.black38,
+                ),
+              ),
+              Text(
+                value,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: highlight
+                      ? Colors.red
+                      : (isDark ? Colors.white : Colors.black87),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
+  String _scriptLabel(OcrScript script) {
+    switch (script) {
+      case OcrScript.devanagari: return 'Devanagari (Hindi)';
+      case OcrScript.gujarati:   return 'Gujarati';
+      case OcrScript.latin:      return 'Latin (English)';
+    }
+  }
+
   Widget _buildBottomBar(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
@@ -306,13 +594,13 @@ class _ScannerScreenState extends State<ScannerScreen> {
         _imagePaths.add(image.path);
         _activeIndex = _imagePaths.length - 1;
       });
+      // Run OCR in background — non-blocking
+      await _analyzeLatestPage(image.path);
     } catch (e) {
       if (!mounted) return;
       _showSnack('Camera capture failed');
     } finally {
-      if (mounted) {
-        setState(() => _isBusy = false);
-      }
+      if (mounted) setState(() => _isBusy = false);
     }
   }
 
@@ -337,13 +625,13 @@ class _ScannerScreenState extends State<ScannerScreen> {
         _imagePaths.addAll(newPaths);
         _activeIndex = _imagePaths.length - 1;
       });
+      // Run OCR on first newly added page
+      await _analyzeLatestPage(newPaths.first);
     } catch (_) {
       if (!mounted) return;
       _showSnack('Gallery import failed');
     } finally {
-      if (mounted) {
-        setState(() => _isBusy = false);
-      }
+      if (mounted) setState(() => _isBusy = false);
     }
   }
 
@@ -365,6 +653,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     setState(() {
       _imagePaths.clear();
       _activeIndex = 0;
+      _ocrResult = null;
     });
   }
 

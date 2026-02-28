@@ -51,6 +51,8 @@ class ApiConfig {
   static const String uploadDocumentEndpoint = '$documentBase/upload';
   static const String getDocumentsEndpoint = '$documentBase';
   static const String deleteDocumentEndpoint = '$documentBase/delete';
+  // Phase 6 – OCR job status polling
+  static String ocrStatusEndpoint(String docId) => '$documentBase/$docId/ocr-status';
   
   // Timeouts
   static const Duration connectTimeout = Duration(seconds: 60);

@@ -10,6 +10,7 @@ import {
     getTrashedDocuments,
     restoreDocument,
     permanentlyDeleteDocument,
+    getOcrStatus,
 } from '../controllers/documentController';
 import { upload } from '../config/cloudinary';
 
@@ -44,5 +45,8 @@ router.delete('/:id/permanent', permanentlyDeleteDocument);
 
 // PATCH /api/documents/:id/folder - Move document to folder
 router.patch('/:id/folder', moveDocumentToFolder);
+
+// GET /api/documents/:id/ocr-status - Poll OCR job progress (Phase 4)
+router.get('/:id/ocr-status', getOcrStatus);
 
 export default router;

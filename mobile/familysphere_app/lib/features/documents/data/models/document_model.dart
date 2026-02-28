@@ -19,6 +19,8 @@ class DocumentModel extends DocumentEntity {
     super.localPath,
     super.deleted,
     super.deletedAt,
+    super.ocrStatus,
+    super.ocrJobId,
   });
 
   /// Create from Domain Entity
@@ -40,6 +42,8 @@ class DocumentModel extends DocumentEntity {
       localPath: entity.localPath,
       deleted: entity.deleted,
       deletedAt: entity.deletedAt,
+      ocrStatus: entity.ocrStatus,
+      ocrJobId: entity.ocrJobId,
     );
   }
 
@@ -77,6 +81,8 @@ class DocumentModel extends DocumentEntity {
           ? ((json['fileSize'] ?? json['size'] ?? 0) as num).toInt()
           : 0,
       uploadedBy: uploaderId,
+      ocrStatus: json['ocrStatus'] as String?,
+      ocrJobId:  json['ocrJobId']  as String?,
       uploadedAt: json['createdAt'] != null 
           ? DateTime.parse(json['createdAt']) 
           : DateTime.now(),

@@ -9,8 +9,9 @@ abstract class AuthRepository {
     required String password,
   });
 
-  /// Send email OTP before registration
-  Future<void> sendEmailOtp({
+  /// Send email OTP before registration.
+  /// Returns the dev OTP code when the server exposes it (non-production mode).
+  Future<String?> sendEmailOtp({
     required String email,
   });
 

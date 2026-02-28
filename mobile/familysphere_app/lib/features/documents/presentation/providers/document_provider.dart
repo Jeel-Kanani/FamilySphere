@@ -47,7 +47,8 @@ class DocumentState {
   final Map<String, List<FolderEntity>> folderDetailsCache;
   final bool isLoading;
   final String? error;
-  final double? uploadProgress; 
+  final double? uploadProgress;
+  final String? lastUploadedDocId;  // Phase 6 – docId for OCR polling
   final int storageUsed;
   final int storageLimit;
   final DateTime? lastStorageSync;
@@ -59,6 +60,7 @@ class DocumentState {
     this.isLoading = false,
     this.error,
     this.uploadProgress,
+    this.lastUploadedDocId,
     this.storageUsed = 0,
     this.storageLimit = 25 * 1024 * 1024 * 1024, // 25 GB default
     this.lastStorageSync,
@@ -73,6 +75,7 @@ class DocumentState {
     bool? isLoading,
     String? error,
     double? uploadProgress,
+    String? lastUploadedDocId,
     int? storageUsed,
     int? storageLimit,
     DateTime? lastStorageSync,
@@ -84,6 +87,7 @@ class DocumentState {
       isLoading: isLoading ?? this.isLoading,
       error: error,
       uploadProgress: uploadProgress ?? this.uploadProgress,
+      lastUploadedDocId: lastUploadedDocId ?? this.lastUploadedDocId,
       storageUsed: storageUsed ?? this.storageUsed,
       storageLimit: storageLimit ?? this.storageLimit,
       lastStorageSync: lastStorageSync ?? this.lastStorageSync,
@@ -274,6 +278,7 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
         documents: [newDoc, ...state.documents],
         storageUsed: newStorageUsed,
         lastStorageSync: DateTime.now(),
+        lastUploadedDocId: newDoc.id.isNotEmpty ? newDoc.id : null,
         isLoading: false,
       );
       _documentsByQueryCache.clear();

@@ -10,6 +10,8 @@ class AuthState {
   final String? error;
   final String? verificationId;  // For OTP verification
   final bool isLoading;
+  /// Dev-only: OTP code returned by the server when NODE_ENV != 'production'.
+  final String? devOtp;
 
   const AuthState({
     required this.status,
@@ -17,6 +19,7 @@ class AuthState {
     this.error,
     this.verificationId,
     this.isLoading = false,
+    this.devOtp,
   });
 
   /// Initial state - not authenticated
@@ -69,6 +72,7 @@ class AuthState {
     String? error,
     String? verificationId,
     bool? isLoading,
+    String? devOtp,
   }) {
     return AuthState(
       status: status ?? this.status,
@@ -76,6 +80,7 @@ class AuthState {
       error: error ?? this.error,
       verificationId: verificationId ?? this.verificationId,
       isLoading: isLoading ?? this.isLoading,
+      devOtp: devOtp ?? this.devOtp,
     );
   }
 

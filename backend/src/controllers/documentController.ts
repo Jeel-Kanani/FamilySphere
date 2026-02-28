@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import Document from '../models/Document';
 import VaultFolder from '../models/VaultFolder';
 import { cloudinary } from '../config/cloudinary';
+import { ocrQueue } from '../queues/ocrQueue';
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const BUILT_IN_FOLDERS: Record<string, string[]> = {
@@ -74,6 +75,7 @@ export const uploadDocument = async (req: Request, res: Response) => {
             cloudinaryId: file.filename,
             familyId,
             uploadedBy,
+            ocrStatus: 'pending',
         });
 
         await newDocument.save();
@@ -84,7 +86,22 @@ export const uploadDocument = async (req: Request, res: Response) => {
             $inc: { storageUsed: file.size || 0 }
         });
 
-        res.status(201).json(newDocument);
+        // 🔥 Phase 4: Dispatch OCR + event generation to BullMQ background worker
+        // The worker runs Tesseract, patches the document, then generates timeline events.
+        const job = await ocrQueue.add(
+            'ocr-job',
+            {
+                documentId: String(newDocument._id),
+                fileUrl:    file.path,
+                familyId:   String(familyId),
+            },
+            { jobId: `doc-${newDocument._id}` } // idempotent; duplicate uploads won't double-queue
+        );
+
+        // Persist the job ID so the client can poll /ocr-status
+        await Document.findByIdAndUpdate(newDocument._id, { ocrJobId: job.id });
+
+        res.status(201).json({ ...newDocument.toObject(), ocrJobId: job.id });
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }
@@ -498,6 +515,39 @@ export const permanentlyDeleteDocument = async (req: Request, res: Response) => 
         await Document.findByIdAndDelete(id);
 
         res.status(200).json({ message: 'Document permanently deleted' });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ── Phase 4: OCR Job Status ───────────────────────────────────────────────────
+
+/**
+ * GET /api/documents/:id/ocr-status
+ * Lightweight polling endpoint so the mobile app can show real-time OCR progress.
+ * Returns the document's current ocrStatus + extracted metadata once done.
+ */
+export const getOcrStatus = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        const document = await Document.findById(id).select(
+            'ocrStatus ocrConfidence docType expiryDate dueDate amount ocrJobId'
+        );
+
+        if (!document) {
+            return res.status(404).json({ message: 'Document not found' });
+        }
+
+        res.status(200).json({
+            ocrStatus:     document.ocrStatus,
+            ocrJobId:      document.ocrJobId,
+            ocrConfidence: document.ocrConfidence,
+            docType:       document.docType,
+            expiryDate:    document.expiryDate,
+            dueDate:       document.dueDate,
+            amount:        document.amount,
+        });
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }

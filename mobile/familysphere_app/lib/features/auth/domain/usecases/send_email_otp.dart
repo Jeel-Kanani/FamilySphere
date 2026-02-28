@@ -4,7 +4,8 @@ class SendEmailOtp {
   final AuthRepository _repository;
   SendEmailOtp(this._repository);
 
-  Future<void> call({required String email}) {
+  /// Returns the dev OTP code when the server exposes it (non-production mode).
+  Future<String?> call({required String email}) {
     return _repository.sendEmailOtp(email: email);
   }
 }

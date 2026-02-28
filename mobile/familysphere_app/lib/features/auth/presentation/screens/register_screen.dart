@@ -84,13 +84,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           _emailController.text.trim(),
         );
 
-    final hasError = ref.read(authProvider).error != null;
+    final authState = ref.read(authProvider);
+    final hasError = authState.error != null;
     if (mounted && !hasError) {
       setState(() {
         _emailOtpSent = true;
         _emailVerified = false;
       });
-      _showSnack('OTP sent to your email');
+
+      // Dev mode: server returned the OTP directly — auto-fill and notify
+      final devOtp = authState.devOtp;
+      if (devOtp != null && mounted) {
+        _emailOtpController.text = devOtp;
+        _showSnack('DEV: OTP auto-filled ($devOtp)', color: Colors.orange);
+      } else {
+        _showSnack('OTP sent to your email');
+      }
     }
   }
 

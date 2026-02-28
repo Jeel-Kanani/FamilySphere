@@ -19,7 +19,7 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<void> sendEmailOtp({required String email}) async {
+  Future<String?> sendEmailOtp({required String email}) async {
     return await remoteDataSource.sendEmailOtp(email);
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:familysphere_app/features/home/presentation/screens/home_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/vault_screen.dart';
 import 'package:familysphere_app/features/chat/presentation/screens/hub_screen.dart';
+import 'package:familysphere_app/features/home/presentation/screens/tracker_screen.dart';
 import 'package:familysphere_app/features/lab/presentation/screens/lab_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/profile_screen.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
@@ -20,7 +21,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     const HomeScreen(),
     const VaultScreen(),
     const LabScreen(),
-    const HubScreen(),
+    const TrackerScreen(),
     const ProfileScreen(),
   ];
 
@@ -90,9 +91,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   label: 'Lab',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.inbox_rounded),
-                  activeIcon: Icon(Icons.inbox_rounded),
-                  label: 'Requests',
+                  icon: Icon(Icons.analytics_rounded),
+                  activeIcon: Icon(Icons.analytics_rounded),
+                  label: 'Tracker',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.settings_rounded),
