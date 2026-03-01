@@ -14,7 +14,7 @@ import eventRoutes from './routes/eventRoutes';
 
 import { initScheduler } from './services/scheduler';
 import { startOcrWorker } from './workers/ocrWorker';
-import { isRedisAvailable } from './config/redis';
+import { isRedisAvailable, checkRedisWithRetries, redisConnectionOptions } from './config/redis';
 import { appState } from './config/appState';
 
 dotenv.config();
@@ -24,17 +24,17 @@ initScheduler();
 
 // Phase 4 — Only start the BullMQ worker when Redis is reachable.
 // Falls back to direct (synchronous) OCR processing in documentController.
-isRedisAvailable().then((available) => {
+checkRedisWithRetries().then((available) => {
     appState.ocrQueueEnabled = available;
     if (available) {
         startOcrWorker();
     } else {
+        const host = (redisConnectionOptions as any).host || '127.0.0.1';
+        const port = (redisConnectionOptions as any).port || 6379;
         console.warn(
-            '[Server] Redis not available at %s:%s — OCR queue disabled. ' +
+            `[Server] Redis not available at ${host}:${port} — OCR queue disabled. ` +
             'Documents will be processed synchronously.\n' +
-            '[Server] To enable the queue: start Redis, then restart the server.',
-            process.env.REDIS_HOST || '127.0.0.1',
-            process.env.REDIS_PORT || '6379'
+            '[Server] To enable the queue: start Redis, then restart the server.'
         );
     }
 });
