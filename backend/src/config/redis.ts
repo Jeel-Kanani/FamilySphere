@@ -1,11 +1,14 @@
 import { ConnectionOptions } from 'bullmq';
 import * as net from 'net';
+import * as dns from 'dns';
 
 /**
  * BullMQ 5 bundles its own ioredis internally.
  * Supports either REDIS_URL (full URL — what Render provides) or
  * individual REDIS_HOST / REDIS_PORT / REDIS_PASSWORD env vars.
  */
+import * as tls from 'tls';
+
 const buildConnectionOptions = (): ConnectionOptions => {
     const rawUrl = process.env.REDIS_URL;
     if (rawUrl) {
@@ -13,6 +16,8 @@ const buildConnectionOptions = (): ConnectionOptions => {
         console.log('[Redis Config] Using REDIS_URL from environment');
         try {
             const parsed = new URL(urlString);
+            const isTls = parsed.protocol === 'rediss:';
+
             return {
                 host: parsed.hostname,
                 port: parseInt(parsed.port || '6379', 10),
@@ -21,6 +26,8 @@ const buildConnectionOptions = (): ConnectionOptions => {
                 maxRetriesPerRequest: null,
                 enableReadyCheck: false,
                 retryStrategy: () => null,
+                // Redis Cloud often requires TLS
+                ...(isTls ? { tls: {} } : {})
             };
         } catch (e) {
             console.error('[Redis Config] Failed to parse REDIS_URL. Falling back to default.');
@@ -50,8 +57,25 @@ export const isRedisAvailable = (checkHost?: string): Promise<boolean> => {
         const host = checkHost || (redisConnectionOptions as any).host || '127.0.0.1';
         const port = (redisConnectionOptions as any).port || 6379;
 
-        const socket = net.createConnection({ host, port, family: 4 }); // Force IPv4 for cloud stability
-        const timeoutMs = 5000;
+        // Diagnostic: See if DNS can resolve at all
+        dns.lookup(host, (err, address) => {
+            if (err) {
+                console.error(`[Redis DNS] Failed to resolve ${host}: ${err.message}`);
+            } else {
+                console.log(`[Redis DNS] ${host} resolved to ${address}`);
+            }
+        });
+
+        const isTls = ((redisConnectionOptions as any).tls !== undefined) || ((process.env.REDIS_URL || '').startsWith('rediss://'));
+
+        let socket: net.Socket;
+        if (isTls) {
+            socket = tls.connect({ host, port, rejectUnauthorized: false }); // rejectUnauthorized: false for common cloud cert issues
+        } else {
+            socket = net.createConnection({ host, port });
+        }
+
+        const timeoutMs = 10000; // Increased to 10s for slow cloud discovery
 
         const timer = setTimeout(() => {
             console.warn(`[Redis Availability] Timeout after ${timeoutMs}ms connecting to ${host}:${port}`);
@@ -62,6 +86,7 @@ export const isRedisAvailable = (checkHost?: string): Promise<boolean> => {
         socket.on('connect', () => {
             clearTimeout(timer);
             socket.destroy();
+            console.log(`[Redis Availability] Successfully connected to ${host}:${port}`);
             resolve(true);
         });
 
