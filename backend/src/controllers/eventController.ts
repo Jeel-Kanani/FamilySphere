@@ -14,7 +14,9 @@ export const getFutureEvents = async (req: Request, res: Response) => {
 
         const query: any = {
             familyId,
-            startDate: { $gte: cursor ? new Date(cursor as string) : new Date() }
+            startDate: cursor
+                ? { $gt: new Date(cursor as string) }   // paginating: exclude the cursor event
+                : { $gte: new Date() }                  // initial load: from now onwards
         };
 
         const events = await Event.find(query)

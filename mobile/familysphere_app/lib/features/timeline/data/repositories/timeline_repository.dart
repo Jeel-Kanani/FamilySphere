@@ -69,4 +69,27 @@ class TimelineRepository {
     }
     throw Exception('Failed to dismiss review');
   }
+
+  Future<TimelineEvent> createEvent({
+    required String title,
+    required String type,
+    required DateTime startDate,
+    String description = '',
+  }) async {
+    final response = await _apiClient.post(
+      '/api/events',
+      data: {
+        'title': title,
+        'type': type,
+        'startDate': startDate.toIso8601String(),
+        'description': description,
+        'source': 'manual',
+      },
+    );
+
+    if (response.statusCode == 201) {
+      return TimelineEvent.fromJson(response.data['data']);
+    }
+    throw Exception('Failed to create event');
+  }
 }

@@ -136,6 +136,28 @@ class TimelineNotifier extends StateNotifier<TimelineState> {
     }
   }
 
+  /// Create a new manual event on the server and add it locally
+  Future<bool> createEvent({
+    required String title,
+    required String type,
+    required DateTime startDate,
+    String description = '',
+  }) async {
+    try {
+      final newEvent = await _repository.createEvent(
+        title: title,
+        type: type,
+        startDate: startDate,
+        description: description,
+      );
+      addEvent(newEvent);
+      return true;
+    } catch (e) {
+      debugPrint('Error creating event: $e');
+      return false;
+    }
+  }
+
   void _updateLocalEvent(TimelineEvent updatedEvent) {
     state = state.copyWith(
       futureEvents: state.futureEvents.map((e) => e.id == updatedEvent.id ? updatedEvent : e).toList(),

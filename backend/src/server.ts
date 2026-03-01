@@ -9,6 +9,7 @@ import authRoutes from './routes/authRoutes';
 import familyRoutes from './routes/familyRoutes';
 import documentRoutes from './routes/documentRoutes';
 import vaultRoutes from './routes/vaultRoutes';
+import eventRoutes from './routes/eventRoutes';
 
 import { initScheduler } from './services/scheduler';
 import { startOcrWorker } from './workers/ocrWorker';
@@ -58,6 +59,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/families', familyRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/vault', vaultRoutes);
+app.use('/api/events', eventRoutes);
 
 const PORT = process.env.PORT || 5000;
 
