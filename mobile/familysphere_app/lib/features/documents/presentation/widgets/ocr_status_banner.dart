@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:familysphere_app/core/models/ocr_status_result.dart';
 import 'package:familysphere_app/core/providers/ocr_status_provider.dart';
 
 /// Animated card that shows real-time OCR job progress.

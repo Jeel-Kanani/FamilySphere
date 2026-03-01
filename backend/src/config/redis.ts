@@ -13,11 +13,10 @@ export const redisConnectionOptions: ConnectionOptions = {
     // Required by BullMQ — disables ioredis request timeout for blocking calls
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
-    // Limit reconnection attempts so we don't spam the console when Redis is absent
-    retryStrategy: (times: number) => {
-        if (times > 3) return null; // stop retrying after 3 attempts
-        return Math.min(times * 1000, 5000);
-    },
+    // Fail fast — server.ts guards worker startup with isRedisAvailable().
+    // Returning null immediately stops ioredis from retrying and prevents
+    // ECONNREFUSED spam when Redis is not running.
+    retryStrategy: () => null,
 };
 
 /**

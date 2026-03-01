@@ -13,6 +13,7 @@ import vaultRoutes from './routes/vaultRoutes';
 import { initScheduler } from './services/scheduler';
 import { startOcrWorker } from './workers/ocrWorker';
 import { isRedisAvailable } from './config/redis';
+import { appState } from './config/appState';
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ initScheduler();
 // Phase 4 — Only start the BullMQ worker when Redis is reachable.
 // Falls back to direct (synchronous) OCR processing in documentController.
 isRedisAvailable().then((available) => {
+    appState.ocrQueueEnabled = available;
     if (available) {
         startOcrWorker();
     } else {

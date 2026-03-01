@@ -6,9 +6,9 @@ import 'package:familysphere_app/core/utils/routes.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:familysphere_app/features/documents/presentation/providers/document_provider.dart';
-import 'package:familysphere_app/features/documents/presentation/widgets/ocr_status_banner.dart';
 import 'package:familysphere_app/features/family/domain/entities/family_member.dart';
 import 'package:familysphere_app/features/family/presentation/providers/family_provider.dart';
+import 'package:familysphere_app/features/documents/presentation/widgets/premium_upload_overlay.dart';
 
 class AddDocumentScreen extends ConsumerStatefulWidget {
   final List<String>? initialImagePaths;
@@ -58,7 +58,10 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
   String _selectedCategory = 'Shared';
   String _selectedFolder = 'Property Deed';
   String? _selectedMemberId;
-  String? _pendingOcrDocId; // Phase 6 – set after upload to start OCR polling
+  // OCR is now handled in the background, _pendingOcrDocId is removed
+
+  bool _showPremiumOverlay = false;
+  final GlobalKey<PremiumUploadOverlayState> _overlayKey = GlobalKey<PremiumUploadOverlayState>();
 
   final List<String> _suggestedTypes = ['Insurance', 'Medical', 'Legal', 'Tax', 'Home', 'Vehicle', 'Education', 'Other'];
 
@@ -430,17 +433,20 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
           ),
         ),
       ),
-          // Phase 6 – OCR status banner, overlaid at bottom of scroll area
-          if (_pendingOcrDocId != null)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: OcrStatusBanner(
-                docId: _pendingOcrDocId!,
-                onDone:    _onOcrDone,
-                onDismiss: _onOcrDismiss,
-              ),
+          if (_showPremiumOverlay)
+            PremiumUploadOverlay(
+              key: _overlayKey,
+              onComplete: () {
+                if (mounted) {
+                  Navigator.pop(context, true);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Documents secured in Vault ✨'),
+                      backgroundColor: Color(0xFF16A34A),
+                    ),
+                  );
+                }
+              },
             ),
         ],
       ),
@@ -545,14 +551,7 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
       ),
       child: SizedBox(
         height: 52,
-        child: _pendingOcrDocId != null
-            // OCR in progress – show a muted skip button
-            ? OutlinedButton.icon(
-                onPressed: _onOcrDismiss,
-                icon: const Icon(Icons.skip_next_rounded),
-                label: const Text('Skip Analysis'),
-              )
-            : ElevatedButton(
+        child: ElevatedButton(
           onPressed: isLoading || _selectedFiles.isEmpty ? null : _saveDocument,
           child: isLoading
               ? const SizedBox(
@@ -588,8 +587,8 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
                     ],
                   ],
                 ),
+          ),
         ),
-      ),
     );
   }
 
@@ -897,29 +896,7 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
     return merged.toList();
   }
 
-  // ── Phase 6 – OCR polling callbacks ─────────────────────────────────────────
-
-  void _onOcrDone() {
-    if (!mounted) return;
-    setState(() => _pendingOcrDocId = null);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Document saved — AI analysis complete ✨'),
-        backgroundColor: Color(0xFF16A34A),
-        duration: Duration(seconds: 3),
-      ),
-    );
-    Navigator.pop(context, true);
-  }
-
-  void _onOcrDismiss() {
-    if (!mounted) return;
-    setState(() => _pendingOcrDocId = null);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Document saved successfully')),
-    );
-    Navigator.pop(context, true);
-  }
+  // OCR polling removed as it now happens in the background.
 
   Future<void> _saveDocument() async {
     if (!_formKey.currentState!.validate()) return;
@@ -935,8 +912,9 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
       );
       return;
     }
-
     try {
+      setState(() => _showPremiumOverlay = true);
+
       for (final file in _selectedFiles) {
         var finalTitle = _titleController.text.trim();
         if (_typeController.text.isNotEmpty) {
@@ -952,21 +930,10 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
             );
       }
 
-      if (!mounted) return;
-
-      // Phase 6 – start OCR polling for the last uploaded document
-      final lastDocId = ref.read(documentProvider).lastUploadedDocId;
-      if (lastDocId != null && lastDocId.isNotEmpty) {
-        setState(() => _pendingOcrDocId = lastDocId);
-        // Screen stays open; OcrStatusBanner auto-polls and calls _onOcrDone
-      } else {
-        // Fallback: no OCR support or docId missing
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Document(s) saved successfully')),
-        );
-        Navigator.pop(context, true);
-      }
+      // Start the "Deposit" animation phase once upload is complete
+      _overlayKey.currentState?.startDeposit();
     } catch (e) {
+      if (mounted) setState(() => _showPremiumOverlay = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
     }

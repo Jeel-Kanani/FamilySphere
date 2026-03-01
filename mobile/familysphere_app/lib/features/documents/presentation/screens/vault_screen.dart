@@ -5,6 +5,7 @@ import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/core/utils/routes.dart';
 import 'package:familysphere_app/features/documents/presentation/providers/document_provider.dart';
 import 'package:familysphere_app/features/family/presentation/providers/family_provider.dart';
+import 'package:familysphere_app/features/documents/presentation/widgets/processing_indicator.dart';
 import 'package:intl/intl.dart';
 
 class VaultScreen extends ConsumerStatefulWidget {
@@ -78,6 +79,13 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
             children: [
               _buildHeader(context, isLoading),
+              
+              // Phase 6 – Background Processing Indicator
+              if (documents.any((doc) => doc.ocrStatus == 'pending' || doc.ocrStatus == 'processing'))
+                ProcessingIndicator(
+                  count: documents.where((doc) => doc.ocrStatus == 'pending' || doc.ocrStatus == 'processing').length,
+                ),
+                
               const SizedBox(height: 16),
               
               // Search Bar

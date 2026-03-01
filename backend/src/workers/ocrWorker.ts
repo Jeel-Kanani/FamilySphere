@@ -3,6 +3,7 @@ import { redisConnectionOptions } from '../config/redis';
 import { OcrJobData } from '../queues/ocrQueue';
 import { processDocumentOcr } from '../services/ocrService';
 import { EventGeneratorService } from '../services/eventGeneratorService';
+import { NotificationService } from '../services/notificationService';
 
 /**
  * Phase 4 – OCR Background Worker
@@ -48,13 +49,13 @@ export const startOcrWorker = (): Worker<OcrJobData> => {
             const updatedDoc = await Document.findByIdAndUpdate(
                 documentId,
                 {
-                    rawText:        ocrResult.rawText,
-                    docType:        ocrResult.docType,
-                    expiryDate:     ocrResult.expiryDate,
-                    dueDate:        ocrResult.dueDate,
-                    amount:         ocrResult.amount,
-                    ocrStatus:      'done',
-                    ocrConfidence:  ocrResult.confidence,
+                    rawText: ocrResult.rawText,
+                    docType: ocrResult.docType,
+                    expiryDate: ocrResult.expiryDate,
+                    dueDate: ocrResult.dueDate,
+                    amount: ocrResult.amount,
+                    ocrStatus: 'done',
+                    ocrConfidence: ocrResult.confidence,
                 },
                 { new: true }
             );
@@ -74,16 +75,25 @@ export const startOcrWorker = (): Worker<OcrJobData> => {
                 console.error(`[OCR Worker] Event generation failed for doc ${documentId}: ${err.message}`);
             }
 
+            await job.updateProgress(90);
+
+            // ── Step 4: Notify User ──────────────────────────────────────────
+            try {
+                await NotificationService.notifyOcrComplete(updatedDoc);
+            } catch (err: any) {
+                console.error(`[OCR Worker] Notification failed for doc ${documentId}: ${err.message}`);
+            }
+
             await job.updateProgress(100);
 
             return {
-                success:  true,
-                docType:  ocrResult.docType,
+                success: true,
+                docType: ocrResult.docType,
                 confidence: ocrResult.confidence,
             };
         },
         {
-            connection:  redisConnectionOptions,
+            connection: redisConnectionOptions,
             concurrency: 3,
             // Stalled-job detection: if a worker crashes mid-job, reclaim after 30 s
             stalledInterval: 30_000,

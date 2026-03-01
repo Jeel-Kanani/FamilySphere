@@ -4,6 +4,7 @@ import Document from '../models/Document';
 import VaultFolder from '../models/VaultFolder';
 import { cloudinary } from '../config/cloudinary';
 import { ocrQueue } from '../queues/ocrQueue';
+import { appState } from '../config/appState';
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const BUILT_IN_FOLDERS: Record<string, string[]> = {
@@ -47,6 +48,32 @@ const canonicalCategory = (value: string | undefined): string => {
     return value?.trim() || 'Shared';
 };
 
+/** Fire-and-forget OCR when Redis / BullMQ is unavailable. */
+const runOcrDirectly = (docId: any, fileUrl: string, familyId: string) => {
+    Promise.all([
+        import('../services/ocrService'),
+        import('../services/eventGeneratorService'),
+    ]).then(async ([{ processDocumentOcr }, { EventGeneratorService }]) => {
+        try {
+            const ocrResult = await processDocumentOcr(fileUrl);
+            await Document.findByIdAndUpdate(docId, {
+                rawText:       ocrResult.rawText,
+                docType:       ocrResult.docType,
+                expiryDate:    ocrResult.expiryDate,
+                dueDate:       ocrResult.dueDate,
+                amount:        ocrResult.amount,
+                ocrStatus:     'done',
+                ocrConfidence: ocrResult.confidence,
+            });
+            const updatedDoc = await Document.findById(docId);
+            if (updatedDoc) await EventGeneratorService.generateEventsFromDocument(updatedDoc);
+        } catch (err: any) {
+            console.error('[Upload] Direct OCR failed:', err.message);
+            await Document.findByIdAndUpdate(docId, { ocrStatus: 'failed' });
+        }
+    });
+};
+
 export const uploadDocument = async (req: Request, res: Response) => {
     try {
         const { title, category, familyId, uploadedBy, folder, memberId } = req.body;
@@ -86,22 +113,33 @@ export const uploadDocument = async (req: Request, res: Response) => {
             $inc: { storageUsed: file.size || 0 }
         });
 
-        // 🔥 Phase 4: Dispatch OCR + event generation to BullMQ background worker
-        // The worker runs Tesseract, patches the document, then generates timeline events.
-        const job = await ocrQueue.add(
-            'ocr-job',
-            {
-                documentId: String(newDocument._id),
-                fileUrl:    file.path,
-                familyId:   String(familyId),
-            },
-            { jobId: `doc-${newDocument._id}` } // idempotent; duplicate uploads won't double-queue
-        );
+        // 🔥 Phase 4: Dispatch OCR + event generation to BullMQ background worker.
+        // If Redis was not available at startup, skip the queue entirely and run
+        // OCR directly in the background so the upload never fails.
+        let ocrJobId: string | undefined;
+        if (appState.ocrQueueEnabled) {
+            try {
+                const job = await ocrQueue.add(
+                    'ocr-job',
+                    {
+                        documentId: String(newDocument._id),
+                        fileUrl:    file.path,
+                        familyId:   String(familyId),
+                    },
+                    { jobId: `doc-${newDocument._id}` }
+                );
+                ocrJobId = job.id;
+                await Document.findByIdAndUpdate(newDocument._id, { ocrJobId });
+            } catch (queueErr: any) {
+                console.warn('[Upload] Queue error, running OCR directly:', queueErr.message);
+                runOcrDirectly(newDocument._id, file.path, familyId);
+            }
+        } else {
+            // Redis unavailable — run OCR directly in background (fire-and-forget)
+            runOcrDirectly(newDocument._id, file.path, familyId);
+        }
 
-        // Persist the job ID so the client can poll /ocr-status
-        await Document.findByIdAndUpdate(newDocument._id, { ocrJobId: job.id });
-
-        res.status(201).json({ ...newDocument.toObject(), ocrJobId: job.id });
+        res.status(201).json({ ...newDocument.toObject(), ocrJobId });
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }

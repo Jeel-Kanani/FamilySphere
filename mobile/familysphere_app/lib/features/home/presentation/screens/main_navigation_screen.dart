@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:familysphere_app/features/home/presentation/screens/home_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/vault_screen.dart';
-import 'package:familysphere_app/features/chat/presentation/screens/hub_screen.dart';
 import 'package:familysphere_app/features/home/presentation/screens/tracker_screen.dart';
 import 'package:familysphere_app/features/lab/presentation/screens/lab_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/profile_screen.dart';

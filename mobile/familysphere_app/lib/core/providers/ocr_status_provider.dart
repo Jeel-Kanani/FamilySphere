@@ -82,12 +82,23 @@ class OcrStatusNotifier extends StateNotifier<OcrPollingState> {
       );
 
       if (result.isFinished) _stopPolling();
-    } catch (e) {
+    } on Exception catch (e) {
       if (!mounted) return;
+      final msg = e.toString();
+      // 404 means this backend deployment doesn't have the OCR status endpoint yet
+      // (e.g. production Render without Phase 4). Treat as graceful "not available".
+      if (msg.contains('404') || msg.contains('Not Found')) {
+        _stopPolling();
+        state = state.copyWith(
+          isPolling: false,
+          result: const OcrStatusResult(ocrStatus: 'done'),
+        );
+        return;
+      }
       _stopPolling();
       state = state.copyWith(
         isPolling: false,
-        error: 'Status check failed: $e',
+        error: 'Status check failed: $msg',
       );
     }
   }

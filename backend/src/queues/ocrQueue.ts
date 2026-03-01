@@ -23,11 +23,19 @@ export const ocrQueue = new Queue<OcrJobData>('ocr', {
     },
 });
 
+// Suppress raw ioredis connection errors from the Queue itself so they don't
+// spam the console when Redis is unavailable (the server already logs a clear
+// warning message in server.ts).
+ocrQueue.on('error', (_err: Error) => { /* silenced — see server.ts warning */ });
+
 // ── Queue-level events (optional telemetry) ───────────────────────────────────
 export const ocrQueueEvents = new QueueEvents('ocr', {
     connection: redisConnectionOptions,
     skipVersionCheck: true,
 });
+
+// Suppress raw ioredis errors from QueueEvents too.
+ocrQueueEvents.on('error', (_err: Error) => { /* silenced — see server.ts warning */ });
 
 ocrQueueEvents.on('waiting',   ({ jobId }) => console.log(`[OCR Queue] Job ${jobId} waiting`));
 ocrQueueEvents.on('active',    ({ jobId }) => console.log(`[OCR Queue] Job ${jobId} started`));

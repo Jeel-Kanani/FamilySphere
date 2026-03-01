@@ -700,7 +700,6 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
 
   Widget _buildPathHeader(List<FamilyMember> members) {
     String categoryName = _selectedCategory ?? 'Vault';
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     List<Widget> breadcrumbs = [];
 
