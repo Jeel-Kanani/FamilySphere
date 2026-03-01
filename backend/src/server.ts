@@ -5,6 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import connectDB from './config/db';
+import mongoose from 'mongoose';
 import authRoutes from './routes/authRoutes';
 import familyRoutes from './routes/familyRoutes';
 import documentRoutes from './routes/documentRoutes';
@@ -53,6 +54,26 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 app.get('/ping', (req, res) => {
     res.status(200).send('FamilySphere is awake!');
+});
+
+// Health endpoint for Render: reports Mongo, Redis reachability, and queue flag
+app.get('/api/health', async (req, res) => {
+    const mongoState = mongoose.connection.readyState === 1 ? 'up' : 'down';
+    let redisState: 'up' | 'down' = 'down';
+    try {
+        const reachable = await isRedisAvailable();
+        redisState = reachable ? 'up' : 'down';
+    } catch (err) {
+        redisState = 'down';
+    }
+
+    res.status(200).json({
+        status: 'ok',
+        mongo: mongoState,
+        redis: redisState,
+        ocrQueueEnabled: appState.ocrQueueEnabled,
+        timestamp: new Date().toISOString(),
+    });
 });
 
 app.use('/api/auth', authRoutes);
