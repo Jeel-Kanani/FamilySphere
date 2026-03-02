@@ -1,6 +1,8 @@
 import Tesseract from 'tesseract.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ALLOWED_DOC_TYPES, DOC_CATEGORIES, ISuggestedEvent } from '../models/DocumentIntelligence';
+import https from 'https';
+import http from 'http';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -123,18 +125,74 @@ Rules for suggested_events:
 Document text (first 3500 chars):
 ${text.slice(0, 3500)}`;
 
+// ── Download URL → Buffer ────────────────────────────────────────────────────
+// Passing a URL directly to Tesseract.js in Node.js is unreliable — it can
+// silently return empty text when the fetch times out or is blocked.
+// We download to an in-memory Buffer first, then give Tesseract the raw bytes.
+const downloadToBuffer = (url: string): Promise<Buffer> =>
+    new Promise((resolve, reject) => {
+        const client = url.startsWith('https') ? https : http;
+        client.get(url, { timeout: 30000 }, (res) => {
+            if (res.statusCode && res.statusCode >= 400) {
+                reject(new Error(`Download failed: HTTP ${res.statusCode} for ${url.slice(0, 80)}`));
+                return;
+            }
+            const chunks: Buffer[] = [];
+            res.on('data', (chunk: Buffer) => chunks.push(chunk));
+            res.on('end', () => resolve(Buffer.concat(chunks)));
+            res.on('error', reject);
+        }).on('error', reject).on('timeout', () => reject(new Error('Download timeout')));
+    });
+
+// ── PDF → JPEG URL transform (Cloudinary) ───────────────────────────────────
+const transformUrlForOcr = (fileUrl: string): string => {
+    const lower = fileUrl.toLowerCase();
+    if (lower.includes('.pdf') && fileUrl.includes('/upload/')) {
+        return fileUrl.replace('/upload/', '/upload/f_jpg,pg_1/');
+    }
+    return fileUrl;
+};
+
 //  Main entry point ────────────────────────────────────────────────────────────
 
 export const processDocumentOcr = async (fileUrl: string): Promise<OcrResult> => {
     try {
-        // Step 1: Tesseract → pixel to raw text
-        const { data: { text, confidence: ocrConfidence } } = await Tesseract.recognize(fileUrl, 'eng+hin');
+        // Step 1: Resolve the URL — convert PDF to image if needed
+        const ocrUrl = transformUrlForOcr(fileUrl);
+        const isPdf = fileUrl.toLowerCase().includes('.pdf');
+        console.log(`[OCR] Processing: ${isPdf ? `PDF→JPEG via Cloudinary` : 'image'} | ${ocrUrl.slice(0, 80)}…`);
+
+        // Step 2: Download image to buffer — reliable on Render and local
+        let imageBuffer: Buffer;
+        try {
+            imageBuffer = await downloadToBuffer(ocrUrl);
+            console.log(`[OCR] Downloaded ${imageBuffer.length} bytes from Cloudinary`);
+        } catch (dlErr: any) {
+            throw new Error(`Failed to download image for OCR: ${dlErr.message}`);
+        }
+
+        // Step 3: Tesseract → pixel to raw text (eng+hin, fallback to eng)
+        let text = '';
+        let ocrConfidence = 0;
+        try {
+            const result = await Tesseract.recognize(imageBuffer, 'eng+hin');
+            text = result.data.text;
+            ocrConfidence = result.data.confidence;
+        } catch (tessErr: any) {
+            console.warn('[OCR] eng+hin failed, retrying with eng only:', tessErr.message);
+            const fallbackResult = await Tesseract.recognize(imageBuffer, 'eng');
+            text = fallbackResult.data.text;
+            ocrConfidence = fallbackResult.data.confidence;
+        }
 
         if (!text || text.trim().length < 10) {
+            console.warn(`[OCR] Extracted 0/very few chars from ${ocrUrl.slice(0, 60)}… — Tesseract confidence: ${ocrConfidence}`);
             return { rawText: text || '', docType: 'unknown', confidence: 0, extractionTrace: {} };
         }
 
-        // Step 2: Try Smart Gemini AI extraction
+        console.log(`[OCR] Extracted ${text.trim().length} chars, Tesseract confidence: ${ocrConfidence}`);
+
+        // Step 3: Try Smart Gemini AI extraction
         const gemini = getGeminiClient();
         if (gemini) {
             try {

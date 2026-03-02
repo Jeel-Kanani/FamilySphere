@@ -292,25 +292,12 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
               onSelected: (val) {
                 if (val == 'trash') {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const TrashScreen()));
-                } else if (val == 'admin') {
-                  Navigator.pushNamed(context, AppRoutes.adminEngineDashboard);
                 }
               },
               itemBuilder: (context) => [
                 const PopupMenuItem(value: 'import', child: Text('Import from Files')),
                 const PopupMenuItem(value: 'sort', child: Text('Sort by')),
                 const PopupMenuItem(value: 'trash', child: Text('Trash')),
-                const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: 'admin',
-                  child: Row(
-                    children: [
-                      Icon(Icons.psychology_rounded, size: 16, color: Color(0xFF6366F1)),
-                      SizedBox(width: 8),
-                      Text('Engine Dashboard', style: TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ),
               ],
             ),
           ] else ...[

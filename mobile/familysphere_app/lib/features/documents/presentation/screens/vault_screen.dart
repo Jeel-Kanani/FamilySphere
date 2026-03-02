@@ -240,6 +240,11 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
             child: Icon(isLoading ? Icons.sync : Icons.refresh_rounded),
           ),
         ),
+        IconButton(
+          onPressed: () => Navigator.pushNamed(context, AppRoutes.adminEngineDashboard),
+          icon: const Icon(Icons.psychology_rounded, color: Color(0xFF6366F1)),
+          tooltip: 'Engine Dashboard',
+        ),
       ],
     );
   }
