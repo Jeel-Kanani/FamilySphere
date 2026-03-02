@@ -1,3 +1,7 @@
+import dotenv from 'dotenv';
+import path from 'path';
+dotenv.config({ path: path.join(__dirname, '../../.env') });
+
 import { ConnectionOptions } from 'bullmq';
 import * as net from 'net';
 import * as dns from 'dns';
@@ -27,7 +31,7 @@ const buildConnectionOptions = (): ConnectionOptions => {
                 enableReadyCheck: false,
                 retryStrategy: () => null,
                 // Redis Cloud often requires TLS
-                ...(isTls ? { tls: {} } : {})
+                ...(isTls ? { tls: { rejectUnauthorized: false } } : {})
             };
         } catch (e) {
             console.error('[Redis Config] Failed to parse REDIS_URL. Falling back to default.');
@@ -68,14 +72,35 @@ export const isRedisAvailable = (checkHost?: string): Promise<boolean> => {
 
         const isTls = ((redisConnectionOptions as any).tls !== undefined) || ((process.env.REDIS_URL || '').startsWith('rediss://'));
 
-        let socket: net.Socket;
+        const timeoutMs = 10000; // Increased to 10s for slow cloud discovery
+
         if (isTls) {
-            socket = tls.connect({ host, port, rejectUnauthorized: false }); // rejectUnauthorized: false for common cloud cert issues
-        } else {
-            socket = net.createConnection({ host, port });
+            // For TLS, wait for 'secureConnect' (full TLS handshake), not just TCP 'connect'
+            const tlsSocket = tls.connect({ host, port, rejectUnauthorized: false });
+
+            const timer = setTimeout(() => {
+                console.warn(`[Redis Availability] Timeout after ${timeoutMs}ms connecting to ${host}:${port}`);
+                tlsSocket.destroy();
+                resolve(false);
+            }, timeoutMs);
+
+            tlsSocket.on('secureConnect', () => {
+                clearTimeout(timer);
+                tlsSocket.destroy();
+                console.log(`[Redis Availability] Successfully connected (TLS) to ${host}:${port}`);
+                resolve(true);
+            });
+
+            tlsSocket.on('error', (err) => {
+                clearTimeout(timer);
+                console.error(`[Redis Availability] TLS error connecting to ${host}:${port}: ${err.message}`);
+                resolve(false);
+            });
+
+            return; // TLS branch handled above
         }
 
-        const timeoutMs = 10000; // Increased to 10s for slow cloud discovery
+        const socket = net.createConnection({ host, port });
 
         const timer = setTimeout(() => {
             console.warn(`[Redis Availability] Timeout after ${timeoutMs}ms connecting to ${host}:${port}`);

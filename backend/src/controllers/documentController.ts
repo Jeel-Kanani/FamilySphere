@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Document from '../models/Document';
 import VaultFolder from '../models/VaultFolder';
+import DocumentIntelligence, { ALLOWED_DOC_TYPES } from '../models/DocumentIntelligence';
 import { cloudinary } from '../config/cloudinary';
 import { ocrQueue } from '../queues/ocrQueue';
 import { appState } from '../config/appState';
@@ -561,6 +562,65 @@ export const permanentlyDeleteDocument = async (req: Request, res: Response) => 
 // ── Phase 4: OCR Job Status ───────────────────────────────────────────────────
 
 /**
+ * POST /api/documents/requeue-stuck
+ * Re-queues all documents stuck in 'pending' or 'processing' ocrStatus.
+ * Useful after Redis was temporarily unavailable and documents never got processed.
+ */
+export const requeueStuckDocuments = async (req: Request, res: Response) => {
+    try {
+        if (!appState.ocrQueueEnabled) {
+            return res.status(503).json({ message: 'OCR queue is not enabled — Redis not connected.' });
+        }
+
+        const stuckDocs = await Document.find({
+            ocrStatus: { $in: ['pending', 'processing'] },
+            deletedAt: null,
+        }).select('_id fileUrl familyId title');
+
+        if (stuckDocs.length === 0) {
+            return res.status(200).json({ message: 'No stuck documents found.', requeued: 0 });
+        }
+
+        let requeued = 0;
+        const errors: string[] = [];
+
+        for (const doc of stuckDocs) {
+            try {
+                // Reset to pending so the worker sets it to 'processing' when it starts
+                await Document.findByIdAndUpdate(doc._id, { ocrStatus: 'pending' });
+                await ocrQueue.add(
+                    'ocr-job',
+                    {
+                        documentId: String(doc._id),
+                        fileUrl: doc.fileUrl,
+                        familyId: String(doc.familyId),
+                    },
+                    {
+                        jobId: `requeue-${doc._id}-${Date.now()}`,
+                        removeOnComplete: { count: 200 },
+                        removeOnFail: { count: 100 },
+                    }
+                );
+                requeued++;
+                console.log(`[Requeue] Queued doc ${doc._id} ("${doc.title}")`);
+            } catch (err: any) {
+                errors.push(`${doc._id}: ${err.message}`);
+                console.error(`[Requeue] Failed to queue doc ${doc._id}: ${err.message}`);
+            }
+        }
+
+        res.status(200).json({
+            message: `Re-queued ${requeued} of ${stuckDocs.length} stuck documents.`,
+            requeued,
+            total: stuckDocs.length,
+            errors: errors.length > 0 ? errors : undefined,
+        });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
  * GET /api/documents/:id/ocr-status
  * Lightweight polling endpoint so the mobile app can show real-time OCR progress.
  * Returns the document's current ocrStatus + extracted metadata once done.
@@ -585,6 +645,78 @@ export const getOcrStatus = async (req: Request, res: Response) => {
             expiryDate:    document.expiryDate,
             dueDate:       document.dueDate,
             amount:        document.amount,
+        });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ── GET /api/documents/:id/intelligence ──────────────────────────────────────
+
+/**
+ * Returns the full DocumentIntelligence record for a document.
+ * Used by the mobile app to display smart tags, entities, importance, etc.
+ */
+export const getDocumentIntelligence = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        const intelligence = await DocumentIntelligence.findOne({ documentId: id });
+
+        if (!intelligence) {
+            return res.status(404).json({ message: 'No intelligence data found for this document.' });
+        }
+
+        res.status(200).json(intelligence);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ── PATCH /api/documents/:id/confirm-type ────────────────────────────────────
+
+/**
+ * User confirms or corrects the AI-detected document type.
+ * Just updates the classification — does NOT re-run OCR/AI.
+ */
+export const confirmDocumentType = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { doc_type } = req.body;
+
+        if (!doc_type) {
+            return res.status(400).json({ message: 'doc_type is required.' });
+        }
+
+        // Validate against allowed types
+        if (!ALLOWED_DOC_TYPES.includes(doc_type)) {
+            return res.status(400).json({
+                message: `Invalid doc_type. Allowed values: ${ALLOWED_DOC_TYPES.join(', ')}`,
+            });
+        }
+
+        // Update DocumentIntelligence
+        const intelligence = await DocumentIntelligence.findOneAndUpdate(
+            { documentId: id },
+            {
+                $set: {
+                    'classification.doc_type': doc_type,
+                    needs_confirmation: false,
+                },
+            },
+            { new: true }
+        );
+
+        // Also sync docType on the Document itself
+        await Document.findByIdAndUpdate(id, {
+            docType: doc_type,
+            ocrStatus: 'done',
+        });
+
+        res.status(200).json({
+            message: 'Document type confirmed.',
+            doc_type,
+            intelligence,
         });
     } catch (error: any) {
         res.status(500).json({ message: error.message });

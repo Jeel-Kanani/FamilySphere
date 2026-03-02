@@ -11,6 +11,9 @@ import {
     restoreDocument,
     permanentlyDeleteDocument,
     getOcrStatus,
+    requeueStuckDocuments,
+    getDocumentIntelligence,
+    confirmDocumentType,
 } from '../controllers/documentController';
 import { upload } from '../config/cloudinary';
 
@@ -48,5 +51,14 @@ router.patch('/:id/folder', moveDocumentToFolder);
 
 // GET /api/documents/:id/ocr-status - Poll OCR job progress (Phase 4)
 router.get('/:id/ocr-status', getOcrStatus);
+
+// GET /api/documents/:id/intelligence - Get full DocumentIntelligence (tags, entities, importance)
+router.get('/:id/intelligence', getDocumentIntelligence);
+
+// PATCH /api/documents/:id/confirm-type - User confirms or corrects AI-detected doc type
+router.patch('/:id/confirm-type', confirmDocumentType);
+
+// POST /api/documents/requeue-stuck - Re-queue all pending/processing stuck docs
+router.post('/requeue-stuck', requeueStuckDocuments);
 
 export default router;

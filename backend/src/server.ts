@@ -1,6 +1,8 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import path from 'path';
-import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -14,10 +16,9 @@ import eventRoutes from './routes/eventRoutes';
 
 import { initScheduler } from './services/scheduler';
 import { startOcrWorker } from './workers/ocrWorker';
+import { ocrQueue } from './queues/ocrQueue';
 import { isRedisAvailable, checkRedisWithRetries, redisConnectionOptions } from './config/redis';
 import { appState } from './config/appState';
-
-dotenv.config();
 
 connectDB();
 initScheduler();
@@ -74,6 +75,20 @@ app.get('/api/health', async (req, res) => {
         ocrQueueEnabled: appState.ocrQueueEnabled,
         timestamp: new Date().toISOString(),
     });
+});
+
+// Real-time Queue Stats
+app.get('/api/health/queues', async (req, res) => {
+    try {
+        const counts = await ocrQueue.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed');
+        res.status(200).json({
+            queue: 'ocr',
+            counts,
+            timestamp: new Date().toISOString(),
+        });
+    } catch (err: any) {
+        res.status(500).json({ error: 'Failed to fetch queue stats', details: err.message });
+    }
 });
 
 app.use('/api/auth', authRoutes);

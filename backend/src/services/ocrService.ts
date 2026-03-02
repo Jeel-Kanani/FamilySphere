@@ -1,7 +1,8 @@
 import Tesseract from 'tesseract.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { ALLOWED_DOC_TYPES, DOC_CATEGORIES, ISuggestedEvent } from '../models/DocumentIntelligence';
 
-//  Types 
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface ExtractionTrace {
     method: 'regex' | 'keyword' | 'ai';
@@ -9,6 +10,7 @@ export interface ExtractionTrace {
     rawSnippet: string;
 }
 
+/** Legacy fields kept on OcrResult so existing worker/controller code is unaffected */
 export interface OcrResult {
     rawText: string;
     docType: string;
@@ -21,9 +23,41 @@ export interface OcrResult {
         amount?: ExtractionTrace;
         docType?: ExtractionTrace;
     };
+    // ── NEW: Smart intelligence payload (present when Gemini succeeds) ────────
+    intelligence?: SmartIntelligence;
 }
 
-//  Gemini client 
+export interface SmartIntelligence {
+    classification: {
+        doc_type: string;
+        category: string;
+        confidence: number;
+        reasoning: string;
+    };
+    entities: {
+        person_name?: string;
+        id_number?: string;
+        issued_by?: string;
+        issue_date?: Date;
+        expiry_date?: Date;
+        due_date?: Date;
+        amount?: number;
+        institution?: string;
+        address?: string;
+    };
+    tags: string[];
+    importance: {
+        score: number;
+        criticality: 'low' | 'medium' | 'high' | 'critical';
+        lifecycle_stage: string;
+        renewal_window_days?: number;
+    };
+    suggested_events: Omit<ISuggestedEvent, 'accepted'>[];
+    ai_model: string;
+    raw_ai_response: string;
+}
+
+//  Gemini client ───────────────────────────────────────────────────────────────
 
 const getGeminiClient = () => {
     const key = process.env.GEMINI_API_KEY;
@@ -31,48 +65,111 @@ const getGeminiClient = () => {
     return new GoogleGenerativeAI(key);
 };
 
-//  Main entry point 
+// ── Smart prompt ──────────────────────────────────────────────────────────────
+
+const SMART_PROMPT = (text: string) => `You are a Smart Document Intelligence Engine for a family document management app.
+Analyze the following extracted document text and return STRICT JSON only.
+No markdown. No explanation. No code blocks. Just raw JSON.
+
+ALLOWED document types (pick the closest match):
+${ALLOWED_DOC_TYPES.join(', ')}
+
+ALLOWED categories: ${DOC_CATEGORIES.join(', ')}
+
+Return this exact JSON structure:
+{
+  "doc_type": "string from allowed types",
+  "category": "string from allowed categories",
+  "confidence": 0.0 to 1.0,
+  "reasoning": "one line explaining why you chose this type",
+  "entities": {
+    "person_name": "string or null",
+    "id_number": "string or null",
+    "issued_by": "string or null",
+    "issue_date": "YYYY-MM-DD or null",
+    "expiry_date": "YYYY-MM-DD or null",
+    "due_date": "YYYY-MM-DD or null",
+    "amount": number or null,
+    "institution": "string or null",
+    "address": "string or null"
+  },
+  "tags": ["max 6 lowercase tags, no #, e.g. identity, travel, urgent, renewal-required, government, financial-risk"],
+  "importance": {
+    "score": 1 to 10,
+    "criticality": "low or medium or high or critical",
+    "lifecycle_stage": "e.g. active, expiring-soon, expired, pending, completed",
+    "renewal_window_days": number or null
+  },
+  "suggested_events": [
+    {
+      "title": "short event title",
+      "date": "YYYY-MM-DD",
+      "event_type": "expiry or renewal or payment or follow_up or milestone",
+      "reason": "why this event matters to the user"
+    }
+  ]
+}
+
+Rules for suggested_events:
+- Only include events that genuinely matter to the user
+- Do NOT add events without a concrete date
+- Do NOT add duplicate events (e.g., only ONE expiry event per document)
+- Passport/License/Insurance: add expiry + renewal reminder (renewal = expiry minus renewal_window_days)
+- Bills: add payment due event only
+- Loan: add EMI start, final payment if dates are present
+- Medical reports: add follow-up only if explicitly mentioned in text
+- Max 3 events per document
+
+Document text (first 3500 chars):
+${text.slice(0, 3500)}`;
+
+//  Main entry point ────────────────────────────────────────────────────────────
 
 export const processDocumentOcr = async (fileUrl: string): Promise<OcrResult> => {
     try {
-        // Step 1: Tesseract � pixel to raw text
+        // Step 1: Tesseract → pixel to raw text
         const { data: { text, confidence: ocrConfidence } } = await Tesseract.recognize(fileUrl, 'eng+hin');
 
         if (!text || text.trim().length < 10) {
             return { rawText: text || '', docType: 'unknown', confidence: 0, extractionTrace: {} };
         }
 
-        // Step 2: Try Gemini AI extraction
+        // Step 2: Try Smart Gemini AI extraction
         const gemini = getGeminiClient();
         if (gemini) {
             try {
-                const aiResult = await extractWithGemini(gemini, text);
-                if (aiResult) {
+                const smartResult = await extractWithSmartGemini(gemini, text);
+                if (smartResult) {
                     const baseConfidence = ocrConfidence / 100;
                     return {
                         rawText: text,
-                        docType: aiResult.docType || 'unknown',
-                        expiryDate: aiResult.expiryDate,
-                        dueDate: aiResult.dueDate,
-                        amount: aiResult.amount,
+                        docType: smartResult.classification.doc_type,
+                        expiryDate: smartResult.entities.expiry_date,
+                        dueDate: smartResult.entities.due_date,
+                        amount: smartResult.entities.amount,
                         confidence: Math.min(Math.max(baseConfidence + 0.15, 0), 1),
                         extractionTrace: {
-                            docType: { method: 'ai', matchedPattern: 'gemini-1.5-flash', rawSnippet: aiResult.docType || '' },
-                            date: aiResult.expiryDate
-                                ? { method: 'ai', matchedPattern: 'gemini-1.5-flash', rawSnippet: aiResult.expiryDate.toISOString() }
+                            docType: {
+                                method: 'ai',
+                                matchedPattern: 'gemini-1.5-flash',
+                                rawSnippet: smartResult.classification.reasoning,
+                            },
+                            date: smartResult.entities.expiry_date
+                                ? { method: 'ai', matchedPattern: 'gemini-1.5-flash', rawSnippet: String(smartResult.entities.expiry_date) }
                                 : undefined,
-                            amount: aiResult.amount !== undefined
-                                ? { method: 'ai', matchedPattern: 'gemini-1.5-flash', rawSnippet: String(aiResult.amount) }
+                            amount: smartResult.entities.amount !== undefined
+                                ? { method: 'ai', matchedPattern: 'gemini-1.5-flash', rawSnippet: String(smartResult.entities.amount) }
                                 : undefined,
                         },
+                        intelligence: smartResult,
                     };
                 }
             } catch (aiErr: any) {
-                console.warn('[OCR] Gemini failed, falling back to regex:', aiErr.message);
+                console.warn('[OCR] Smart Gemini failed, falling back to regex:', aiErr.message);
             }
         }
 
-        // Step 3: Regex/keyword fallback
+        // Step 3: Regex/keyword fallback (no intelligence payload)
         return regexFallback(text, ocrConfidence);
 
     } catch (error) {
@@ -81,51 +178,84 @@ export const processDocumentOcr = async (fileUrl: string): Promise<OcrResult> =>
     }
 };
 
-//  Gemini extraction 
+//  Smart Gemini extractor ──────────────────────────────────────────────────────
 
-interface GeminiExtracted {
-    docType: string;
-    expiryDate?: Date;
-    dueDate?: Date;
-    amount?: number;
-}
-
-const extractWithGemini = async (client: GoogleGenerativeAI, rawText: string): Promise<GeminiExtracted | null> => {
+const extractWithSmartGemini = async (
+    client: GoogleGenerativeAI,
+    rawText: string
+): Promise<SmartIntelligence | null> => {
     const model = client.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-    const prompt = `You are a document parser specializing in Indian documents.
-Analyze the following text extracted from a scanned document and return a JSON object.
-
-Rules:
-- "docType": one of: aadhaar, pan_card, passport, driving_license, voter_id, electricity_bill, water_bill, gas_bill, insurance, bank_statement, salary_slip, tax_return, birth_certificate, marksheet, degree, property_deed, medical_record, vehicle_rc, unknown
-- "expiryDate": ISO 8601 date string (YYYY-MM-DD) or null
-- "dueDate": ISO 8601 date string (YYYY-MM-DD) or null - for bills, the payment due date
-- "amount": number or null - payable amount in INR (digits only)
-
-Return ONLY valid JSON. No explanation. No markdown. No code blocks.
-Example: {"docType":"electricity_bill","expiryDate":null,"dueDate":"2025-03-15","amount":1284.50}
-
-Document text:
-${rawText.slice(0, 3000)}`;
+    const prompt = SMART_PROMPT(rawText);
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.text().trim();
-    // Strip markdown code fences if Gemini wraps response in ```json ... ```
-    const cleaned = responseText.replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
+    const cleaned = responseText
+        .replace(/^```json?\s*/i, '')
+        .replace(/```\s*$/i, '')
+        .trim();
 
     let parsed: any;
     try {
         parsed = JSON.parse(cleaned);
     } catch {
-        console.warn('[OCR] Gemini returned non-JSON:', responseText.slice(0, 100));
+        console.warn('[OCR] Smart Gemini returned non-JSON:', responseText.slice(0, 150));
         return null;
     }
 
+    // Validate doc_type is from allowed list — if not, fall back to Other
+    const docType = ALLOWED_DOC_TYPES.includes(parsed.doc_type) ? parsed.doc_type : 'Other';
+    const category = DOC_CATEGORIES.includes(parsed.category) ? parsed.category : 'Other';
+
+    // Parse suggested events — filter out any without a valid date
+    const suggested_events: Omit<ISuggestedEvent, 'accepted'>[] = (parsed.suggested_events || [])
+        .map((e: any) => ({
+            title: String(e.title || ''),
+            date: parseGeminiDate(e.date),
+            event_type: ['expiry', 'renewal', 'payment', 'follow_up', 'milestone'].includes(e.event_type)
+                ? e.event_type
+                : 'milestone',
+            reason: String(e.reason || ''),
+        }))
+        .filter((e: any) => e.date instanceof Date && !isNaN(e.date.getTime()) && e.title);
+
     return {
-        docType:    typeof parsed.docType === 'string' ? parsed.docType : 'unknown',
-        expiryDate: parseGeminiDate(parsed.expiryDate),
-        dueDate:    parseGeminiDate(parsed.dueDate),
-        amount:     typeof parsed.amount === 'number' ? parsed.amount : undefined,
+        classification: {
+            doc_type: docType,
+            category,
+            confidence: typeof parsed.confidence === 'number'
+                ? Math.min(Math.max(parsed.confidence, 0), 1)
+                : 0.5,
+            reasoning: String(parsed.reasoning || ''),
+        },
+        entities: {
+            person_name: parsed.entities?.person_name || undefined,
+            id_number:   parsed.entities?.id_number   || undefined,
+            issued_by:   parsed.entities?.issued_by   || undefined,
+            issue_date:  parseGeminiDate(parsed.entities?.issue_date),
+            expiry_date: parseGeminiDate(parsed.entities?.expiry_date),
+            due_date:    parseGeminiDate(parsed.entities?.due_date),
+            amount:      typeof parsed.entities?.amount === 'number' ? parsed.entities.amount : undefined,
+            institution: parsed.entities?.institution || undefined,
+            address:     parsed.entities?.address     || undefined,
+        },
+        tags: Array.isArray(parsed.tags)
+            ? parsed.tags.slice(0, 6).map((t: any) => String(t).toLowerCase().replace(/[^a-z0-9\-]/g, ''))
+            : [],
+        importance: {
+            score: typeof parsed.importance?.score === 'number'
+                ? Math.min(Math.max(Math.round(parsed.importance.score), 1), 10)
+                : 5,
+            criticality: ['low', 'medium', 'high', 'critical'].includes(parsed.importance?.criticality)
+                ? parsed.importance.criticality
+                : 'medium',
+            lifecycle_stage: String(parsed.importance?.lifecycle_stage || 'active'),
+            renewal_window_days: typeof parsed.importance?.renewal_window_days === 'number'
+                ? parsed.importance.renewal_window_days
+                : undefined,
+        },
+        suggested_events,
+        ai_model: 'gemini-1.5-flash',
+        raw_ai_response: responseText,
     };
 };
 

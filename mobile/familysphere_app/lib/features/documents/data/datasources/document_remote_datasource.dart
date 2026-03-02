@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:familysphere_app/core/network/api_client.dart';
 import 'package:familysphere_app/features/documents/data/models/document_model.dart';
+import 'package:familysphere_app/features/documents/data/models/document_intelligence_model.dart';
 
 class DocumentRemoteDataSource {
   final ApiClient _apiClient;
@@ -187,5 +188,27 @@ class DocumentRemoteDataSource {
       '/api/documents/$documentId/ocr-status',
     );
     return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  /// Smart Intelligence – fetch AI analysis result for a document.
+  Future<DocumentIntelligenceModel> getDocumentIntelligence({
+    required String documentId,
+  }) async {
+    final response = await _apiClient.get(
+      '/api/documents/$documentId/intelligence',
+    );
+    return DocumentIntelligenceModel.fromJson(
+        Map<String, dynamic>.from(response.data as Map));
+  }
+
+  /// Smart Intelligence – confirm or correct AI-detected document type.
+  Future<void> confirmDocumentType({
+    required String documentId,
+    required String docType,
+  }) async {
+    await _apiClient.patch(
+      '/api/documents/$documentId/confirm-type',
+      data: {'doc_type': docType},
+    );
   }
 }

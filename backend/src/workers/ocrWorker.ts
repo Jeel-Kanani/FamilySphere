@@ -4,6 +4,7 @@ import { OcrJobData } from '../queues/ocrQueue';
 import { processDocumentOcr } from '../services/ocrService';
 import { EventGeneratorService } from '../services/eventGeneratorService';
 import { NotificationService } from '../services/notificationService';
+import DocumentIntelligence from '../models/DocumentIntelligence';
 
 /**
  * Phase 4 – OCR Background Worker
@@ -46,6 +47,7 @@ export const startOcrWorker = (): Worker<OcrJobData> => {
             await job.updateProgress(70);
 
             // ── Step 2: Persist extracted metadata ───────────────────────────
+            const needsConfirmation = ocrResult.confidence < 0.70;
             const updatedDoc = await Document.findByIdAndUpdate(
                 documentId,
                 {
@@ -54,11 +56,41 @@ export const startOcrWorker = (): Worker<OcrJobData> => {
                     expiryDate: ocrResult.expiryDate,
                     dueDate: ocrResult.dueDate,
                     amount: ocrResult.amount,
-                    ocrStatus: 'done',
+                    ocrStatus: needsConfirmation ? 'needs_confirmation' : 'done',
                     ocrConfidence: ocrResult.confidence,
                 },
                 { new: true }
             );
+
+            // ── Step 2b: Save DocumentIntelligence (smart metadata) ──────────
+            if (ocrResult.intelligence) {
+                const intel = ocrResult.intelligence;
+                await DocumentIntelligence.findOneAndUpdate(
+                    { documentId },
+                    {
+                        documentId,
+                        familyId: updatedDoc?.familyId,
+                        classification: intel.classification,
+                        entities: intel.entities,
+                        tags: intel.tags,
+                        importance: intel.importance,
+                        suggested_events: intel.suggested_events.map(e => ({ ...e, accepted: false })),
+                        needs_confirmation: needsConfirmation,
+                        ai_model: intel.ai_model,
+                        analyzed_at: new Date(),
+                        raw_ai_response: intel.raw_ai_response,
+                    },
+                    { upsert: true, new: true }
+                );
+                console.log(
+                    `[OCR Worker] Intelligence saved for doc ${documentId} | ` +
+                    `type=${intel.classification.doc_type} | ` +
+                    `confidence=${(intel.classification.confidence * 100).toFixed(0)}% | ` +
+                    `tags=[${intel.tags.join(', ')}] | ` +
+                    `events=${intel.suggested_events.length} | ` +
+                    `needs_confirmation=${needsConfirmation}`
+                );
+            }
 
             if (!updatedDoc) {
                 // Document was deleted while job was running — skip retries
