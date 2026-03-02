@@ -93,7 +93,8 @@ export interface IDocumentIntelligence extends Document {
 
     suggested_events: ISuggestedEvent[];
 
-    needs_confirmation: boolean;       // true when confidence < 0.70
+    needs_confirmation: boolean;       // true when confidence < 0.75
+    confirmation_tier: 'auto' | 'assist' | 'unknown';  // routing result from pipeline
     ai_model: string;
     analyzed_at: Date;
     raw_ai_response?: string;          // stored for debugging
@@ -154,7 +155,8 @@ const DocumentIntelligenceSchema = new Schema(
 
         suggested_events: [SuggestedEventSchema],
 
-        needs_confirmation: { type: Boolean, default: false },
+        needs_confirmation:  { type: Boolean, default: false },
+        confirmation_tier:  { type: String, enum: ['auto', 'assist', 'unknown'], default: 'auto' },
         ai_model:           { type: String, default: 'gemini-2.0-flash' },
         analyzed_at:        { type: Date, default: Date.now },
         raw_ai_response:    { type: String },

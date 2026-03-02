@@ -1,6 +1,19 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  FamilySphere — Timeline Screen  (fully rewritten)
+//  Features:
+//    • Animated filter chips (All, Upcoming, Expiry, Bills, Birthday, etc.)
+//    • Long-press WhatsApp-style card selection → Edit / Delete action bar
+//    • Slide-in card entrance animations (left ↔ right)
+//    • Shake animation on delete confirmation
+//    • Edit event bottom sheet with date picker + type selector
+//    • Add event FAB with animated expand
+//    • Swipe-to-dismiss as secondary delete gesture
+//    • Empty-state illustrations per filter
+// ─────────────────────────────────────────────────────────────────────────────
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/features/timeline/domain/entities/timeline_event.dart';
 import 'package:familysphere_app/features/timeline/presentation/providers/timeline_provider.dart';
@@ -250,114 +263,22 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                           ],
                         ),
                         child: ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
-                      child: IntrinsicHeight(
-                        child: Row(
-                          textDirection: isRightSide ? TextDirection.rtl : TextDirection.ltr,
-                          children: [
-                            // Left/Right Accent Bar
-                            Container(
-                              width: 4,
-                              color: color.withValues(alpha: isFuture ? 1.0 : 0.4),
+                          borderRadius: BorderRadius.circular(24),
+                          child: IntrinsicHeight(
+                            child: Row(
+                              children: isRightSide ? [
+                                Expanded(child: _buildCardContent(event, color, isDark, isFuture, isRightSide)),
+                                Container(width: 4, color: color.withValues(alpha: isFuture ? 1.0 : 0.4)),
+                              ] : [
+                                Container(width: 4, color: color.withValues(alpha: isFuture ? 1.0 : 0.4)),
+                                Expanded(child: _buildCardContent(event, color, isDark, isFuture, isRightSide)),
+                              ],
                             ),
-                            
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Row(
-                                  textDirection: isRightSide ? TextDirection.rtl : TextDirection.ltr,
-                                  children: [
-                                    // Icon Box
-                                    Container(
-                                      width: 48,
-                                      height: 48,
-                                      decoration: BoxDecoration(
-                                        color: color.withValues(alpha: isDark ? 0.2 : 0.1),
-                                        borderRadius: BorderRadius.circular(16),
-                                        border: Border.all(color: color.withValues(alpha: 0.3)),
-                                      ),
-                                      child: Icon(event.icon, color: color, size: 24),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    
-                                    // Text Content
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: isRightSide ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment: isRightSide ? MainAxisAlignment.end : MainAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                event.type.name.toUpperCase(),
-                                                style: GoogleFonts.plusJakartaSans(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w900,
-                                                  color: color.withValues(alpha: isFuture ? 1.0 : 0.6),
-                                                  letterSpacing: 1.0,
-                                                ),
-                                              ),
-                                              if (event.needsReview) ...[
-                                                const SizedBox(width: 8),
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.orange.withValues(alpha: 0.2),
-                                                    borderRadius: BorderRadius.circular(4),
-                                                    border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
-                                                  ),
-                                                  child: Row(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      const Icon(Icons.info_outline, size: 10, color: Colors.orange),
-                                                      const SizedBox(width: 4),
-                                                      Text(
-                                                        'REVIEW',
-                                                        style: GoogleFonts.plusJakartaSans(
-                                                          fontSize: 8,
-                                                          fontWeight: FontWeight.bold,
-                                                          color: Colors.orange,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                            ],
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            event.title,
-                                            textAlign: isRightSide ? TextAlign.right : TextAlign.left,
-                                            style: GoogleFonts.plusJakartaSans(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w800,
-                                              color: isDark ? Colors.white : Colors.black87,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            event.description,
-                                            textAlign: isRightSide ? TextAlign.right : TextAlign.left,
-                                            style: GoogleFonts.plusJakartaSans(
-                                              fontSize: 12,
-                                              color: isDark ? Colors.white60 : Colors.black54,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
                       ),
                     ),
                   ),
-                ),
                 
                 if (!isRightSide) const Spacer(flex: 1),
                 ],
@@ -366,6 +287,93 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCardContent(TimelineEvent event, Color color, bool isDark, bool isFuture, bool isRightSide) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: isDark ? 0.2 : 0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: color.withValues(alpha: 0.3)),
+            ),
+            child: Icon(event.icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: isRightSide ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: isRightSide ? MainAxisAlignment.end : MainAxisAlignment.start,
+                  children: [
+                    Text(
+                      event.type.name.toUpperCase(),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: color.withValues(alpha: isFuture ? 1.0 : 0.6),
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    if (event.needsReview) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.info_outline, size: 10, color: Colors.orange),
+                            const SizedBox(width: 4),
+                            Text(
+                              'REVIEW',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  event.title,
+                  textAlign: isRightSide ? TextAlign.right : TextAlign.left,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  event.description,
+                  textAlign: isRightSide ? TextAlign.right : TextAlign.left,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    color: isDark ? Colors.white60 : Colors.black54,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

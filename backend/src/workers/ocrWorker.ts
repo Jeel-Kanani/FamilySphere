@@ -46,20 +46,37 @@ export const startOcrWorker = (): Worker<OcrJobData> => {
 
             await job.updateProgress(70);
 
-            // ── Step 2: Persist extracted metadata ───────────────────────────
-            const needsConfirmation = ocrResult.confidence < 0.70;
+            // ── Step 2: Confidence-based 3-tier routing ───────────────────
+            //
+            //  Tier 1 AUTO   (≥ 0.75) — high confidence, events created silently
+            //  Tier 2 ASSIST (0.40–0.74) — medium confidence, user reviews events
+            //  Tier 3 UNKNOWN (< 0.40) — too uncertain, user manually categorises
+            //
+            const confidence = ocrResult.confidence;
+            const tier: 'auto' | 'assist' | 'unknown' =
+                confidence >= 0.75 ? 'auto' :
+                confidence >= 0.40 ? 'assist' : 'unknown';
+
+            // For Tier 3, fall back to 'Other' so we never store garbage classifications
+            const safeDocType = tier === 'unknown' ? 'Other' : ocrResult.docType;
+
             const updatedDoc = await Document.findByIdAndUpdate(
                 documentId,
                 {
                     rawText: ocrResult.rawText,
-                    docType: ocrResult.docType,
-                    expiryDate: ocrResult.expiryDate,
-                    dueDate: ocrResult.dueDate,
-                    amount: ocrResult.amount,
-                    ocrStatus: needsConfirmation ? 'needs_confirmation' : 'done',
-                    ocrConfidence: ocrResult.confidence,
+                    docType: safeDocType,
+                    expiryDate: tier !== 'unknown' ? ocrResult.expiryDate : undefined,
+                    dueDate:    tier !== 'unknown' ? ocrResult.dueDate    : undefined,
+                    amount:     tier !== 'unknown' ? ocrResult.amount     : undefined,
+                    ocrStatus:  tier === 'auto' ? 'done' : 'needs_confirmation',
+                    ocrConfidence: confidence,
                 },
                 { new: true }
+            );
+
+            console.log(
+                `[OCR Worker] Tier=${tier.toUpperCase()} | confidence=${(confidence * 100).toFixed(0)}% | ` +
+                `nature=${ocrResult.fileNature ?? 'unknown'} | doc=${documentId} | docType=${safeDocType}`
             );
 
             // ── Step 2b: Save DocumentIntelligence (smart metadata) ──────────
@@ -70,7 +87,9 @@ export const startOcrWorker = (): Worker<OcrJobData> => {
                     {
                         documentId,
                         familyId: updatedDoc?.familyId,
-                        classification: intel.classification,
+                        classification: tier === 'unknown'
+                            ? { ...intel.classification, doc_type: 'Other', category: 'Other', confidence: intel.classification.confidence }
+                            : intel.classification,
                         entities: {
                             person_name:         intel.entities.person_name,
                             id_number:           intel.entities.id_number,
@@ -96,7 +115,8 @@ export const startOcrWorker = (): Worker<OcrJobData> => {
                         tags: intel.tags,
                         importance: intel.importance,
                         suggested_events: intel.suggested_events.map(e => ({ ...e, accepted: false })),
-                        needs_confirmation: needsConfirmation,
+                        needs_confirmation: tier !== 'auto',
+                        confirmation_tier: tier,
                         ai_model: intel.ai_model,
                         analyzed_at: new Date(),
                         raw_ai_response: intel.raw_ai_response,
@@ -125,11 +145,20 @@ export const startOcrWorker = (): Worker<OcrJobData> => {
             await job.updateProgress(85);
 
             // ── Step 3: Generate timeline events ─────────────────────────────
-            try {
-                await EventGeneratorService.generateEventsFromDocument(updatedDoc);
-            } catch (err: any) {
-                // Event generation failure is non-fatal — OCR succeeded, log and continue
-                console.error(`[OCR Worker] Event generation failed for doc ${documentId}: ${err.message}`);
+            // ONLY Tier 1 (auto) gets events created immediately.
+            // Tier 2 (assist): suggested_events stored with accepted=false, user confirms via UI.
+            // Tier 3 (unknown): no events, user must manually categorise first.
+            if (tier === 'auto') {
+                try {
+                    await EventGeneratorService.generateEventsFromDocument(updatedDoc);
+                } catch (err: any) {
+                    console.error(`[OCR Worker] Event generation failed for doc ${documentId}: ${err.message}`);
+                }
+            } else {
+                console.log(
+                    `[OCR Worker] Tier=${tier.toUpperCase()} — event creation deferred for doc ${documentId}. ` +
+                    `User must ${tier === 'assist' ? 'confirm suggested events' : 'manually categorise document'}.`
+                );
             }
 
             await job.updateProgress(90);

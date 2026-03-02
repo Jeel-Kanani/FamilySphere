@@ -722,3 +722,161 @@ export const confirmDocumentType = async (req: Request, res: Response) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+/**
+ * PATCH /api/documents/:id/confirm-intelligence
+ *
+ * Called by the mobile UI after a Tier 2 (assist) document is reviewed.
+ *
+ * Body:
+ * {
+ *   doc_type?:         string           — user-confirmed or corrected doc type
+ *   confirmed_events:  Array<{          — one entry per suggested_event index
+ *     index: number,
+ *     accepted: boolean,
+ *     edited_title?: string,
+ *     edited_date?:  string (YYYY-MM-DD)
+ *   }>
+ *   manual_entities?: {                 — optional user-supplied fields for Tier 3
+ *     expiry_date?: string,
+ *     due_date?:    string,
+ *     amount?:      number
+ *   }
+ * }
+ *
+ * Behaviour:
+ *  - Updates DocumentIntelligence with user decisions
+ *  - For each accepted event, creates a real Event record via EventGeneratorService
+ *  - Sets ocrStatus = 'done' on the Document
+ */
+export const confirmIntelligence = async (req: Request, res: Response) => {
+    const { EventGeneratorService } = await import('../services/eventGeneratorService');
+    const Event = (await import('../models/Event')).default;
+
+    try {
+        const { id } = req.params;
+        const { doc_type, confirmed_events = [], manual_entities } = req.body;
+
+        // ── Validate doc type if provided ────────────────────────────────────
+        if (doc_type && !ALLOWED_DOC_TYPES.includes(doc_type)) {
+            return res.status(400).json({
+                message: `Invalid doc_type. Must be one of the allowed types.`,
+            });
+        }
+
+        const intelligence = await DocumentIntelligence.findOne({ documentId: id });
+        if (!intelligence) {
+            return res.status(404).json({ message: 'No intelligence record found for this document.' });
+        }
+
+        // ── Apply user decisions to suggested_events ─────────────────────────
+        const acceptedEventIndices: number[] = [];
+        for (const decision of confirmed_events) {
+            const { index, accepted, edited_title, edited_date } = decision;
+            if (intelligence.suggested_events[index] === undefined) continue;
+
+            intelligence.suggested_events[index].accepted = accepted;
+
+            if (edited_title) {
+                intelligence.suggested_events[index].title = edited_title;
+            }
+            if (edited_date) {
+                const parsed = new Date(edited_date);
+                if (!isNaN(parsed.getTime())) {
+                    intelligence.suggested_events[index].date = parsed;
+                }
+            }
+
+            if (accepted) acceptedEventIndices.push(index);
+        }
+
+        // ── Apply manual entity overrides (Tier 3 use case) ──────────────────
+        if (manual_entities) {
+            if (manual_entities.expiry_date) {
+                const d = new Date(manual_entities.expiry_date);
+                if (!isNaN(d.getTime())) intelligence.entities.expiry_date = d;
+            }
+            if (manual_entities.due_date) {
+                const d = new Date(manual_entities.due_date);
+                if (!isNaN(d.getTime())) intelligence.entities.due_date = d;
+            }
+            if (typeof manual_entities.amount === 'number') {
+                intelligence.entities.amount = manual_entities.amount;
+            }
+        }
+
+        // ── Update classification if user corrected doc type ─────────────────
+        if (doc_type) {
+            intelligence.classification.doc_type = doc_type;
+        }
+
+        intelligence.needs_confirmation = false;
+        intelligence.confirmation_tier = 'auto'; // resolved
+        await intelligence.save();
+
+        // ── Create Event records for user-accepted events only ───────────────
+        if (acceptedEventIndices.length > 0) {
+            const doc = await Document.findById(id);
+            if (doc) {
+                // Temporarily replace suggested_events with only accepted ones
+                // so EventGeneratorService createSmartEvents only processes them
+                const originalEvents = intelligence.suggested_events;
+                const filteredEvents = acceptedEventIndices.map(i => originalEvents[i]);
+
+                // Directly create events for accepted entries
+                for (const ev of filteredEvents) {
+                    const eventDate = ev.date instanceof Date ? ev.date : new Date(ev.date);
+                    if (isNaN(eventDate.getTime())) continue;
+
+                    const now = new Date();
+                    const EventModel = Event;
+                    await EventModel.create({
+                        familyId:          doc.familyId,
+                        userId:            doc.uploadedBy,
+                        title:             ev.title,
+                        startDate:         eventDate,
+                        type:              ev.event_type === 'expiry'     ? 'expiry'
+                                         : ev.event_type === 'payment'    ? 'bill_due'
+                                         : ev.event_type === 'milestone'  ? 'milestone'
+                                         : 'milestone',
+                        status:            eventDate < now ? 'expired' : 'upcoming',
+                        source:            'ai',
+                        relatedDocumentId: doc._id,
+                        description:       ev.reason || '',
+                        priority:          3,
+                        isUserModified:    false,
+                    });
+                }
+
+                console.log(
+                    `[ConfirmIntel] Created ${filteredEvents.length} events for doc ${id} ` +
+                    `| rejected=${confirmed_events.length - acceptedEventIndices.length}`
+                );
+            }
+        }
+
+        // ── Mark document as done ────────────────────────────────────────────
+        const updatedDoc = await Document.findByIdAndUpdate(
+            id,
+            {
+                ocrStatus: 'done',
+                ...(doc_type ? { docType: doc_type } : {}),
+                ...(manual_entities?.expiry_date ? { expiryDate: new Date(manual_entities.expiry_date) } : {}),
+                ...(manual_entities?.due_date    ? { dueDate:    new Date(manual_entities.due_date)    } : {}),
+                ...(manual_entities?.amount      ? { amount:     manual_entities.amount                } : {}),
+            },
+            { new: true }
+        );
+
+        return res.status(200).json({
+            message: 'Intelligence confirmed.',
+            events_created: acceptedEventIndices.length,
+            events_rejected: confirmed_events.length - acceptedEventIndices.length,
+            doc_type: updatedDoc?.docType,
+            ocrStatus: updatedDoc?.ocrStatus,
+        });
+    } catch (error: any) {
+        console.error('[ConfirmIntel] Error:', error.message);
+        res.status(500).json({ message: error.message });
+    }
+};

@@ -26,6 +26,8 @@ export interface OcrResult {
         amount?: ExtractionTrace;
         docType?: ExtractionTrace;
     };
+    // ── File nature detected from magic bytes ─────────────────────────────
+    fileNature?: 'image' | 'scanned_pdf' | 'native_pdf' | 'unknown';
     // ── NEW: Smart intelligence payload (present when Gemini succeeds) ────────
     intelligence?: SmartIntelligence;
 }
@@ -74,7 +76,7 @@ export interface SmartIntelligence {
 
 //  Gemini client ───────────────────────────────────────────────────────────────
 
-const getGeminiClient = () => {
+export const getGeminiClient = () => {
     const key = process.env.GEMINI_API_KEY;
     if (!key || key === 'your_gemini_api_key_here') return null;
     return new GoogleGenerativeAI(key);
@@ -291,7 +293,48 @@ const transformUrlForOcr = (fileUrl: string, page = 1): string => {
     }
     return fileUrl;
 };
+// ── File Nature Detection (magic bytes) ───────────────────────────────────────
+//
+// Detects the real nature of a file from its raw bytes — not the URL extension.
+// Used so the pipeline can route each file to the most appropriate extraction path.
+//
+// Returns:
+//   'image'       — JPEG / PNG / WebP / GIF (already rasterised, run Tesseract)
+//   'scanned_pdf' — PDF whose first page returned < 80 chars (no text layer, run Tesseract)
+//   'native_pdf'  — PDF with a real text layer (skip Tesseract, use text directly)
+//   'unknown'     — unrecognised bytes (fall back to Tesseract)
+//
+export function detectFileNature(
+    rawBuffer: Buffer,
+    extractedTextLength: number,
+    originalUrl?: string
+): OcrResult['fileNature'] {
+    // PDFs are transformed to JPEG by Cloudinary before download,
+    // so magic bytes will show JPEG even for PDFs.
+    // Use the original URL extension as the primary PDF signal.
+    if (originalUrl && originalUrl.toLowerCase().includes('.pdf')) {
+        return extractedTextLength >= 80 ? 'native_pdf' : 'scanned_pdf';
+    }
 
+    if (rawBuffer.length < 4) return 'unknown';
+
+    const sig = rawBuffer.subarray(0, 4);
+
+    // JPEG: FF D8 FF
+    if (sig[0] === 0xFF && sig[1] === 0xD8 && sig[2] === 0xFF) return 'image';
+    // PNG: 89 50 4E 47
+    if (sig[0] === 0x89 && sig[1] === 0x50 && sig[2] === 0x4E && sig[3] === 0x47) return 'image';
+    // GIF: 47 49 46 38
+    if (sig[0] === 0x47 && sig[1] === 0x49 && sig[2] === 0x46 && sig[3] === 0x38) return 'image';
+    // WebP: 52 49 46 46 (RIFF header)
+    if (sig[0] === 0x52 && sig[1] === 0x49 && sig[2] === 0x46 && sig[3] === 0x46) return 'image';
+    // Raw PDF bytes (not via Cloudinary transform)
+    if (sig[0] === 0x25 && sig[1] === 0x50 && sig[2] === 0x44 && sig[3] === 0x46) {
+        return extractedTextLength >= 80 ? 'native_pdf' : 'scanned_pdf';
+    }
+
+    return 'unknown';
+}
 //  Main entry point ────────────────────────────────────────────────────────────
 
 export const processDocumentOcr = async (fileUrl: string): Promise<OcrResult> => {
@@ -299,7 +342,13 @@ export const processDocumentOcr = async (fileUrl: string): Promise<OcrResult> =>
         const isPdf = fileUrl.toLowerCase().includes('.pdf');
 
         // ── Step 1: Download + Preprocess image ─────────────────────────────
-        const { text, ocrConfidence } = await extractTextFromUrl(fileUrl, 1);
+        const { text, ocrConfidence, rawBuffer } = await extractTextFromUrl(fileUrl, 1);
+
+        // ── Detect file nature from magic bytes + URL ──────────────────────
+        const fileNature = rawBuffer
+            ? detectFileNature(rawBuffer, text.trim().length, fileUrl)
+            : (isPdf ? 'scanned_pdf' : 'image');
+        console.log(`[OCR] File nature: ${fileNature} | url=${fileUrl.slice(-50)}`);
 
         // For PDFs: if page 1 gave too little, try page 2 and merge
         let finalText = text;
@@ -316,7 +365,7 @@ export const processDocumentOcr = async (fileUrl: string): Promise<OcrResult> =>
 
         if (!finalText || finalText.trim().length < 10) {
             console.warn(`[OCR] Too little text extracted — possible blank/unreadable scan. Confidence: ${ocrConfidence}`);
-            return { rawText: finalText || '', docType: 'unknown', confidence: 0, extractionTrace: {} };
+            return { rawText: finalText || '', docType: 'unknown', confidence: 0, extractionTrace: {}, fileNature };
         }
 
         console.log(`[OCR] Extracted ${finalText.trim().length} chars total | Tesseract confidence: ${ocrConfidence.toFixed(1)}`);
@@ -359,6 +408,7 @@ export const processDocumentOcr = async (fileUrl: string): Promise<OcrResult> =>
                                 : undefined,
                         },
                         intelligence: smartResult,
+                        fileNature,
                     };
                 }
             } catch (aiErr: any) {
@@ -369,17 +419,17 @@ export const processDocumentOcr = async (fileUrl: string): Promise<OcrResult> =>
         }
 
         // ── Step 3: Regex/keyword fallback ──────────────────────────────────
-        return regexFallback(finalText, ocrConfidence);
+        return { ...regexFallback(finalText, ocrConfidence), fileNature };
 
     } catch (error) {
         console.error('[OCR] Processing failed:', error);
-        return { rawText: '', docType: 'unknown', confidence: 0, extractionTrace: {} };
+        return { rawText: '', docType: 'unknown', confidence: 0, extractionTrace: {}, fileNature: 'unknown' };
     }
 };
 
 // ── Download + preprocess image → run Tesseract ──────────────────────────────
 
-async function extractTextFromUrl(fileUrl: string, page: number): Promise<{ text: string; ocrConfidence: number }> {
+async function extractTextFromUrl(fileUrl: string, page: number): Promise<{ text: string; ocrConfidence: number; rawBuffer?: Buffer }> {
     const ocrUrl = transformUrlForOcr(fileUrl, page);
     const isPdf = fileUrl.toLowerCase().includes('.pdf');
     console.log(`[OCR] Downloading page ${page}: ${isPdf ? 'PDF→JPEG' : 'image'} | ${ocrUrl.slice(0, 90)}…`);
@@ -423,133 +473,115 @@ async function extractTextFromUrl(fileUrl: string, page: number): Promise<{ text
         ocrConfidence = fallbackResult.data.confidence;
     }
 
-    return { text, ocrConfidence };
+    return { text, ocrConfidence, rawBuffer };
 }
 
 //  Smart Gemini extractor ──────────────────────────────────────────────────────
 
-const extractWithSmartGemini = async (
+export const extractWithSmartGemini = async (
     client: GoogleGenerativeAI,
     rawText: string,
     uploadDate: string
 ): Promise<SmartIntelligence | null> => {
-    // gemini-2.0-flash: faster, better structured JSON, better multilingual support
-    const model = client.getGenerativeModel({
-        model: 'gemini-2.0-flash',
-        generationConfig: {
-            temperature: 0.1,     // low temperature = deterministic JSON
-            topP: 0.8,
-            maxOutputTokens: 2048,
-        },
-    });
-    const prompt = SMART_PROMPT(rawText, uploadDate);
+    const models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text().trim();
+    for (const modelName of models) {
+        try {
+            const model = client.getGenerativeModel({
+                model: modelName,
+                generationConfig: { temperature: 0.1, topP: 0.8, maxOutputTokens: 2048 },
+            });
+            const result = await model.generateContent(SMART_PROMPT(rawText, uploadDate));
+            const responseText = result.response.text().trim();
+            console.log(`[OCR] Gemini model=${modelName} responded (${responseText.length} chars)`);
 
-    // Strip any accidental markdown code fences
-    const cleaned = responseText
-        .replace(/^```json?\s*/i, '')
-        .replace(/```\s*$/i, '')
-        .trim();
+            const cleaned = responseText
+                .replace(/^```json?\s*/i, '')
+                .replace(/```\s*$/i, '')
+                .trim();
 
-    let parsed: any;
-    try {
-        parsed = JSON.parse(cleaned);
-    } catch {
-        // Try to extract JSON sub-object if there's surrounding text
-        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
+            let parsed: any;
+            const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
             try {
-                parsed = JSON.parse(jsonMatch[0]);
-            } catch {
-                console.warn('[OCR] Gemini returned non-JSON after cleanup:', responseText.slice(0, 200));
-                return null;
+                parsed = JSON.parse(jsonMatch ? jsonMatch[0] : cleaned);
+            } catch (parseErr: any) {
+                console.warn(`[OCR] ${modelName} non-JSON response:`, responseText.slice(0, 300));
+                continue; // try next model
             }
-        } else {
-            console.warn('[OCR] Gemini returned non-JSON:', responseText.slice(0, 200));
-            return null;
+
+            const docType = ALLOWED_DOC_TYPES.includes(parsed.doc_type) ? parsed.doc_type : 'Other';
+            const category = DOC_CATEGORIES.includes(parsed.category) ? parsed.category : 'Other';
+            const ent = parsed.entities || {};
+
+            const suggested_events: Omit<ISuggestedEvent, 'accepted'>[] = (parsed.suggested_events || [])
+                .map((e: any) => ({
+                    title: String(e.title || ''),
+                    date: parseGeminiDate(e.date),
+                    event_type: ['expiry', 'renewal', 'payment', 'follow_up', 'milestone'].includes(e.event_type)
+                        ? e.event_type : 'milestone',
+                    reason: String(e.reason || ''),
+                }))
+                .filter((e: any) => e.date instanceof Date && !isNaN(e.date.getTime()) && e.title);
+
+            let warrantyExpiry = parseGeminiDate(ent.warranty_expiry_date);
+            if (!warrantyExpiry && ent.purchase_date) {
+                const pDate = parseGeminiDate(ent.purchase_date);
+                const wYears = typeof ent.warranty_years === 'number' ? ent.warranty_years : 1;
+                if (pDate) warrantyExpiry = new Date(pDate.getFullYear() + wYears, pDate.getMonth(), pDate.getDate());
+            }
+
+            return {
+                classification: {
+                    doc_type: docType, category,
+                    confidence: typeof parsed.confidence === 'number' ? Math.min(Math.max(parsed.confidence, 0), 1) : 0.5,
+                    reasoning: String(parsed.reasoning || ''),
+                },
+                entities: {
+                    person_name:            ent.person_name         || undefined,
+                    id_number:              ent.id_number           || undefined,
+                    policy_number:          ent.policy_number       || undefined,
+                    registration_number:    ent.registration_number || undefined,
+                    account_number:         ent.account_number      || undefined,
+                    issued_by:              ent.issued_by           || undefined,
+                    issue_date:             parseGeminiDate(ent.issue_date),
+                    expiry_date:            parseGeminiDate(ent.expiry_date),
+                    due_date:               parseGeminiDate(ent.due_date),
+                    amount:                 typeof ent.amount === 'number' ? ent.amount : undefined,
+                    institution:            ent.institution         || undefined,
+                    address:                ent.address             || undefined,
+                    dob:                    parseGeminiDate(ent.dob),
+                    phone:                  ent.phone               || undefined,
+                    purchase_date:          parseGeminiDate(ent.purchase_date),
+                    warranty_expiry_date:   warrantyExpiry,
+                    product_name:           ent.product_name        || undefined,
+                    seller_name:            ent.seller_name         || ent.institution || undefined,
+                    serial_number:          ent.serial_number       || undefined,
+                    warranty_years:         typeof ent.warranty_years === 'number' ? ent.warranty_years : undefined,
+                },
+                tags: Array.isArray(parsed.tags)
+                    ? parsed.tags.slice(0, 6).map((t: any) => String(t).toLowerCase().replace(/[^a-z0-9\-]/g, ''))
+                    : [],
+                importance: {
+                    score: typeof parsed.importance?.score === 'number'
+                        ? Math.min(Math.max(Math.round(parsed.importance.score), 1), 10) : 5,
+                    criticality: ['low', 'medium', 'high', 'critical'].includes(parsed.importance?.criticality)
+                        ? parsed.importance.criticality : 'medium',
+                    lifecycle_stage: String(parsed.importance?.lifecycle_stage || 'active'),
+                    renewal_window_days: typeof parsed.importance?.renewal_window_days === 'number'
+                        ? parsed.importance.renewal_window_days : undefined,
+                },
+                suggested_events,
+                ai_model: modelName,
+                raw_ai_response: responseText,
+            };
+        } catch (err: any) {
+            console.error(`[OCR] Gemini model=${modelName} FAILED: ${err.message}`);
+            // try next model in the list
         }
     }
 
-    // Validate doc_type and category
-    const docType = ALLOWED_DOC_TYPES.includes(parsed.doc_type) ? parsed.doc_type : 'Other';
-    const category = DOC_CATEGORIES.includes(parsed.category) ? parsed.category : 'Other';
-
-    // Parse suggested events — filter out any without a valid date
-    const suggested_events: Omit<ISuggestedEvent, 'accepted'>[] = (parsed.suggested_events || [])
-        .map((e: any) => ({
-            title: String(e.title || ''),
-            date: parseGeminiDate(e.date),
-            event_type: ['expiry', 'renewal', 'payment', 'follow_up', 'milestone'].includes(e.event_type)
-                ? e.event_type
-                : 'milestone',
-            reason: String(e.reason || ''),
-        }))
-        .filter((e: any) => e.date instanceof Date && !isNaN(e.date.getTime()) && e.title);
-
-    const ent = parsed.entities || {};
-
-    // Calculate warranty_expiry_date if not given but purchase_date + warranty_years exist
-    let warrantyExpiry = parseGeminiDate(ent.warranty_expiry_date);
-    if (!warrantyExpiry && ent.purchase_date) {
-        const pDate = parseGeminiDate(ent.purchase_date);
-        const wYears = typeof ent.warranty_years === 'number' ? ent.warranty_years : 1;
-        if (pDate) {
-            warrantyExpiry = new Date(pDate.getFullYear() + wYears, pDate.getMonth(), pDate.getDate());
-        }
-    }
-
-    return {
-        classification: {
-            doc_type: docType,
-            category,
-            confidence: typeof parsed.confidence === 'number'
-                ? Math.min(Math.max(parsed.confidence, 0), 1)
-                : 0.5,
-            reasoning: String(parsed.reasoning || ''),
-        },
-        entities: {
-            person_name:            ent.person_name         || undefined,
-            id_number:              ent.id_number           || undefined,
-            policy_number:          ent.policy_number       || undefined,
-            registration_number:    ent.registration_number || undefined,
-            account_number:         ent.account_number      || undefined,
-            issued_by:              ent.issued_by           || undefined,
-            issue_date:             parseGeminiDate(ent.issue_date),
-            expiry_date:            parseGeminiDate(ent.expiry_date),
-            due_date:               parseGeminiDate(ent.due_date),
-            amount:                 typeof ent.amount === 'number' ? ent.amount : undefined,
-            institution:            ent.institution         || undefined,
-            address:                ent.address             || undefined,
-            dob:                    parseGeminiDate(ent.dob),
-            phone:                  ent.phone               || undefined,
-            purchase_date:          parseGeminiDate(ent.purchase_date),
-            warranty_expiry_date:   warrantyExpiry,
-            product_name:           ent.product_name        || undefined,
-            seller_name:            ent.seller_name         || ent.institution || undefined,
-            serial_number:          ent.serial_number       || undefined,
-            warranty_years:         typeof ent.warranty_years === 'number' ? ent.warranty_years : undefined,
-        },
-        tags: Array.isArray(parsed.tags)
-            ? parsed.tags.slice(0, 6).map((t: any) => String(t).toLowerCase().replace(/[^a-z0-9\-]/g, ''))
-            : [],
-        importance: {
-            score: typeof parsed.importance?.score === 'number'
-                ? Math.min(Math.max(Math.round(parsed.importance.score), 1), 10)
-                : 5,
-            criticality: ['low', 'medium', 'high', 'critical'].includes(parsed.importance?.criticality)
-                ? parsed.importance.criticality
-                : 'medium',
-            lifecycle_stage: String(parsed.importance?.lifecycle_stage || 'active'),
-            renewal_window_days: typeof parsed.importance?.renewal_window_days === 'number'
-                ? parsed.importance.renewal_window_days
-                : undefined,
-        },
-        suggested_events,
-        ai_model: 'gemini-2.0-flash',
-        raw_ai_response: responseText,
-    };
+    console.error('[OCR] All Gemini models failed — falling back to regex only');
+    return null;
 };
 
 const parseGeminiDate = (value: any): Date | undefined => {

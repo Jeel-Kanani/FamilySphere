@@ -92,4 +92,34 @@ class TimelineRepository {
     }
     throw Exception('Failed to create event');
   }
+
+  Future<void> deleteEvent(String id) async {
+    final response = await _apiClient.delete('/api/events/$id');
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception('Failed to delete event');
+    }
+  }
+
+  Future<TimelineEvent> editEvent(
+    String id, {
+    required String title,
+    required String description,
+    required DateTime startDate,
+    required String type,
+  }) async {
+    final response = await _apiClient.patch(
+      '/api/events/$id',
+      data: {
+        'title': title,
+        'description': description,
+        'startDate': startDate.toIso8601String(),
+        'type': type,
+        'isUserModified': true,
+      },
+    );
+    if (response.statusCode == 200) {
+      return TimelineEvent.fromJson(response.data['data']);
+    }
+    throw Exception('Failed to edit event');
+  }
 }

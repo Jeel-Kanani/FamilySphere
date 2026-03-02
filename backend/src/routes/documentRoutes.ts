@@ -14,6 +14,7 @@ import {
     requeueStuckDocuments,
     getDocumentIntelligence,
     confirmDocumentType,
+    confirmIntelligence,
 } from '../controllers/documentController';
 import { upload } from '../config/cloudinary';
 
@@ -57,6 +58,10 @@ router.get('/:id/intelligence', getDocumentIntelligence);
 
 // PATCH /api/documents/:id/confirm-type - User confirms or corrects AI-detected doc type
 router.patch('/:id/confirm-type', confirmDocumentType);
+
+// PATCH /api/documents/:id/confirm-intelligence - User reviews Tier 2/3 suggested events
+// Body: { doc_type?, confirmed_events: [{index, accepted, edited_title?, edited_date?}], manual_entities? }
+router.patch('/:id/confirm-intelligence', confirmIntelligence);
 
 // POST /api/documents/requeue-stuck - Re-queue all pending/processing stuck docs
 router.post('/requeue-stuck', requeueStuckDocuments);
