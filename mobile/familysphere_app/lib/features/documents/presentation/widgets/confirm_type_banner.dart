@@ -45,19 +45,22 @@ class _ConfirmTypeBannerState extends ConsumerState<ConfirmTypeBanner> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isLoading = confirmState.isLoading;
 
+    const amberDeep = Color(0xFFFF6F00);
+    const amber = Color(0xFFF59E0B);
+    final textPrimary = isDark
+        ? Colors.white.withValues(alpha: 0.9)
+        : const Color(0xFF1C1917);
+    final textSub = isDark ? Colors.white54 : Colors.grey.shade600;
+    final dropdownBg = isDark ? const Color(0xFF1E1A00) : Colors.white;
+    final dropdownBorder =
+        isDark ? amber.withValues(alpha: 0.3) : amber.withValues(alpha: 0.45);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFF2C2200)
-            : const Color(0xFFFFF8E1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark
-              ? const Color(0xFFFF6F00).withValues(alpha: 0.4)
-              : const Color(0xFFFF6F00).withValues(alpha: 0.5),
-        ),
+        color: isDark ? const Color(0xFF241B00) : const Color(0xFFFFF8E6),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: dropdownBorder, width: 1.2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,32 +68,37 @@ class _ConfirmTypeBannerState extends ConsumerState<ConfirmTypeBanner> {
           // ── Header ─────────────────────────────────────────────────────────
           Row(
             children: [
-              const Icon(Icons.auto_awesome, color: Color(0xFFFF6F00), size: 18),
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: amberDeep.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: const Icon(Icons.auto_awesome_rounded,
+                    color: amberDeep, size: 14),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'AI is not fully sure about this document',
+                  'AI needs your help',
                   style: TextStyle(
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                     fontSize: 13,
-                    color: isDark ? Colors.white.withValues(alpha: 0.87) : Colors.grey.shade800,
+                    color: textPrimary,
                   ),
                 ),
               ),
               GestureDetector(
                 onTap: () => setState(() => _dismissed = true),
-                child: Icon(Icons.close, size: 18,
-                    color: isDark ? Colors.white38 : Colors.grey.shade500),
+                child: Icon(Icons.close_rounded,
+                    size: 16, color: textSub),
               ),
             ],
           ),
           const SizedBox(height: 4),
           Text(
-            'Detected as "${widget.aiDetectedType}". Is this correct?',
-            style: TextStyle(
-              fontSize: 12,
-              color: isDark ? Colors.white54 : Colors.grey.shade600,
-            ),
+            'Detected as "${widget.aiDetectedType}". Confidence is low — pick the correct type:',
+            style: TextStyle(fontSize: 11.5, color: textSub),
           ),
           const SizedBox(height: 12),
 
@@ -98,20 +106,22 @@ class _ConfirmTypeBannerState extends ConsumerState<ConfirmTypeBanner> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: isDark ? Colors.white10 : Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isDark ? Colors.white24 : Colors.grey.shade300,
-              ),
+              color: dropdownBg,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: dropdownBorder, width: 1.2),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: _selectedType,
                 isExpanded: true,
-                dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                icon: Icon(Icons.expand_more_rounded,
+                    color: amber, size: 20),
+                dropdownColor:
+                    isDark ? const Color(0xFF1E1A00) : Colors.white,
                 style: TextStyle(
                   fontSize: 13,
-                  color: isDark ? Colors.white.withValues(alpha: 0.87) : Colors.grey.shade800,
+                  fontWeight: FontWeight.w600,
+                  color: textPrimary,
                 ),
                 items: kAllowedDocTypes.map((type) {
                   return DropdownMenuItem<String>(
@@ -141,8 +151,11 @@ class _ConfirmTypeBannerState extends ConsumerState<ConfirmTypeBanner> {
                     foregroundColor:
                         isDark ? Colors.white54 : Colors.grey.shade600,
                     side: BorderSide(
-                      color: isDark ? Colors.white24 : Colors.grey.shade300,
+                      color: isDark
+                          ? Colors.white24
+                          : Colors.grey.shade300,
                     ),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                   child: const Text('Skip', style: TextStyle(fontSize: 13)),
                 ),
@@ -150,24 +163,50 @@ class _ConfirmTypeBannerState extends ConsumerState<ConfirmTypeBanner> {
               const SizedBox(width: 10),
               Expanded(
                 flex: 2,
-                child: FilledButton(
-                  onPressed: isLoading ? null : _confirm,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF6F00),
-                  ),
-                  child: isLoading
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+                child: GestureDetector(
+                  onTap: isLoading ? null : _confirm,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      gradient: isLoading
+                          ? null
+                          : const LinearGradient(
+                              colors: [Color(0xFFFF6F00), Color(0xFFF59E0B)],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                      color: isLoading ? Colors.grey.shade400 : null,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: isLoading
+                          ? null
+                          : [
+                              BoxShadow(
+                                color: const Color(0xFFF59E0B)
+                                    .withValues(alpha: 0.35),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                    ),
+                    alignment: Alignment.center,
+                    child: isLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Confirm Type',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        )
-                      : const Text(
-                          'Confirm Type',
-                          style: TextStyle(fontSize: 13, color: Colors.white),
-                        ),
+                  ),
                 ),
               ),
             ],

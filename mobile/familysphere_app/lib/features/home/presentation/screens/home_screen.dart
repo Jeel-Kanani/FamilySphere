@@ -772,7 +772,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 //  Extracted Stateless Widgets
 // ══════════════════════════════════════════════════════════════
 
-class _HeaderIconButton extends StatelessWidget {
+class _HeaderIconButton extends StatefulWidget {
   final IconData icon;
   final Color cardBg;
   final Color border;
@@ -790,44 +790,126 @@ class _HeaderIconButton extends StatelessWidget {
   });
 
   @override
+  State<_HeaderIconButton> createState() => _HeaderIconButtonState();
+}
+
+class _HeaderIconButtonState extends State<_HeaderIconButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseCtrl;
+  late final Animation<double> _pulseAnim;
+
+  static const _amber = Color(0xFFF59E0B);
+  static const _amberDeep = Color(0xFFFF6F00);
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    );
+    _pulseAnim = CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut);
+    if (widget.badgeCount > 0) _pulseCtrl.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(_HeaderIconButton old) {
+    super.didUpdateWidget(old);
+    if (widget.badgeCount > 0 && !_pulseCtrl.isAnimating) {
+      _pulseCtrl.repeat(reverse: true);
+    } else if (widget.badgeCount == 0 && _pulseCtrl.isAnimating) {
+      _pulseCtrl.stop();
+      _pulseCtrl.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final hasBadge = widget.badgeCount > 0;
     return Stack(
       clipBehavior: Clip.none,
       children: [
+        // Pulsing glow ring
+        if (hasBadge)
+          AnimatedBuilder(
+            animation: _pulseAnim,
+            builder: (_, __) => Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: _amber.withValues(alpha: _pulseAnim.value * 0.45),
+                    blurRadius: 18,
+                    spreadRadius: 3,
+                  ),
+                ],
+              ),
+            ),
+          ),
         Material(
-          color: cardBg,
+          color: hasBadge
+              ? _amber.withValues(alpha: 0.1)
+              : widget.cardBg,
           borderRadius: BorderRadius.circular(14),
           child: InkWell(
-            onTap: onTap,
+            onTap: widget.onTap,
             borderRadius: BorderRadius.circular(14),
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: border),
+                border: Border.all(
+                  color: hasBadge
+                      ? _amber.withValues(alpha: 0.55)
+                      : widget.border,
+                  width: hasBadge ? 1.5 : 1.0,
+                ),
               ),
-              child: Icon(icon, color: textP, size: 22),
+              child: Icon(
+                hasBadge ? Icons.notifications_active_rounded : widget.icon,
+                color: hasBadge ? _amber : widget.textP,
+                size: 22,
+              ),
             ),
           ),
         ),
-        if (badgeCount > 0)
+        if (hasBadge)
           Positioned(
-            top: -4,
-            right: -4,
+            top: -6,
+            right: -6,
             child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: Color(0xFFEF4444),
-                shape: BoxShape.circle,
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [_amberDeep, _amber],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: _amber.withValues(alpha: 0.45),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+              constraints: const BoxConstraints(minWidth: 20, minHeight: 18),
               child: Text(
-                '$badgeCount',
+                '${widget.badgeCount}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  height: 1,
+                  fontWeight: FontWeight.w900,
+                  height: 1.1,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -1047,7 +1129,7 @@ class _RecentDocTile extends StatelessWidget {
   }
 }
 // ─────────────────────────────────────────────────────────────────────────────
-//  Notification Panel Bottom Sheet
+//  Notification Panel Bottom Sheet  (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _NotificationPanel extends ConsumerStatefulWidget {
@@ -1065,19 +1147,62 @@ class _NotificationPanel extends ConsumerStatefulWidget {
   ConsumerState<_NotificationPanel> createState() => _NotificationPanelState();
 }
 
-class _NotificationPanelState extends ConsumerState<_NotificationPanel> {
+class _NotificationPanelState extends ConsumerState<_NotificationPanel>
+    with SingleTickerProviderStateMixin {
   late List<DocumentEntity> _remaining;
+  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
+  late final AnimationController _allClearCtrl;
+  late final Animation<double> _allClearScale;
 
   @override
   void initState() {
     super.initState();
     _remaining = List.from(widget.pendingDocs);
+    _allClearCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _allClearScale = CurvedAnimation(
+      parent: _allClearCtrl,
+      curve: Curves.elasticOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _allClearCtrl.dispose();
+    super.dispose();
   }
 
   void _onDocConfirmed(String docId) {
-    setState(() => _remaining.removeWhere((d) => d.id == docId));
+    final index = _remaining.indexWhere((d) => d.id == docId);
+    if (index < 0) return;
+    final removed = _remaining[index];
+    setState(() => _remaining.removeAt(index));
+    _listKey.currentState?.removeItem(
+      index,
+      (_, anim) => _buildRemovedCard(removed, anim),
+      duration: const Duration(milliseconds: 350),
+    );
     ref.read(documentProvider.notifier).loadDocuments();
-    if (_remaining.isEmpty) widget.onAllConfirmed();
+    if (_remaining.isEmpty) {
+      _allClearCtrl.forward();
+      widget.onAllConfirmed();
+    }
+  }
+
+  Widget _buildRemovedCard(DocumentEntity doc, Animation<double> anim) {
+    return SizeTransition(
+      sizeFactor: CurvedAnimation(parent: anim, curve: Curves.easeIn),
+      child: FadeTransition(
+        opacity: anim,
+        child: _DocConfirmCard(
+          doc: doc,
+          isDark: widget.isDark,
+          onConfirmed: () {},
+        ),
+      ),
+    );
   }
 
   @override
@@ -1088,56 +1213,71 @@ class _NotificationPanelState extends ConsumerState<_NotificationPanel> {
     final textS = isDark ? Colors.white60 : const Color(0xFF64748B);
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.6,
-      minChildSize: 0.4,
-      maxChildSize: 0.92,
+      initialChildSize: 0.65,
+      minChildSize: 0.45,
+      maxChildSize: 0.94,
+      snap: true,
+      snapSizes: const [0.65, 0.94],
       builder: (_, scrollCtrl) => Container(
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
-              blurRadius: 24,
-              offset: const Offset(0, -4),
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 32,
+              offset: const Offset(0, -6),
             ),
           ],
         ),
         child: Column(
           children: [
-            // ── Drag handle ───────────────────────────────────────────────
-            const SizedBox(height: 12),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: isDark ? Colors.white24 : Colors.black12,
-                borderRadius: BorderRadius.circular(2),
+            // ── Drag pill ─────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.only(top: 10, bottom: 6),
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.black12,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-            const SizedBox(height: 16),
 
-            // ── Header ────────────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+            // ── Gradient header ───────────────────────────────────────────
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF6F00), Color(0xFFF59E0B)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(9),
                     decoration: BoxDecoration(
-                      color: _remaining.isEmpty
-                          ? const Color(0xFF10B981).withValues(alpha: 0.12)
-                          : const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       _remaining.isEmpty
-                          ? Icons.check_circle_outline_rounded
-                          : Icons.notifications_active_rounded,
-                      color: _remaining.isEmpty
-                          ? const Color(0xFF10B981)
-                          : const Color(0xFFF59E0B),
-                      size: 22,
+                          ? Icons.check_circle_rounded
+                          : Icons.auto_awesome_rounded,
+                      color: Colors.white,
+                      size: 20,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1145,58 +1285,99 @@ class _NotificationPanelState extends ConsumerState<_NotificationPanel> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Notifications',
+                        const Text(
+                          'Action Required',
                           style: TextStyle(
-                            fontSize: 18,
+                            color: Colors.white,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: textP,
                           ),
                         ),
                         Text(
                           _remaining.isEmpty
-                              ? 'All caught up!'
-                              : '${_remaining.length} item${_remaining.length > 1 ? 's' : ''} need your attention',
-                          style: TextStyle(fontSize: 12, color: textS),
+                              ? 'All confirmed – you\'re all set!'
+                              : '${_remaining.length} document${_remaining.length > 1 ? 's' : ''} need your review',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.85),
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
                   ),
+                  if (_remaining.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${_remaining.length} pending',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(7),
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.06),
+                        color: Colors.white.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.close_rounded, size: 18, color: textS),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 8),
-            Divider(color: isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.06)),
+            const SizedBox(height: 12),
 
             // ── Body ──────────────────────────────────────────────────────
             Expanded(
-              child: _remaining.isEmpty
-                  ? _buildAllClearView(isDark, textP, textS)
-                  : ListView.builder(
-                      controller: scrollCtrl,
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                      itemCount: _remaining.length,
-                      itemBuilder: (_, i) {
-                        final doc = _remaining[i];
-                        return _DocConfirmCard(
-                          doc: doc,
-                          isDark: isDark,
-                          onConfirmed: () => _onDocConfirmed(doc.id),
-                        );
-                      },
-                    ),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 400),
+                child: _remaining.isEmpty
+                    ? _buildAllClearView(isDark, textP, textS)
+                    : AnimatedList(
+                        key: _listKey,
+                        controller: scrollCtrl,
+                        padding:
+                            const EdgeInsets.fromLTRB(16, 4, 16, 32),
+                        initialItemCount: _remaining.length,
+                        itemBuilder: (_, i, anim) {
+                          final doc = _remaining[i];
+                          return SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0.08, 0),
+                              end: Offset.zero,
+                            ).animate(CurvedAnimation(
+                              parent: anim,
+                              curve: Curves.easeOutCubic,
+                            )),
+                            child: FadeTransition(
+                              opacity: anim,
+                              child: _DocConfirmCard(
+                                doc: doc,
+                                isDark: isDark,
+                                onConfirmed: () => _onDocConfirmed(doc.id),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
             ),
           ],
         ),
@@ -1205,47 +1386,61 @@ class _NotificationPanelState extends ConsumerState<_NotificationPanel> {
   }
 
   Widget _buildAllClearView(bool isDark, Color textP, Color textS) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFF10B981).withValues(alpha: 0.1),
-              shape: BoxShape.circle,
+    return ScaleTransition(
+      scale: _allClearScale,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF10B981), Color(0xFF34D399)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.check_rounded,
+                color: Colors.white,
+                size: 42,
+              ),
             ),
-            child: const Icon(
-              Icons.check_circle_rounded,
-              color: Color(0xFF10B981),
-              size: 48,
+            const SizedBox(height: 20),
+            Text(
+              'All documents confirmed!',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: textP,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'All documents confirmed!',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: textP,
+            const SizedBox(height: 8),
+            Text(
+              'You\'re fully up to date.',
+              style: TextStyle(fontSize: 13, color: textS),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'No pending actions right now.',
-            style: TextStyle(fontSize: 13, color: textS),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Single Document Confirmation Card inside the panel
+//  Single expandable Document Confirmation Card
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _DocConfirmCard extends ConsumerWidget {
+class _DocConfirmCard extends StatefulWidget {
   final DocumentEntity doc;
   final bool isDark;
   final VoidCallback onConfirmed;
@@ -1256,119 +1451,307 @@ class _DocConfirmCard extends ConsumerWidget {
     required this.onConfirmed,
   });
 
-  static const _months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  String _fmtDate(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
+  @override
+  State<_DocConfirmCard> createState() => _DocConfirmCardState();
+}
+
+class _DocConfirmCardState extends State<_DocConfirmCard>
+    with SingleTickerProviderStateMixin {
+  bool _expanded = false;
+  late final AnimationController _chevronCtrl;
+  late final Animation<double> _chevronTurn;
+
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
+  String _fmtDate(DateTime d) =>
+      '${d.day} ${_months[d.month - 1]} ${d.year}';
+
+  static const _amber = Color(0xFFF59E0B);
+  static const _amberDeep = Color(0xFFFF6F00);
+  static const _amberBg = Color(0xFFFFFBEB);
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cardBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
+  void initState() {
+    super.initState();
+    _chevronCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    _chevronTurn = Tween<double>(begin: 0.0, end: 0.5).animate(
+      CurvedAnimation(parent: _chevronCtrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _chevronCtrl.dispose();
+    super.dispose();
+  }
+
+  void _toggleExpanded() {
+    setState(() => _expanded = !_expanded);
+    if (_expanded) {
+      _chevronCtrl.forward();
+    } else {
+      _chevronCtrl.reverse();
+    }
+  }
+
+  IconData _iconForCategory(String cat) {
+    switch (cat.toLowerCase()) {
+      case 'identity':   return Icons.badge_rounded;
+      case 'insurance':  return Icons.shield_rounded;
+      case 'utility':    return Icons.receipt_long_rounded;
+      case 'property':   return Icons.home_work_rounded;
+      case 'medical':    return Icons.medical_services_rounded;
+      case 'education':  return Icons.school_rounded;
+      default:           return Icons.description_rounded;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final doc = widget.doc;
+    final isDark = widget.isDark;
+
+    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
     final textP = isDark ? Colors.white : const Color(0xFF0F172A);
     final textS = isDark ? Colors.white60 : const Color(0xFF64748B);
+    final borderColor =
+        isDark ? _amber.withValues(alpha: 0.3) : _amber.withValues(alpha: 0.45);
+    final confidenceBg = isDark ? const Color(0xFF2D1F00) : _amberBg;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
-        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: borderColor, width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Doc info header ─────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-            child: Row(
-              children: [
-                // File type icon
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.description_rounded,
-                    color: Color(0xFFD97706),
-                    size: 22,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(17),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Left accent strip ──────────────────────────────────────
+              Container(
+                width: 4,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_amberDeep, _amber],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        doc.title,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                          color: textP,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
+              ),
+
+              // ── Card content ───────────────────────────────────────────
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Summary row ──────────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.folder_outlined, size: 12, color: textS),
-                          const SizedBox(width: 4),
+                          // Category icon bubble
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: _amber.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              _iconForCategory(doc.category),
+                              color: _amberDeep,
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              '${doc.category} › ${doc.folder}',
-                              style: TextStyle(fontSize: 11, color: textS),
-                              overflow: TextOverflow.ellipsis,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  doc.title,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                    color: textP,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    Icon(Icons.folder_rounded,
+                                        size: 12, color: textS),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        '${doc.category} › ${doc.folder}',
+                                        style: TextStyle(
+                                            fontSize: 11, color: textS),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Uploaded ${_fmtDate(doc.uploadedAt)}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: textS.withValues(alpha: 0.65),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Confidence chip
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: confidenceBg,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: _amber.withValues(alpha: 0.5)),
+                            ),
+                            child: const Text(
+                              'AI: Low',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: _amberDeep,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      Text(
-                        'Uploaded ${_fmtDate(doc.uploadedAt)}',
-                        style: TextStyle(fontSize: 10, color: textS.withValues(alpha: 0.7)),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFFBEB),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5)),
-                  ),
-                  child: const Text(
-                    'Low Confidence',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFFB45309),
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
 
-          // ── Confirm banner ──────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-            child: ConfirmTypeBanner(
-              docId: doc.id,
-              aiDetectedType: doc.docType ?? '',
-              onConfirmed: onConfirmed,
-            ),
+                    const SizedBox(height: 10),
+
+                    // ── Review toggle button ──────────────────────────────
+                    if (!_expanded)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                        child: GestureDetector(
+                          onTap: _toggleExpanded,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [_amberDeep, _amber],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _amber.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.fact_check_rounded,
+                                    color: Colors.white, size: 16),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Review & Confirm Type',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                SizedBox(width: 6),
+                                Icon(Icons.keyboard_arrow_down_rounded,
+                                    color: Colors.white, size: 18),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // ── Expanded confirm area ─────────────────────────────
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 320),
+                      curve: Curves.easeInOutCubic,
+                      child: _expanded
+                          ? Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Collapse handle
+                                  GestureDetector(
+                                    onTap: _toggleExpanded,
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.auto_awesome_rounded,
+                                            size: 14, color: _amberDeep),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'AI detected type – please confirm',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: textS,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        RotationTransition(
+                                          turns: _chevronTurn,
+                                          child: Icon(
+                                            Icons.keyboard_arrow_up_rounded,
+                                            size: 18,
+                                            color: textS,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  ConfirmTypeBanner(
+                                    docId: doc.id,
+                                    aiDetectedType: doc.docType ?? '',
+                                    onConfirmed: widget.onConfirmed,
+                                  ),
+                                ],
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

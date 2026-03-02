@@ -2,13 +2,30 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 // ── Allowed master types (AI must pick from this list) ────────────────────────
 export const ALLOWED_DOC_TYPES = [
+    // Identity
     'Aadhaar', 'PAN Card', 'Passport', 'Driving License', 'Voter ID',
+    // Financial
     'Bank Statement', 'Loan Agreement', 'Insurance Policy', 'Investment Document',
-    'Lab Report', 'Prescription', 'Medical Certificate',
-    'Rent Agreement', 'Property Deed', 'Affidavit', 'Contract',
-    'Marksheet', 'Degree Certificate', 'Admission Letter',
+    'Salary Slip', 'Tax Return',
+    // Bills & Receipts
     'Electricity Bill', 'Water Bill', 'Gas Bill',
-    'Salary Slip', 'Tax Return', 'Vehicle RC',
+    'Purchase Receipt', 'Invoice', 'Warranty Card', 'Shopping Bill',
+    'Restaurant Bill', 'Medical Bill', 'Hospital Bill',
+    'School Fee Receipt', 'College Fee Receipt',
+    'Rent Receipt', 'Maintenance Bill', 'Internet Bill', 'Mobile Bill',
+    // Medical
+    'Lab Report', 'Prescription', 'Medical Certificate', 'Vaccination Record',
+    'Discharge Summary', 'Health Insurance Card',
+    // Legal & Property
+    'Rent Agreement', 'Property Deed', 'Affidavit', 'Contract',
+    'Legal Notice', 'Court Document', 'NOC', 'Power of Attorney',
+    // Academic & Career
+    'Marksheet', 'Degree Certificate', 'Admission Letter',
+    'Offer Letter', 'Appointment Letter', 'Experience Letter',
+    'Resignation Letter', 'Relieving Letter',
+    // Vehicle
+    'Vehicle RC', 'Vehicle Insurance', 'Pollution Certificate',
+    // Other
     'Other',
 ] as const;
 
@@ -43,7 +60,10 @@ export interface IDocumentIntelligence extends Document {
 
     entities: {
         person_name?: string;
-        id_number?: string;
+        id_number?: string;                 // Aadhaar / PAN / passport number
+        policy_number?: string;             // Insurance policy, vehicle RC
+        registration_number?: string;       // Vehicle / company reg
+        account_number?: string;            // Bank / loan account
         issued_by?: string;
         issue_date?: Date;
         expiry_date?: Date;
@@ -51,6 +71,15 @@ export interface IDocumentIntelligence extends Document {
         amount?: number;
         institution?: string;
         address?: string;
+        dob?: Date;                         // Date of birth
+        phone?: string;
+        // Purchase / product fields
+        purchase_date?: Date;               // When item was bought
+        warranty_expiry_date?: Date;        // Calculated: purchase + warranty period
+        product_name?: string;              // Laptop, fridge, phone, etc.
+        seller_name?: string;               // Amazon, Flipkart, local store
+        serial_number?: string;             // Product serial / IMEI
+        warranty_years?: number;            // 1, 2, or 3 years from receipt
     };
 
     tags: string[];                    // e.g. ["identity", "travel", "renewal-required"]
@@ -92,15 +121,26 @@ const DocumentIntelligenceSchema = new Schema(
         },
 
         entities: {
-            person_name: { type: String },
-            id_number:   { type: String },
-            issued_by:   { type: String },
-            issue_date:  { type: Date },
-            expiry_date: { type: Date },
-            due_date:    { type: Date },
-            amount:      { type: Number },
-            institution: { type: String },
-            address:     { type: String },
+            person_name:         { type: String },
+            id_number:           { type: String },
+            policy_number:       { type: String },
+            registration_number: { type: String },
+            account_number:      { type: String },
+            issued_by:           { type: String },
+            issue_date:          { type: Date },
+            expiry_date:         { type: Date },
+            due_date:            { type: Date },
+            amount:              { type: Number },
+            institution:         { type: String },
+            address:             { type: String },
+            dob:                 { type: Date },
+            phone:               { type: String },
+            purchase_date:       { type: Date },
+            warranty_expiry_date:{ type: Date },
+            product_name:        { type: String },
+            seller_name:         { type: String },
+            serial_number:       { type: String },
+            warranty_years:      { type: Number },
         },
 
         tags: [{ type: String }],
@@ -115,7 +155,7 @@ const DocumentIntelligenceSchema = new Schema(
         suggested_events: [SuggestedEventSchema],
 
         needs_confirmation: { type: Boolean, default: false },
-        ai_model:           { type: String, default: 'gemini-1.5-flash' },
+        ai_model:           { type: String, default: 'gemini-2.0-flash' },
         analyzed_at:        { type: Date, default: Date.now },
         raw_ai_response:    { type: String },
     },

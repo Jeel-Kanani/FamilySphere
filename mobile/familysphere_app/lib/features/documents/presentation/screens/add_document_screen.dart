@@ -257,82 +257,158 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
                     TextFormField(
                       controller: _titleController,
                       enabled: !isLoading,
+                      onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
                         labelText: 'Document Title',
                         hintText: 'Enter a descriptive title',
                         prefixIcon: const Icon(Icons.title_rounded),
                         filled: true,
-                        fillColor: isDark 
-                          ? AppTheme.darkSurfaceVariant.withOpacity(0.5)
-                          : const Color(0xFFF8FAFC),
+                        fillColor: isDark
+                            ? AppTheme.darkSurfaceVariant.withOpacity(0.5)
+                            : const Color(0xFFF8FAFC),
                       ),
-                      validator: (value) => (value == null || value.trim().isEmpty) 
-                        ? 'Please enter a title' 
-                        : null,
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                              ? 'Please enter a title'
+                              : null,
                     ),
                     const SizedBox(height: 16),
-                    Text(
-                      'Vault Location',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
+
+                    // ── Vault category dropdown ─────────────────────────
+                    DropdownButtonFormField<String>(
+                      value: _selectedCategory,
+                      decoration: InputDecoration(
+                        labelText: 'Vault Category',
+                        prefixIcon: Icon(
+                          _categoryIcon(_selectedCategory),
+                          color: _categoryColor(_selectedCategory),
+                        ),
+                        filled: true,
+                        fillColor: isDark
+                            ? AppTheme.darkSurfaceVariant.withOpacity(0.5)
+                            : const Color(0xFFF8FAFC),
                       ),
+                      items: ['Shared', 'Personal', 'Private'].map((cat) {
+                        return DropdownMenuItem<String>(
+                          value: cat,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: _categoryColor(cat),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(cat),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: isLoading
+                          ? null
+                          : (value) {
+                              if (value == null) return;
+                              final defaultMemberId = value == 'Shared'
+                                  ? null
+                                  : ref.read(authProvider).user?.id;
+                              setState(() {
+                                _selectedCategory = value;
+                                _selectedFolder =
+                                    (_builtInByCategory[value] ??
+                                            const ['General'])
+                                        .first;
+                                _selectedMemberId = defaultMemberId;
+                              });
+                              ref
+                                  .read(documentProvider.notifier)
+                                  .loadFolders(
+                                    category: value,
+                                    memberId: value == 'Shared'
+                                        ? _selectedMemberId
+                                        : ref
+                                            .read(authProvider)
+                                            .user
+                                            ?.id,
+                                  );
+                            },
                     ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: ['Shared', 'Personal', 'Private'].map(_categoryChip).toList(),
-                    ),
+
+                    // ── Share With dropdown (Shared only) ────────────────
                     if (_selectedCategory == 'Shared') ...[
                       const SizedBox(height: 16),
-                      Text(
-                        'Share With',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
+                      DropdownButtonFormField<String>(
+                        value: _selectedMemberId ?? '__family__',
+                        decoration: InputDecoration(
+                          labelText: 'Share With',
+                          prefixIcon: const Icon(Icons.groups_rounded),
+                          filled: true,
+                          fillColor: isDark
+                              ? AppTheme.darkSurfaceVariant.withOpacity(0.5)
+                              : const Color(0xFFF8FAFC),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        height: 46,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: members.length + 1,
-                          separatorBuilder: (_, __) => const SizedBox(width: 8),
-                          itemBuilder: (context, i) {
-                            if (i == 0) {
-                              return ChoiceChip(
-                                avatar: const Icon(Icons.groups_rounded, size: 16),
-                                label: const Text('Family'),
-                                selected: _selectedMemberId == null,
-                                showCheckmark: false,
-                                onSelected: (_) {
-                                  setState(() {
-                                    _selectedMemberId = null;
-                                    _selectedFolder = (_builtInByCategory['Shared'] ?? const ['General']).first;
-                                  });
-                                  ref.read(documentProvider.notifier).loadFolders(category: 'Shared', memberId: null);
-                                },
-                              );
-                            }
-                            final m = members[i - 1];
-                            return ChoiceChip(
-                              avatar: const Icon(Icons.person_rounded, size: 16),
-                              label: Text(m.displayName),
-                              selected: _selectedMemberId == m.userId,
-                              showCheckmark: false,
-                              onSelected: (_) {
+                        items: [
+                          const DropdownMenuItem<String>(
+                            value: '__family__',
+                            child: Row(
+                              children: [
+                                Icon(Icons.groups_rounded, size: 18),
+                                SizedBox(width: 10),
+                                Text('Entire Family'),
+                              ],
+                            ),
+                          ),
+                          ...members.map((m) => DropdownMenuItem<String>(
+                                value: m.userId,
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 10,
+                                      backgroundColor: AppTheme.primaryColor
+                                          .withValues(alpha: 0.15),
+                                      child: Text(
+                                        _initials(m.displayName),
+                                        style: const TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(m.displayName),
+                                  ],
+                                ),
+                              )),
+                        ],
+                        onChanged: isLoading
+                            ? null
+                            : (value) {
+                                if (value == null) return;
+                                final memberId =
+                                    value == '__family__' ? null : value;
                                 setState(() {
-                                  _selectedMemberId = m.userId;
-                                  _selectedFolder = _sharedMemberFolders.first;
+                                  _selectedMemberId = memberId;
+                                  _selectedFolder = memberId == null
+                                      ? (_builtInByCategory['Shared'] ??
+                                              const ['General'])
+                                          .first
+                                      : _sharedMemberFolders.first;
                                 });
-                                ref.read(documentProvider.notifier).loadFolders(category: 'Shared', memberId: m.userId);
+                                ref
+                                    .read(documentProvider.notifier)
+                                    .loadFolders(
+                                        category: 'Shared',
+                                        memberId: memberId);
                               },
-                            );
-                          },
-                        ),
                       ),
                     ],
+
                     const SizedBox(height: 16),
+
+                    // ── Folder dropdown ──────────────────────────────────
                     DropdownButtonFormField<String>(
                       value: _currentFolderSelection(folders),
                       decoration: InputDecoration(
@@ -340,15 +416,15 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
                         hintText: 'Select a folder',
                         prefixIcon: const Icon(Icons.folder_outlined),
                         filled: true,
-                        fillColor: isDark 
-                          ? AppTheme.darkSurfaceVariant.withOpacity(0.5)
-                          : const Color(0xFFF8FAFC),
+                        fillColor: isDark
+                            ? AppTheme.darkSurfaceVariant.withOpacity(0.5)
+                            : const Color(0xFFF8FAFC),
                       ),
                       items: _folderOptions(folders)
                           .map((f) => DropdownMenuItem<String>(
-                            value: f,
-                            child: Text(f),
-                          ))
+                                value: f,
+                                child: Text(f),
+                              ))
                           .toList(),
                       onChanged: isLoading
                           ? null
@@ -357,74 +433,37 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
                               setState(() => _selectedFolder = value);
                             },
                     ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppTheme.primaryColor.withOpacity(0.1),
-                            AppTheme.primaryColor.withOpacity(0.05),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: AppTheme.primaryColor.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.folder_special_rounded,
-                            color: AppTheme.primaryColor,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Upload Path',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: AppTheme.textSecondary,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _uploadPathLabel(members),
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 13,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                     const SizedBox(height: 16),
-                    Text(
-                      'Document Type (Optional)',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
+
+                    // ── Document Type dropdown ───────────────────────────
+                    DropdownButtonFormField<String>(
+                      value: _typeController.text.isEmpty
+                          ? null
+                          : _typeController.text,
+                      decoration: InputDecoration(
+                        labelText: 'Document Type (Optional)',
+                        hintText: 'Select a type',
+                        prefixIcon: const Icon(Icons.label_outline_rounded),
+                        filled: true,
+                        fillColor: isDark
+                            ? AppTheme.darkSurfaceVariant.withOpacity(0.5)
+                            : const Color(0xFFF8FAFC),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _suggestedTypes
-                          .map((t) => ChoiceChip(
-                                label: Text(t),
-                                selected: _typeController.text == t,
-                                onSelected: (s) => setState(() => _typeController.text = s ? t : ''),
-                                showCheckmark: false,
-                              ))
-                          .toList(),
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: null,
+                          child: Text('None'),
+                        ),
+                        ..._suggestedTypes.map((t) =>
+                            DropdownMenuItem<String>(
+                              value: t,
+                              child: Text(t),
+                            )),
+                      ],
+                      onChanged: isLoading
+                          ? null
+                          : (value) => setState(
+                              () => _typeController.text = value ?? ''),
                     ),
                   ],
                 ),
@@ -457,78 +496,263 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
   Widget _buildStepIndicator() {
     final hasFiles = _selectedFiles.isNotEmpty;
     final hasTitle = _titleController.text.isNotEmpty;
-    
-    return Row(
-      children: [
-        _buildStepDot(1, true, hasFiles),
-        Expanded(child: _buildStepLine(hasFiles)),
-        _buildStepDot(2, hasFiles, hasTitle),
-        Expanded(child: _buildStepLine(hasTitle)),
-        _buildStepDot(3, hasTitle, false),
-      ],
-    );
-  }
-
-  Widget _buildStepDot(int step, bool isActive, bool isCompleted) {
+    final step = hasTitle ? 3 : hasFiles ? 2 : 1;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
+    final labels = ['Select Files', 'Document Details', 'Save'];
+    final icons = [
+      Icons.upload_file_rounded,
+      Icons.edit_document,
+      Icons.cloud_done_rounded,
+    ];
+
     return Container(
-      width: 32,
-      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: isCompleted || isActive
-          ? AppTheme.primaryColor
-          : (isDark ? AppTheme.darkSurface : Colors.white),
-        shape: BoxShape.circle,
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isCompleted || isActive
-            ? AppTheme.primaryColor
-            : AppTheme.borderColor,
-          width: 2,
+          color: isDark ? AppTheme.darkBorder : AppTheme.borderColor,
         ),
       ),
-      child: Center(
-        child: isCompleted
-          ? const Icon(Icons.check, color: Colors.white, size: 16)
-          : Text(
-              step.toString(),
-              style: TextStyle(
-                color: isActive ? Colors.white : AppTheme.textSecondary,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
+      child: Row(
+        children: List.generate(3, (i) {
+          final isCompleted = i + 1 < step;
+          final isActive = i + 1 == step;
+          final color = isCompleted || isActive
+              ? AppTheme.primaryColor
+              : (isDark ? Colors.white24 : AppTheme.borderColor);
+
+          return Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: isCompleted
+                              ? AppTheme.primaryColor
+                              : isActive
+                                  ? AppTheme.primaryColor.withValues(alpha: 0.12)
+                                  : (isDark
+                                      ? Colors.white.withValues(alpha: 0.05)
+                                      : const Color(0xFFF1F5F9)),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: color, width: 1.8),
+                        ),
+                        child: Center(
+                          child: isCompleted
+                              ? const Icon(Icons.check_rounded,
+                                  color: Colors.white, size: 16)
+                              : Icon(icons[i],
+                                  color: isActive
+                                      ? AppTheme.primaryColor
+                                      : (isDark
+                                          ? Colors.white38
+                                          : const Color(0xFF94A3B8)),
+                                  size: 16),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        labels[i],
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: isActive
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: isActive
+                              ? AppTheme.primaryColor
+                              : (isDark ? Colors.white38 : AppTheme.textSecondary),
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                      ),
+                    ],
+                  ),
+                ),
+                if (i < 2)
+                  Expanded(
+                    child: Container(
+                      height: 2,
+                      margin: const EdgeInsets.only(bottom: 18),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isCompleted
+                              ? [AppTheme.primaryColor, AppTheme.primaryColor]
+                              : [
+                                  isActive
+                                      ? AppTheme.primaryColor
+                                          .withValues(alpha: 0.4)
+                                      : (isDark
+                                          ? Colors.white12
+                                          : AppTheme.borderColor),
+                                  isDark ? Colors.white12 : AppTheme.borderColor,
+                                ],
+                        ),
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
+                  ),
+              ],
             ),
+          );
+        }),
       ),
     );
   }
 
-  Widget _buildStepLine(bool isCompleted) {
-    return Container(
-      height: 2,
-      color: isCompleted
-        ? AppTheme.primaryColor
-        : AppTheme.borderColor,
-    );
-  }
+  // _buildStepDot and _buildStepLine replaced by _buildStepIndicator above
 
   Widget _buildSourceButtons() {
-    return Row(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: _sourceButton(
-            icon: Icons.cloud_upload_rounded,
-            label: 'Upload Files',
-            subtitle: 'PDF, Images',
-            onTap: _pickFile,
+        // ── Primary: pick from device ──────────────────────────────────
+        GestureDetector(
+          onTap: _pickFile,
+          child: Container(
+            height: 110,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppTheme.primaryColor,
+                  const Color(0xFF3B82F6),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.cloud_upload_rounded,
+                    color: Colors.white, size: 32),
+                SizedBox(width: 14),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Upload from Device',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'PDF, JPG, PNG supported',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _sourceButton(
-            icon: Icons.document_scanner_rounded,
-            label: 'Scan Document',
-            subtitle: 'Use Camera',
-            onTap: _scanDoc,
+
+        const SizedBox(height: 12),
+
+        // ── Divider with "or" ──────────────────────────────────────────
+        Row(
+          children: [
+            Expanded(
+              child: Divider(
+                color: isDark ? Colors.white12 : AppTheme.borderColor,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                'or',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark
+                      ? Colors.white38
+                      : AppTheme.textSecondary,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Divider(
+                color: isDark ? Colors.white12 : AppTheme.borderColor,
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        // ── Secondary: scan with camera ────────────────────────────────
+        GestureDetector(
+          onTap: _scanDoc,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.04)
+                  : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white12
+                    : AppTheme.borderColor,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(
+                    Icons.document_scanner_rounded,
+                    color: AppTheme.primaryColor,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Scan with Camera',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.87)
+                        : const Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color:
+                      isDark ? Colors.white38 : AppTheme.textSecondary,
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -536,11 +760,14 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
   }
 
   Widget _buildBottomBar(BuildContext context, bool isLoading, bool isDark) {
+    final canSave = _selectedFiles.isNotEmpty && !isLoading;
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkSurface : Colors.white,
-        border: Border(top: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.borderColor)),
+        border: Border(
+            top: BorderSide(
+                color: isDark ? AppTheme.darkBorder : AppTheme.borderColor)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -549,46 +776,80 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
           ),
         ],
       ),
-      child: SizedBox(
-        height: 52,
-        child: ElevatedButton(
-          onPressed: isLoading || _selectedFiles.isEmpty ? null : _saveDocument,
-          child: isLoading
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.cloud_done_rounded),
-                    const SizedBox(width: 8),
-                    const Text('Save to Vault'),
-                    if (_selectedFiles.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '${_selectedFiles.length}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                          ),
+      child: GestureDetector(
+        onTap: canSave ? _saveDocument : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 54,
+          decoration: BoxDecoration(
+            gradient: canSave ? AppTheme.primaryGradient : null,
+            color: canSave ? null : (isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: canSave
+                ? [
+                    BoxShadow(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.35),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: isLoading
+                ? const SizedBox(
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.cloud_done_rounded,
+                        color: canSave ? Colors.white : (isDark ? Colors.white38 : const Color(0xFF94A3B8)),
+                        size: 22,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        _selectedFiles.isEmpty
+                            ? 'Select files to continue'
+                            : 'Save to Vault',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                          color: canSave
+                              ? Colors.white
+                              : (isDark ? Colors.white38 : const Color(0xFF94A3B8)),
                         ),
                       ),
+                      if (_selectedFiles.isNotEmpty) ...[
+                        const SizedBox(width: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 9, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.22),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${_selectedFiles.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
+                  ),
           ),
         ),
+      ),
     );
   }
 
@@ -876,6 +1137,30 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
       }
     }
     return 'Shared / Individual / $memberName / $_selectedFolder';
+  }
+
+  IconData _categoryIcon(String cat) {
+    switch (cat) {
+      case 'Shared': return Icons.groups_rounded;
+      case 'Personal': return Icons.person_rounded;
+      case 'Private': return Icons.lock_rounded;
+      default: return Icons.folder_rounded;
+    }
+  }
+
+  Color _categoryColor(String cat) {
+    switch (cat) {
+      case 'Shared': return AppTheme.primaryColor;
+      case 'Personal': return const Color(0xFF8B5CF6);
+      case 'Private': return const Color(0xFFEF4444);
+      default: return AppTheme.primaryColor;
+    }
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    return name.isNotEmpty ? name[0].toUpperCase() : '?';
   }
 
   String _currentFolderSelection(List<String> folders) {

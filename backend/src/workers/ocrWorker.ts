@@ -71,7 +71,28 @@ export const startOcrWorker = (): Worker<OcrJobData> => {
                         documentId,
                         familyId: updatedDoc?.familyId,
                         classification: intel.classification,
-                        entities: intel.entities,
+                        entities: {
+                            person_name:         intel.entities.person_name,
+                            id_number:           intel.entities.id_number,
+                            policy_number:       intel.entities.policy_number,
+                            registration_number: intel.entities.registration_number,
+                            account_number:      intel.entities.account_number,
+                            issued_by:           intel.entities.issued_by,
+                            issue_date:          intel.entities.issue_date,
+                            expiry_date:         intel.entities.expiry_date,
+                            due_date:            intel.entities.due_date,
+                            amount:              intel.entities.amount,
+                            institution:         intel.entities.institution,
+                            address:             intel.entities.address,
+                            dob:                 intel.entities.dob,
+                            phone:               intel.entities.phone,
+                            purchase_date:       intel.entities.purchase_date,
+                            warranty_expiry_date:intel.entities.warranty_expiry_date,
+                            product_name:        intel.entities.product_name,
+                            seller_name:         intel.entities.seller_name,
+                            serial_number:       intel.entities.serial_number,
+                            warranty_years:      intel.entities.warranty_years,
+                        },
                         tags: intel.tags,
                         importance: intel.importance,
                         suggested_events: intel.suggested_events.map(e => ({ ...e, accepted: false })),
@@ -85,11 +106,15 @@ export const startOcrWorker = (): Worker<OcrJobData> => {
                 console.log(
                     `[OCR Worker] Intelligence saved for doc ${documentId} | ` +
                     `type=${intel.classification.doc_type} | ` +
-                    `confidence=${(intel.classification.confidence * 100).toFixed(0)}% | ` +
+                    `ai-confidence=${(intel.classification.confidence * 100).toFixed(0)}% | ` +
                     `tags=[${intel.tags.join(', ')}] | ` +
-                    `events=${intel.suggested_events.length} | ` +
-                    `needs_confirmation=${needsConfirmation}`
+                    `suggested_events=${intel.suggested_events.length} | ` +
+                    `entities: name=${intel.entities.person_name ?? '-'} ` +
+                    `expiry=${intel.entities.expiry_date?.toISOString?.().slice(0, 10) ?? '-'} ` +
+                    `id=${intel.entities.id_number ?? '-'}`
                 );
+            } else {
+                console.warn(`[OCR Worker] No intelligence payload for doc ${documentId} — Gemini may be unconfigured or failed`);
             }
 
             if (!updatedDoc) {

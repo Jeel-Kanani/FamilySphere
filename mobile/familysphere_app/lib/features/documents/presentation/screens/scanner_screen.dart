@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:familysphere_app/core/services/smart_ocr_service.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
@@ -62,7 +61,43 @@ class _ScannerScreenState extends State<ScannerScreen> {
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Smart Scanner'),
+        elevation: 0,
+        backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.backgroundColor,
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            const SizedBox(width: 16),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: AppTheme.primaryGradient,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: const Icon(Icons.document_scanner_rounded,
+                  color: Colors.white, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Smart Scanner',
+                    style: TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w800)),
+                Text(
+                  _imagePaths.isEmpty
+                      ? 'Capture or import pages'
+                      : '${_imagePaths.length} page${_imagePaths.length > 1 ? 's' : ''} ready',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white54 : AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
         actions: [
           if (_isAnalyzing)
             const Padding(
@@ -75,10 +110,21 @@ class _ScannerScreenState extends State<ScannerScreen> {
               ),
             ),
           if (_imagePaths.isNotEmpty)
-            IconButton(
-              onPressed: _isBusy ? null : _clearAll,
-              tooltip: 'Clear all',
-              icon: const Icon(Icons.delete_sweep_rounded),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: IconButton(
+                onPressed: _isBusy ? null : _clearAll,
+                tooltip: 'Clear all',
+                icon: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.delete_sweep_rounded,
+                      color: Colors.red, size: 18),
+                ),
+              ),
             ),
         ],
       ),
@@ -88,8 +134,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
               children: [
-                _buildTopHint(context),
-                const SizedBox(height: 12),
                 _buildPreview(context),
                 if (_imagePaths.isNotEmpty) ...[
                   const SizedBox(height: 12),
@@ -106,31 +150,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     );
   }
 
-  Widget _buildTopHint(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkSurface : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.borderColor),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.document_scanner_rounded),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              _imagePaths.isEmpty
-                  ? 'Capture pages clearly, then continue to upload.'
-                  : '${_imagePaths.length} page(s) captured',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // _buildTopHint removed — info is now embedded in AppBar subtitle and preview overlay
 
   Widget _buildPreview(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -297,21 +317,43 @@ class _ScannerScreenState extends State<ScannerScreen> {
           color: isDark ? const Color(0xFF0F172A) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: AppTheme.primaryColor.withValues(alpha: 0.3),
-          ),
+              color: AppTheme.primaryColor.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
-            const SizedBox(
-              width: 18, height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppTheme.primaryColor,
+              ),
             ),
             const SizedBox(width: 12),
-            Text(
-              'Analysing document…',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                color: isDark ? Colors.white70 : Colors.black54,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Analysing document…',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.87)
+                          : const Color(0xFF0F172A),
+                    ),
+                  ),
+                  Text(
+                    'On-device OCR running',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark
+                          ? Colors.white38
+                          : AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -319,86 +361,138 @@ class _ScannerScreenState extends State<ScannerScreen> {
       );
     }
 
-    // No result yet (e.g. first open before any capture)
     if (_ocrResult == null) return const SizedBox.shrink();
 
     final result = _ocrResult!;
     final hasIntel = result.hasIntelligence;
-    final accentColor = hasIntel
-        ? (result.needsReview ? Colors.orange : Colors.green)
-        : Colors.grey;
 
-    // Confidence badge colour
-    Color confidenceColor;
+    final Color confidenceColor;
+    final String confidenceLevel;
     if (result.confidence >= 0.75) {
-      confidenceColor = Colors.green;
+      confidenceColor = const Color(0xFF10B981);
+      confidenceLevel = 'High';
     } else if (result.confidence >= 0.5) {
-      confidenceColor = Colors.orange;
+      confidenceColor = const Color(0xFFF59E0B);
+      confidenceLevel = 'Medium';
     } else {
-      confidenceColor = Colors.red;
+      confidenceColor = const Color(0xFFEF4444);
+      confidenceLevel = 'Low';
     }
+
+    final cardBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+    final textP = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textS = isDark ? Colors.white54 : const Color(0xFF64748B);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 350),
       curve: Curves.easeOut,
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: accentColor.withValues(alpha: 0.4)),
+        color: cardBg,
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
-          if (!isDark)
-            BoxShadow(
-              color: accentColor.withValues(alpha: 0.08),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header row
-          Row(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(
-                hasIntel ? Icons.psychology_outlined : Icons.help_outline_rounded,
-                size: 18,
-                color: accentColor,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  hasIntel ? 'Smart Detection' : 'No match found',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.5,
-                    color: accentColor,
-                  ),
-                ),
-              ),
-              // Confidence badge
+              // Left accent strip
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                width: 4,
                 decoration: BoxDecoration(
-                  color: confidenceColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: confidenceColor.withValues(alpha: 0.4)),
-                ),
-                child: Text(
-                  '${(result.confidence * 100).toStringAsFixed(0)}% ${result.confidenceLabel}',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: confidenceColor,
+                  gradient: LinearGradient(
+                    colors: [
+                      confidenceColor,
+                      confidenceColor.withValues(alpha: 0.4)
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
                   ),
                 ),
               ),
-            ],
-          ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── Header ──────────────────────────────────────
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor
+                                  .withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              hasIntel
+                                  ? Icons.auto_awesome_rounded
+                                  : Icons.help_outline_rounded,
+                              size: 16,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              hasIntel
+                                  ? 'Smart Insight'
+                                  : 'No match found',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: textP,
+                              ),
+                            ),
+                          ),
+                          // Confidence pill
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: confidenceColor
+                                  .withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                  color: confidenceColor
+                                      .withValues(alpha: 0.4)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: confidenceColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  '$confidenceLevel  ${(result.confidence * 100).toStringAsFixed(0)}%',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: confidenceColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
 
-          if (hasIntel) ...[
+                      if (hasIntel) ...[
             const SizedBox(height: 12),
             // Doc type chip
             _detectionRow(
@@ -432,44 +526,48 @@ class _ScannerScreenState extends State<ScannerScreen> {
               ),
             ],
 
-            // Script detected
+            // Script + review hint
             const SizedBox(height: 10),
             Row(
               children: [
-                const Icon(Icons.translate_rounded, size: 12, color: Colors.grey),
+                Icon(Icons.translate_rounded, size: 12, color: textS),
                 const SizedBox(width: 4),
                 Text(
                   'Script: ${_scriptLabel(result.dominantScript)}',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 10,
-                    color: Colors.grey,
-                  ),
+                  style: TextStyle(fontSize: 10, color: textS),
                 ),
                 if (result.needsReview) ...[
                   const SizedBox(width: 12),
-                  const Icon(Icons.info_outline, size: 12, color: Colors.orange),
+                  const Icon(Icons.info_outline,
+                      size: 12, color: Colors.orange),
                   const SizedBox(width: 4),
                   Text(
                     'Review required on timeline',
-                    style: GoogleFonts.plusJakartaSans(
+                    style: TextStyle(
                       fontSize: 10,
-                      color: Colors.orange,
+                      color: Colors.orange.shade700,
                     ),
                   ),
                 ],
               ],
             ),
           ] else ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               'Ensure the document is well-lit and text is clearly visible.',
-              style: GoogleFonts.plusJakartaSans(
+              style: TextStyle(
                 fontSize: 12,
                 color: isDark ? Colors.white54 : Colors.black45,
               ),
             ),
           ],
-        ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -482,38 +580,49 @@ class _ScannerScreenState extends State<ScannerScreen> {
     required bool isDark,
     bool highlight = false,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 14, color: isDark ? Colors.white38 : Colors.black38),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label.toUpperCase(),
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                  color: isDark ? Colors.white38 : Colors.black38,
-                ),
-              ),
-              Text(
-                value,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: highlight
-                      ? Colors.red
-                      : (isDark ? Colors.white : Colors.black87),
-                ),
-              ),
-            ],
+    final textP = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textS = isDark ? Colors.white54 : const Color(0xFF64748B);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 0),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.04)
+            : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 14, color: AppTheme.primaryColor),
           ),
-        ),
-      ],
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: textS),
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: highlight ? const Color(0xFFEF4444) : textP,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -532,47 +641,146 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   Widget _buildBottomBar(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? AppTheme.darkSurface : Colors.white;
+    final borderTop = isDark ? AppTheme.darkBorder : AppTheme.borderColor;
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkSurface : Colors.white,
-        border: Border(top: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.borderColor)),
+        color: bg,
+        border: Border(top: BorderSide(color: borderTop)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          // ── Primary capture row ──────────────────────────────────────
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // Gallery icon button
+              _BottomIconAction(
+                icon: Icons.photo_library_outlined,
+                label: 'Gallery',
+                onTap: _isBusy ? null : _pickFromGallery,
+                isDark: isDark,
+              ),
+              const SizedBox(width: 14),
+              // Centre — main capture CTA
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _isBusy ? null : _pickFromGallery,
-                  icon: const Icon(Icons.photo_library_outlined),
-                  label: const Text('Gallery'),
+                child: GestureDetector(
+                  onTap: _isBusy ? null : _captureFromCamera,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    height: 54,
+                    decoration: BoxDecoration(
+                      gradient: _isBusy ? null : AppTheme.primaryGradient,
+                      color: _isBusy ? Colors.grey.shade400 : null,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: _isBusy
+                          ? null
+                          : [
+                              BoxShadow(
+                                color: AppTheme.primaryColor
+                                    .withValues(alpha: 0.35),
+                                blurRadius: 16,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                    ),
+                    child: Center(
+                      child: _isBusy
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.camera_alt_rounded,
+                                    color: Colors.white, size: 22),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Capture',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _isBusy ? null : _captureFromCamera,
-                  icon: _isBusy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.camera_alt_rounded),
-                  label: Text(_isBusy ? 'Capturing...' : 'Capture'),
-                ),
+              const SizedBox(width: 14),
+              // Files icon button
+              _BottomIconAction(
+                icon: Icons.attach_file_rounded,
+                label: 'Files',
+                onTap: _isBusy ? null : _pickFromGallery,
+                isDark: isDark,
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _imagePaths.isEmpty ? null : _continueFlow,
-              icon: const Icon(Icons.check_circle_outline_rounded),
-              label: Text(widget.returnOnly ? 'Use These Pages' : 'Use / Upload Pages'),
-            ),
+
+          // ── Continue button (shows only when pages are ready) ─────────
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            child: _imagePaths.isEmpty
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: GestureDetector(
+                      onTap: _continueFlow,
+                      child: Container(
+                        width: double.infinity,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981)
+                              .withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color(0xFF10B981)
+                                .withValues(alpha: 0.45),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.check_circle_outline_rounded,
+                              color: Color(0xFF10B981),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              widget.returnOnly
+                                  ? 'Use ${_imagePaths.length} Page${_imagePaths.length > 1 ? 's' : ''}'
+                                  : 'Continue with ${_imagePaths.length} Page${_imagePaths.length > 1 ? 's' : ''}',
+                              style: const TextStyle(
+                                color: Color(0xFF10B981),
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
           ),
         ],
       ),
@@ -678,44 +886,137 @@ class _ScannerScreenState extends State<ScannerScreen> {
       return;
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF0F172A) : Colors.white;
+    final textP = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textS = isDark ? Colors.white60 : const Color(0xFF64748B);
+
     showModalBottomSheet<void>(
       context: context,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.arrow_back_rounded),
-                  title: const Text('Return scanned pages'),
-                  subtitle: const Text('Use pages in previous screen'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.pop(this.context, pages);
-                  },
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetCtx) {
+        return Container(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 28,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 36),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag pill
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.black12,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                ListTile(
-                  leading: const Icon(Icons.upload_file_rounded),
-                  title: const Text('Upload to Vault'),
-                  subtitle: const Text('Open upload flow with these pages'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.pushReplacementNamed(
-                      this.context,
-                      AppRoutes.addDocument,
-                      arguments: {
-                        'paths': pages,
-                        'category': widget.initialCategory,
-                        'folder': widget.initialFolder,
-                        'memberId': widget.initialMemberId,
-                      },
-                    );
-                  },
+              ),
+
+              // Gradient header
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                      blurRadius: 14,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.photo_library_rounded,
+                          color: Colors.white, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${pages.length} page${pages.length > 1 ? 's' : ''} ready',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            'What would you like to do?',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              _ContinueOption(
+                icon: Icons.arrow_back_rounded,
+                title: 'Use in Previous Screen',
+                subtitle: 'Return these pages to the previous flow',
+                iconColor: AppTheme.primaryColor,
+                isDark: isDark,
+                textP: textP,
+                textS: textS,
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  Navigator.pop(this.context, pages);
+                },
+              ),
+
+              const SizedBox(height: 10),
+
+              _ContinueOption(
+                icon: Icons.cloud_upload_rounded,
+                title: 'Upload to Vault',
+                subtitle: 'Open the upload form with these scanned pages',
+                iconColor: const Color(0xFF10B981),
+                isDark: isDark,
+                textP: textP,
+                textS: textS,
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  Navigator.pushReplacementNamed(
+                    this.context,
+                    AppRoutes.addDocument,
+                    arguments: {
+                      'paths': pages,
+                      'category': widget.initialCategory,
+                      'folder': widget.initialFolder,
+                      'memberId': widget.initialMemberId,
+                    },
+                  );
+                },
+              ),
+            ],
           ),
         );
       },
@@ -724,6 +1025,147 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   void _showSnack(String text) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Bottom bar icon action button
+// ─────────────────────────────────────────────────────────────────────────────
+class _BottomIconAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final bool isDark;
+
+  const _BottomIconAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isDark
+        ? Colors.white.withValues(alpha: 0.07)
+        : const Color(0xFFF1F5F9);
+    final iconColor = onTap == null
+        ? (isDark ? Colors.white24 : Colors.black26)
+        : (isDark ? Colors.white70 : const Color(0xFF475569));
+    final labelColor = onTap == null
+        ? (isDark ? Colors.white24 : Colors.black26)
+        : (isDark ? Colors.white54 : const Color(0xFF64748B));
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white12
+                    : Colors.black.withValues(alpha: 0.06),
+              ),
+            ),
+            child: Icon(icon, color: iconColor, size: 22),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: labelColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Continue-flow option row
+// ─────────────────────────────────────────────────────────────────────────────
+class _ContinueOption extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color iconColor;
+  final bool isDark;
+  final Color textP;
+  final Color textS;
+  final VoidCallback onTap;
+
+  const _ContinueOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.iconColor,
+    required this.isDark,
+    required this.textP,
+    required this.textS,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
+    final border = isDark
+        ? Colors.white12
+        : Colors.black.withValues(alpha: 0.07);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: textP,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 12, color: textS),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: textS, size: 20),
+          ],
+        ),
+      ),
+    );
   }
 }
 

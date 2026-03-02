@@ -14,6 +14,7 @@ enum TimelineEventStatus {
   upcoming,
   completed,
   cancelled,
+  expired,
 }
 
 class TimelineEvent {
@@ -87,10 +88,11 @@ class TimelineEvent {
 
   static TimelineEventStatus _mapStatus(String status) {
     switch (status) {
-      case 'upcoming': return TimelineEventStatus.upcoming;
+      case 'upcoming':  return TimelineEventStatus.upcoming;
       case 'completed': return TimelineEventStatus.completed;
       case 'cancelled': return TimelineEventStatus.cancelled;
-      default: return TimelineEventStatus.upcoming;
+      case 'expired':   return TimelineEventStatus.expired;
+      default:          return TimelineEventStatus.upcoming;
     }
   }
 
