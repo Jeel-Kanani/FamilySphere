@@ -12,10 +12,11 @@ export class NotificationService {
      * Send a notification when OCR processing completes.
      */
     static async notifyOcrComplete(document: IDocument): Promise<void> {
-        const type = document.ocrStatus === 'done' ? 'analysis_complete' : 'analysis_failed';
+        let type: string;
         let message = '';
 
         if (document.ocrStatus === 'done') {
+            type = 'analysis_complete';
             if (document.dueDate || document.expiryDate) {
                 const date = document.dueDate || document.expiryDate;
                 const formattedDate = date ? new Date(date).toLocaleDateString() : '';
@@ -23,7 +24,12 @@ export class NotificationService {
             } else {
                 message = `AI analysis complete for "${document.title}". Document details updated.`;
             }
+        } else if (document.ocrStatus === 'needs_confirmation') {
+            type = 'needs_confirmation';
+            const detectedType = document.docType || 'unknown';
+            message = `AI is not sure about "${document.title}" (detected as ${detectedType}). Please confirm the document type.`;
         } else {
+            type = 'analysis_failed';
             message = `AI could not analyze "${document.title}", but your document is safely stored.`;
         }
 

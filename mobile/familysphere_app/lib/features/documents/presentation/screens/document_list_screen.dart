@@ -684,6 +684,25 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                           style: TextStyle(color: AppTheme.textTertiary, fontSize: 12)),
                     ],
                   ),
+                  if (doc.ocrStatus == 'needs_confirmation') ...[  
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFBEB),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.help_outline_rounded, size: 11, color: Color(0xFFD97706)),
+                          SizedBox(width: 4),
+                          Text('Needs Confirmation', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFFB45309))),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

@@ -5,6 +5,8 @@ import 'package:familysphere_app/core/utils/routes.dart';
 import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:familysphere_app/features/family/presentation/providers/family_provider.dart';
 import 'package:familysphere_app/features/documents/presentation/providers/document_provider.dart';
+import 'package:familysphere_app/features/documents/domain/entities/document_entity.dart';
+import 'package:familysphere_app/features/documents/presentation/widgets/confirm_type_banner.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -109,7 +111,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               _animatedSection(
                 index: 0,
                 child: _buildHeader(
-                    context, firstName, cardBg, border, textP, textS, isDark),
+                    context, firstName, cardBg, border, textP, textS, isDark,
+                    documentsState),
               ),
               const SizedBox(height: 28),
 
@@ -167,7 +170,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   //  0 · Header
   // ────────────────────────────────────────────────────────────
   Widget _buildHeader(BuildContext context, String firstName, Color cardBg,
-      Color border, Color textP, Color textS, bool isDark) {
+      Color border, Color textP, Color textS, bool isDark,
+      DocumentState documentsState) {
+    final pendingCount = documentsState.documents
+        .where((d) => d.ocrStatus == 'needs_confirmation')
+        .length;
     return Row(
       children: [
         // Gradient avatar
@@ -216,9 +223,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           cardBg: cardBg,
           border: border,
           textP: textP,
-          onTap: () {},
+          badgeCount: pendingCount,
+          onTap: () => _showNotificationPanel(
+            context,
+            documentsState.documents
+                .where((d) => d.ocrStatus == 'needs_confirmation')
+                .toList(),
+            isDark,
+          ),
         ),
       ],
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────
+  //  Notification Panel
+  // ────────────────────────────────────────────────────────────
+  void _showNotificationPanel(
+    BuildContext context,
+    List<DocumentEntity> pendingDocs,
+    bool isDark,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _NotificationPanel(
+        pendingDocs: pendingDocs,
+        isDark: isDark,
+        onAllConfirmed: () {
+          ref.read(documentProvider.notifier).loadDocuments();
+          Navigator.pop(context);
+        },
+      ),
     );
   }
 
@@ -741,6 +778,7 @@ class _HeaderIconButton extends StatelessWidget {
   final Color border;
   final Color textP;
   final VoidCallback onTap;
+  final int badgeCount;
 
   const _HeaderIconButton({
     required this.icon,
@@ -748,25 +786,54 @@ class _HeaderIconButton extends StatelessWidget {
     required this.border,
     required this.textP,
     required this.onTap,
+    this.badgeCount = 0,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: cardBg,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Material(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            onTap: onTap,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: border),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: border),
+              ),
+              child: Icon(icon, color: textP, size: 22),
+            ),
           ),
-          child: Icon(icon, color: textP, size: 22),
         ),
-      ),
+        if (badgeCount > 0)
+          Positioned(
+            top: -4,
+            right: -4,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Color(0xFFEF4444),
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+              child: Text(
+                '$badgeCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -975,6 +1042,333 @@ class _RecentDocTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+//  Notification Panel Bottom Sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _NotificationPanel extends ConsumerStatefulWidget {
+  final List<DocumentEntity> pendingDocs;
+  final bool isDark;
+  final VoidCallback onAllConfirmed;
+
+  const _NotificationPanel({
+    required this.pendingDocs,
+    required this.isDark,
+    required this.onAllConfirmed,
+  });
+
+  @override
+  ConsumerState<_NotificationPanel> createState() => _NotificationPanelState();
+}
+
+class _NotificationPanelState extends ConsumerState<_NotificationPanel> {
+  late List<DocumentEntity> _remaining;
+
+  @override
+  void initState() {
+    super.initState();
+    _remaining = List.from(widget.pendingDocs);
+  }
+
+  void _onDocConfirmed(String docId) {
+    setState(() => _remaining.removeWhere((d) => d.id == docId));
+    ref.read(documentProvider.notifier).loadDocuments();
+    if (_remaining.isEmpty) widget.onAllConfirmed();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final bg = isDark ? const Color(0xFF0F172A) : Colors.white;
+    final textP = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textS = isDark ? Colors.white60 : const Color(0xFF64748B);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
+      builder: (_, scrollCtrl) => Container(
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 24,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // ── Drag handle ───────────────────────────────────────────────
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white24 : Colors.black12,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Header ────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _remaining.isEmpty
+                          ? const Color(0xFF10B981).withValues(alpha: 0.12)
+                          : const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      _remaining.isEmpty
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.notifications_active_rounded,
+                      color: _remaining.isEmpty
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFFF59E0B),
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Notifications',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: textP,
+                          ),
+                        ),
+                        Text(
+                          _remaining.isEmpty
+                              ? 'All caught up!'
+                              : '${_remaining.length} item${_remaining.length > 1 ? 's' : ''} need your attention',
+                          style: TextStyle(fontSize: 12, color: textS),
+                        ),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.06),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.close_rounded, size: 18, color: textS),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 8),
+            Divider(color: isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.06)),
+
+            // ── Body ──────────────────────────────────────────────────────
+            Expanded(
+              child: _remaining.isEmpty
+                  ? _buildAllClearView(isDark, textP, textS)
+                  : ListView.builder(
+                      controller: scrollCtrl,
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                      itemCount: _remaining.length,
+                      itemBuilder: (_, i) {
+                        final doc = _remaining[i];
+                        return _DocConfirmCard(
+                          doc: doc,
+                          isDark: isDark,
+                          onConfirmed: () => _onDocConfirmed(doc.id),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAllClearView(bool isDark, Color textP, Color textS) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_circle_rounded,
+              color: Color(0xFF10B981),
+              size: 48,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'All documents confirmed!',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: textP,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'No pending actions right now.',
+            style: TextStyle(fontSize: 13, color: textS),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Single Document Confirmation Card inside the panel
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DocConfirmCard extends ConsumerWidget {
+  final DocumentEntity doc;
+  final bool isDark;
+  final VoidCallback onConfirmed;
+
+  const _DocConfirmCard({
+    required this.doc,
+    required this.isDark,
+    required this.onConfirmed,
+  });
+
+  static const _months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  String _fmtDate(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cardBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
+    final textP = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textS = isDark ? Colors.white60 : const Color(0xFF64748B);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Doc info header ─────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+            child: Row(
+              children: [
+                // File type icon
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.description_rounded,
+                    color: Color(0xFFD97706),
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        doc.title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: textP,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.folder_outlined, size: 12, color: textS),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              '${doc.category} › ${doc.folder}',
+                              style: TextStyle(fontSize: 11, color: textS),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        'Uploaded ${_fmtDate(doc.uploadedAt)}',
+                        style: TextStyle(fontSize: 10, color: textS.withValues(alpha: 0.7)),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5)),
+                  ),
+                  child: const Text(
+                    'Low Confidence',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFB45309),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Confirm banner ──────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+            child: ConfirmTypeBanner(
+              docId: doc.id,
+              aiDetectedType: doc.docType ?? '',
+              onConfirmed: onConfirmed,
+            ),
+          ),
+        ],
       ),
     );
   }

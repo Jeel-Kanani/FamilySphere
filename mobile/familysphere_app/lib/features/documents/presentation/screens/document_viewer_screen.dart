@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/features/documents/domain/entities/document_entity.dart';
 import 'package:familysphere_app/features/documents/presentation/providers/document_provider.dart';
+import 'package:familysphere_app/features/documents/presentation/widgets/confirm_type_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
@@ -205,6 +206,20 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
                 left: 0,
                 right: 0,
                 child: _buildPdfControls(),
+              ),
+            // Confirmation overlay when AI is uncertain about the document type
+            if (widget.document.ocrStatus == 'needs_confirmation')
+              Positioned(
+                top: kToolbarHeight + MediaQuery.of(context).padding.top + 8,
+                left: 0,
+                right: 0,
+                child: ConfirmTypeBanner(
+                  docId: widget.document.id,
+                  aiDetectedType: widget.document.docType ?? '',
+                  onConfirmed: () {
+                    ref.read(documentProvider.notifier).loadDocuments();
+                  },
+                ),
               ),
           ],
         ),

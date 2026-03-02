@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/core/providers/ocr_status_provider.dart';
+import 'package:familysphere_app/features/documents/presentation/widgets/confirm_type_banner.dart';
 
 /// Animated card that shows real-time OCR job progress.
 ///
@@ -46,8 +47,11 @@ class _OcrStatusBannerState extends ConsumerState<OcrStatusBanner>
   Widget build(BuildContext context) {
     final polling = ref.watch(ocrStatusProvider(widget.docId));
 
-    // Fire onDone once when finished
-    if (polling.result?.isFinished == true && !_calledDone) {
+    // Fire onDone automatically only for truly terminal states (done / failed).
+    // For needs_confirmation the user must interact with ConfirmTypeBanner first.
+    final autoFinished = polling.result?.isDone == true ||
+        polling.result?.isFailed == true;
+    if (autoFinished && !_calledDone) {
       _calledDone = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => widget.onDone?.call());
     }
@@ -136,6 +140,46 @@ class _OcrStatusBannerState extends ConsumerState<OcrStatusBanner>
                   const Color(0xFFE0F2FE),
                 ),
             ]),
+          ],
+        ),
+      );
+    }
+
+    // ── Needs Confirmation ────────────────────────────────────────────────────
+    if (result?.isNeedsConfirmation == true) {
+      return _shell(
+        key: const ValueKey('needs_confirmation'),
+        color: const Color(0xFFFFFBEB),
+        border: const Color(0xFFF59E0B),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              const Icon(Icons.help_outline_rounded, color: Color(0xFFD97706), size: 20),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'AI needs your confirmation',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF92400E),
+                  ),
+                ),
+              ),
+              _dismissButton(),
+            ]),
+            const SizedBox(height: 4),
+            Text(
+              'Confidence is low — please confirm the document type below.',
+              style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+            ),
+            const SizedBox(height: 10),
+            ConfirmTypeBanner(
+              docId: widget.docId,
+              aiDetectedType: result!.docType ?? 'unknown',
+              onConfirmed: widget.onDone,
+            ),
           ],
         ),
       );

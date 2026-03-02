@@ -18,12 +18,13 @@ class OcrStatusResult {
     this.amount,
   });
 
-  bool get isPending    => ocrStatus == 'pending';
-  bool get isProcessing => ocrStatus == 'processing';
-  bool get isDone       => ocrStatus == 'done';
-  bool get isFailed     => ocrStatus == 'failed';
-  bool get isFinished   => isDone || isFailed;
-  bool get isActive     => isPending || isProcessing;
+  bool get isPending           => ocrStatus == 'pending';
+  bool get isProcessing        => ocrStatus == 'processing';
+  bool get isDone              => ocrStatus == 'done';
+  bool get isFailed            => ocrStatus == 'failed';
+  bool get isNeedsConfirmation => ocrStatus == 'needs_confirmation';
+  bool get isFinished          => isDone || isFailed || isNeedsConfirmation;
+  bool get isActive            => isPending || isProcessing;
 
   factory OcrStatusResult.fromJson(Map<String, dynamic> json) {
     return OcrStatusResult(

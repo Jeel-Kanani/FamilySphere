@@ -20,8 +20,9 @@ class DocumentEntity {
   final DateTime? deletedAt;
 
   // Phase 6 – OCR queue tracking
-  final String? ocrStatus;  // 'pending' | 'processing' | 'done' | 'failed'
+  final String? ocrStatus;  // 'pending' | 'processing' | 'done' | 'failed' | 'needs_confirmation'
   final String? ocrJobId;
+  final String? docType;    // AI-detected document type (e.g. 'passport', 'electricity_bill')
 
   const DocumentEntity({
     required this.id,
@@ -42,6 +43,7 @@ class DocumentEntity {
     this.deletedAt,
     this.ocrStatus,
     this.ocrJobId,
+    this.docType,
   });
 
   /// Readable file size
@@ -66,10 +68,12 @@ class DocumentEntity {
     DateTime? uploadedAt,
     String? storagePath,
     bool? isOfflineAvailable,
-    String? localPath,    bool? deleted,
+    String? localPath,
+    bool? deleted,
     DateTime? deletedAt,
     String? ocrStatus,
     String? ocrJobId,
+    String? docType,
   }) {
     return DocumentEntity(
       id: id ?? this.id,
@@ -90,6 +94,7 @@ class DocumentEntity {
       ocrStatus: ocrStatus ?? this.ocrStatus,
       ocrJobId: ocrJobId ?? this.ocrJobId,
       deletedAt: deletedAt ?? this.deletedAt,
+      docType: docType ?? this.docType,
     );
   }
 }

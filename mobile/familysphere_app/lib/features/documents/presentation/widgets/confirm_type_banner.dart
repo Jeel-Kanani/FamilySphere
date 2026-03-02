@@ -30,7 +30,11 @@ class _ConfirmTypeBannerState extends ConsumerState<ConfirmTypeBanner> {
   @override
   void initState() {
     super.initState();
-    _selectedType = widget.aiDetectedType;
+    // Ensure the initial value is always a valid entry in the dropdown list.
+    // If AI returned an unknown/raw value, fall back to the first allowed type.
+    _selectedType = kAllowedDocTypes.contains(widget.aiDetectedType)
+        ? widget.aiDetectedType
+        : kAllowedDocTypes.first;
   }
 
   @override
