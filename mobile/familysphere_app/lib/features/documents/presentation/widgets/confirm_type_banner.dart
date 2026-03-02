@@ -107,7 +107,7 @@ class _ConfirmTypeBannerState extends ConsumerState<ConfirmTypeBanner> {
                 dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 style: TextStyle(
                   fontSize: 13,
-                  color: isDark ? Colors.white87 : Colors.grey.shade800,
+                  color: isDark ? Colors.white.withValues(alpha: 0.87) : Colors.grey.shade800,
                 ),
                 items: kAllowedDocTypes.map((type) {
                   return DropdownMenuItem<String>(

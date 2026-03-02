@@ -26,6 +26,7 @@ import 'package:familysphere_app/features/family/presentation/screens/join_famil
 import 'package:familysphere_app/features/family/presentation/screens/join_success_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/phone_login_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/otp_verification_screen.dart';
+import 'package:familysphere_app/features/documents/presentation/screens/admin_engine_dashboard.dart';
 
 /// Application Routes
 /// 
@@ -60,6 +61,7 @@ class AppRoutes {
   static const String memberDocs = '/member-docs';
   static const String privateLocker = '/private-locker';
   static const String compressPdf = '/compress-pdf';
+  static const String adminEngineDashboard = '/admin/engine-dashboard';
 
   // Route generator
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -209,6 +211,9 @@ class AppRoutes {
           builder: (_) => const CompressPdfScreen(),
           settings: settings,
         );
+
+      case adminEngineDashboard:
+        return MaterialPageRoute(builder: (_) => const AdminEngineDashboard());
 
       case folderDetails:
       case memberDocs:
