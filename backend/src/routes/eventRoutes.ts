@@ -1,5 +1,5 @@
 import express from 'express';
-import { getFutureEvents, getPastEvents, createManualEvent, updateEvent, dismissReview } from '../controllers/eventController';
+import { getFutureEvents, getPastEvents, createManualEvent, updateEvent, dismissReview, deleteEvent } from '../controllers/eventController';
 import { protect } from '../middleware/authMiddleware'; // Assuming standard auth middleware
 
 const router = express.Router();
@@ -16,5 +16,7 @@ router.post('/', createManualEvent);
 router.patch('/:id', updateEvent);
 // Dismiss a needsReview flag; optionally accept a user-corrected date
 router.patch('/:id/dismiss-review', dismissReview);
+// DELETE permanently removes an event
+router.delete('/:id', deleteEvent);
 
 export default router;

@@ -58,12 +58,12 @@ const runOcrDirectly = (docId: any, fileUrl: string, familyId: string) => {
         try {
             const ocrResult = await processDocumentOcr(fileUrl);
             await Document.findByIdAndUpdate(docId, {
-                rawText:       ocrResult.rawText,
-                docType:       ocrResult.docType,
-                expiryDate:    ocrResult.expiryDate,
-                dueDate:       ocrResult.dueDate,
-                amount:        ocrResult.amount,
-                ocrStatus:     'done',
+                rawText: ocrResult.rawText,
+                docType: ocrResult.docType,
+                expiryDate: ocrResult.expiryDate,
+                dueDate: ocrResult.dueDate,
+                amount: ocrResult.amount,
+                ocrStatus: 'done',
                 ocrConfidence: ocrResult.confidence,
             });
             const updatedDoc = await Document.findById(docId);
@@ -124,8 +124,8 @@ export const uploadDocument = async (req: Request, res: Response) => {
                     'ocr-job',
                     {
                         documentId: String(newDocument._id),
-                        fileUrl:    file.path,
-                        familyId:   String(familyId),
+                        fileUrl: file.path,
+                        familyId: String(familyId),
                     },
                     { jobId: `doc-${newDocument._id}` }
                 );
@@ -638,13 +638,13 @@ export const getOcrStatus = async (req: Request, res: Response) => {
         }
 
         res.status(200).json({
-            ocrStatus:     document.ocrStatus,
-            ocrJobId:      document.ocrJobId,
+            ocrStatus: document.ocrStatus,
+            ocrJobId: document.ocrJobId,
             ocrConfidence: document.ocrConfidence,
-            docType:       document.docType,
-            expiryDate:    document.expiryDate,
-            dueDate:       document.dueDate,
-            amount:        document.amount,
+            docType: document.docType,
+            expiryDate: document.expiryDate,
+            dueDate: document.dueDate,
+            amount: document.amount,
         });
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -807,7 +807,7 @@ export const confirmIntelligence = async (req: Request, res: Response) => {
 
         // ── Update classification if user corrected doc type ─────────────────
         if (doc_type) {
-            intelligence.classification.doc_type = doc_type;
+            intelligence.classification.document_type = doc_type;
         }
 
         intelligence.needs_confirmation = false;
@@ -831,20 +831,20 @@ export const confirmIntelligence = async (req: Request, res: Response) => {
                     const now = new Date();
                     const EventModel = Event;
                     await EventModel.create({
-                        familyId:          doc.familyId,
-                        userId:            doc.uploadedBy,
-                        title:             ev.title,
-                        startDate:         eventDate,
-                        type:              ev.event_type === 'expiry'     ? 'expiry'
-                                         : ev.event_type === 'payment'    ? 'bill_due'
-                                         : ev.event_type === 'milestone'  ? 'milestone'
-                                         : 'milestone',
-                        status:            eventDate < now ? 'expired' : 'upcoming',
-                        source:            'ai',
+                        familyId: doc.familyId,
+                        userId: doc.uploadedBy,
+                        title: ev.title,
+                        startDate: eventDate,
+                        type: ev.event_type === 'expiry' ? 'expiry'
+                            : ev.event_type === 'payment' ? 'bill_due'
+                                : ev.event_type === 'milestone' ? 'milestone'
+                                    : 'milestone',
+                        status: eventDate < now ? 'expired' : 'upcoming',
+                        source: 'ai',
                         relatedDocumentId: doc._id,
-                        description:       ev.reason || '',
-                        priority:          3,
-                        isUserModified:    false,
+                        description: ev.reason || '',
+                        priority: 3,
+                        isUserModified: false,
                     });
                 }
 
@@ -862,8 +862,8 @@ export const confirmIntelligence = async (req: Request, res: Response) => {
                 ocrStatus: 'done',
                 ...(doc_type ? { docType: doc_type } : {}),
                 ...(manual_entities?.expiry_date ? { expiryDate: new Date(manual_entities.expiry_date) } : {}),
-                ...(manual_entities?.due_date    ? { dueDate:    new Date(manual_entities.due_date)    } : {}),
-                ...(manual_entities?.amount      ? { amount:     manual_entities.amount                } : {}),
+                ...(manual_entities?.due_date ? { dueDate: new Date(manual_entities.due_date) } : {}),
+                ...(manual_entities?.amount ? { amount: manual_entities.amount } : {}),
             },
             { new: true }
         );
@@ -877,6 +877,51 @@ export const confirmIntelligence = async (req: Request, res: Response) => {
         });
     } catch (error: any) {
         console.error('[ConfirmIntel] Error:', error.message);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * Manually re-trigger OCR processing for a specific document.
+ * Useful if the initial job failed or if the user wants to re-scan.
+ */
+export const reprocessOcr = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const doc = await Document.findById(id);
+
+        if (!doc) {
+            return res.status(404).json({ message: 'Document not found' });
+        }
+
+        if (!appState.ocrQueueEnabled) {
+            return res.status(503).json({
+                message: 'OCR queue is not enabled. Redis connection required for background processing.'
+            });
+        }
+
+        // Reset status to pending
+        doc.ocrStatus = 'pending';
+        await doc.save();
+
+        // Dispatch job to BullMQ
+        await ocrQueue.add(
+            'ocr',
+            {
+                documentId: doc._id.toString(),
+                fileUrl: doc.fileUrl,
+                familyId: doc.familyId.toString(),
+            },
+            { removeOnComplete: true, removeOnFail: false }
+        );
+
+        res.status(200).json({
+            message: 'OCR reprocessing job queued successfully',
+            documentId: doc._id,
+            status: doc.ocrStatus
+        });
+    } catch (error: any) {
+        console.error('[ReprocessOcr] Error:', error.message);
         res.status(500).json({ message: error.message });
     }
 };

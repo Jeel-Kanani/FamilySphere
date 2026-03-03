@@ -52,18 +52,20 @@ export interface IDocumentIntelligence extends Document {
     familyId: mongoose.Types.ObjectId;
 
     classification: {
-        doc_type: string;
+        document_type: string;
         category: DocCategory;
+        subcategory?: string;
         confidence: number;            // 0.0 – 1.0
         reasoning: string;
     };
 
     entities: {
+        // Flattened for legacy/quick access
         person_name?: string;
-        id_number?: string;                 // Aadhaar / PAN / passport number
-        policy_number?: string;             // Insurance policy, vehicle RC
-        registration_number?: string;       // Vehicle / company reg
-        account_number?: string;            // Bank / loan account
+        id_number?: string;
+        policy_number?: string;
+        registration_number?: string;
+        account_number?: string;
         issued_by?: string;
         issue_date?: Date;
         expiry_date?: Date;
@@ -71,18 +73,29 @@ export interface IDocumentIntelligence extends Document {
         amount?: number;
         institution?: string;
         address?: string;
-        dob?: Date;                         // Date of birth
+        dob?: Date;
         phone?: string;
-        // Purchase / product fields
-        purchase_date?: Date;               // When item was bought
-        warranty_expiry_date?: Date;        // Calculated: purchase + warranty period
-        product_name?: string;              // Laptop, fridge, phone, etc.
-        seller_name?: string;               // Amazon, Flipkart, local store
-        serial_number?: string;             // Product serial / IMEI
-        warranty_years?: number;            // 1, 2, or 3 years from receipt
+        purchase_date?: Date;
+        warranty_expiry_date?: Date;
+        product_name?: string;
+        seller_name?: string;
+        serial_number?: string;
+        warranty_years?: number;
+
+        // Rich Plural Arrays (Future AI Bot Ready)
+        people: { name: string | null; role: string | null; confidence: number }[];
+        organizations: { name: string | null; type: string | null; confidence: number }[];
+        id_numbers: { value: string | null; type: string | null; confidence: number }[];
+        locations: { value: string | null; confidence: number }[];
+        financial_details?: {
+            amounts: { value: number | null; currency: string; confidence: number }[];
+            account_numbers: { value: string | null; confidence: number }[];
+        };
+        important_dates: { label: string | null; value: Date | null; confidence: number }[];
     };
 
-    tags: string[];                    // e.g. ["identity", "travel", "renewal-required"]
+    summary?: string;                  // Brief overview for AI Bot
+    tags: string[];                    // e.g. ["identity_critical", "financial_critical"]
 
     importance: {
         score: number;                 // 1–10
@@ -102,64 +115,103 @@ export interface IDocumentIntelligence extends Document {
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 const SuggestedEventSchema = new Schema({
-    title:      { type: String, required: true },
-    date:       { type: Date, required: true },
+    title: { type: String, required: true },
+    date: { type: Date, required: true },
     event_type: { type: String, enum: ['expiry', 'renewal', 'payment', 'follow_up', 'milestone'] },
-    reason:     { type: String },
-    accepted:   { type: Boolean, default: false },
+    reason: { type: String },
+    accepted: { type: Boolean, default: false },
 }, { _id: false });
 
 const DocumentIntelligenceSchema = new Schema(
     {
         documentId: { type: Schema.Types.ObjectId, ref: 'Document', required: true, unique: true },
-        familyId:   { type: Schema.Types.ObjectId, ref: 'Family', required: true },
+        familyId: { type: Schema.Types.ObjectId, ref: 'Family', required: true },
 
         classification: {
-            doc_type:   { type: String, default: 'Other' },
-            category:   { type: String, enum: DOC_CATEGORIES, default: 'Other' },
+            document_type: { type: String, default: 'Other' },
+            category: { type: String, enum: DOC_CATEGORIES, default: 'Other' },
+            subcategory: { type: String },
             confidence: { type: Number, default: 0 },
-            reasoning:  { type: String, default: '' },
+            reasoning: { type: String, default: '' },
         },
 
         entities: {
-            person_name:         { type: String },
-            id_number:           { type: String },
-            policy_number:       { type: String },
+            person_name: { type: String },
+            id_number: { type: String },
+            policy_number: { type: String },
             registration_number: { type: String },
-            account_number:      { type: String },
-            issued_by:           { type: String },
-            issue_date:          { type: Date },
-            expiry_date:         { type: Date },
-            due_date:            { type: Date },
-            amount:              { type: Number },
-            institution:         { type: String },
-            address:             { type: String },
-            dob:                 { type: Date },
-            phone:               { type: String },
-            purchase_date:       { type: Date },
-            warranty_expiry_date:{ type: Date },
-            product_name:        { type: String },
-            seller_name:         { type: String },
-            serial_number:       { type: String },
-            warranty_years:      { type: Number },
+            account_number: { type: String },
+            issued_by: { type: String },
+            issue_date: { type: Date },
+            expiry_date: { type: Date },
+            due_date: { type: Date },
+            amount: { type: Number },
+            institution: { type: String },
+            address: { type: String },
+            dob: { type: Date },
+            phone: { type: String },
+            purchase_date: { type: Date },
+            warranty_expiry_date: { type: Date },
+            product_name: { type: String },
+            seller_name: { type: String },
+            serial_number: { type: String },
+            warranty_years: { type: Number },
+
+            // Plural arrays
+            people: [{
+                name: { type: String },
+                role: { type: String },
+                confidence: { type: Number },
+            }],
+            organizations: [{
+                name: { type: String },
+                type: { type: String },
+                confidence: { type: Number },
+            }],
+            id_numbers: [{
+                value: { type: String },
+                type: { type: String },
+                confidence: { type: Number },
+            }],
+            locations: [{
+                value: { type: String },
+                confidence: { type: Number },
+            }],
+            financial_details: {
+                amounts: [{
+                    value: { type: Number },
+                    currency: { type: String, default: 'INR' },
+                    confidence: { type: Number },
+                }],
+                account_numbers: [{
+                    value: { type: String },
+                    confidence: { type: Number },
+                }],
+            },
+            important_dates: [{
+                label: { type: String },
+                value: { type: Date },
+                confidence: { type: Number },
+            }],
         },
 
+        summary: { type: String },
         tags: [{ type: String }],
 
         importance: {
-            score:                { type: Number, default: 5 },
-            criticality:          { type: String, enum: ['low', 'medium', 'high', 'critical'], default: 'medium' },
-            lifecycle_stage:      { type: String, default: 'active' },
-            renewal_window_days:  { type: Number },
+            score: { type: Number, default: 5 },
+            criticality: { type: String, enum: ['low', 'medium', 'high', 'critical'], default: 'medium' },
+            lifecycle_stage: { type: String, default: 'active' },
+            renewal_window_days: { type: Number },
         },
 
         suggested_events: [SuggestedEventSchema],
 
-        needs_confirmation:  { type: Boolean, default: false },
-        confirmation_tier:  { type: String, enum: ['auto', 'assist', 'unknown'], default: 'auto' },
-        ai_model:           { type: String, default: 'gemini-2.0-flash' },
-        analyzed_at:        { type: Date, default: Date.now },
-        raw_ai_response:    { type: String },
+        needs_confirmation: { type: Boolean, default: false },
+        confirmation_tier: { type: String, enum: ['auto', 'assist', 'unknown'], default: 'auto' },
+        ai_model: { type: String, default: 'gemini-2.0-flash' },
+        analyzed_at: { type: Date, default: Date.now },
+        raw_ai_response: { type: String },
     },
     { timestamps: true }
 );

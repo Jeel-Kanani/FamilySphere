@@ -10,6 +10,8 @@ import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:familysphere_app/features/documents/presentation/widgets/document_intelligence_card.dart';
+import 'package:familysphere_app/features/documents/presentation/widgets/ocr_status_banner.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:share_plus/share_plus.dart';
@@ -129,30 +131,37 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // Watch the live document list to get real-time status updates (like OCR completion)
+    final documents = ref.watch(documentProvider).documents;
+    final currentDoc = documents.firstWhere(
+      (d) => d.id == widget.document.id,
+      orElse: () => widget.document,
+    );
+
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkBackground : Colors.black,
       extendBodyBehindAppBar: true,
       appBar: _showControls ? AppBar(
         backgroundColor: Colors.black.withOpacity(0.7),
         title: Text(
-          widget.document.title,
+          currentDoc.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.share_rounded),
-            onPressed: _shareDocument,
+            onPressed: () => _shareDocument(currentDoc),
             tooltip: 'Share',
           ),
           IconButton(
             icon: const Icon(Icons.download_rounded),
-            onPressed: _downloadDocument,
+            onPressed: () => _downloadDocument(currentDoc),
             tooltip: 'Download',
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert_rounded),
-            onSelected: _handleMenuAction,
+            onSelected: (action) => _handleMenuAction(action, currentDoc),
             itemBuilder: (context) => [
               const PopupMenuItem(
                 value: 'info',
@@ -192,7 +201,7 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
         onTap: () => setState(() => _showControls = !_showControls),
         child: Stack(
           children: [
-            Positioned.fill(child: _buildDocumentView()),
+            Positioned.fill(child: _buildDocumentView(currentDoc)),
             if (_isLoading) 
               Container(
                 color: Colors.black54,
@@ -207,16 +216,32 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
                 right: 0,
                 child: _buildPdfControls(),
               ),
-            // Confirmation overlay when AI is uncertain about the document type
-            if (widget.document.ocrStatus == 'needs_confirmation')
+            // Confirmation overlay when AI is uncertain or has analyzed the document
+            if (currentDoc.ocrStatus == 'needs_confirmation' || currentDoc.ocrStatus == 'analyzed')
               Positioned(
                 top: kToolbarHeight + MediaQuery.of(context).padding.top + 8,
-                left: 0,
-                right: 0,
+                left: 12,
+                right: 12,
                 child: ConfirmTypeBanner(
-                  docId: widget.document.id,
-                  aiDetectedType: widget.document.docType ?? '',
+                  docId: currentDoc.id,
+                  aiDetectedType: currentDoc.docType ?? '',
                   onConfirmed: () {
+                    ref.read(documentProvider.notifier).loadDocuments();
+                  },
+                  onReviewInsights: () => _showInfoSheet(currentDoc),
+                ),
+              ),
+            
+            // Phase 6 – Real-time OCR status banner (only for pending/processing)
+            if (currentDoc.ocrStatus == 'pending' || currentDoc.ocrStatus == 'processing')
+              Positioned(
+                top: kToolbarHeight + MediaQuery.of(context).padding.top + 8,
+                left: 12,
+                right: 12,
+                child: OcrStatusBanner(
+                  docId: currentDoc.id,
+                  onDone: () {
+                    // Refresh document list to get latest metadata
                     ref.read(documentProvider.notifier).loadDocuments();
                   },
                 ),
@@ -227,7 +252,7 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
     );
   }
 
-  Widget _buildDocumentView() {
+  Widget _buildDocumentView(DocumentEntity currentDoc) {
     if (_error != null) {
       return Center(
         child: Column(
@@ -247,11 +272,11 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
 
     if (_isImage) {
       return PhotoView(
-        imageProvider: NetworkImage(widget.document.fileUrl),
+        imageProvider: NetworkImage(currentDoc.fileUrl),
         backgroundDecoration: const BoxDecoration(color: Colors.black),
         minScale: PhotoViewComputedScale.contained,
         maxScale: PhotoViewComputedScale.covered * 3,
-        heroAttributes: PhotoViewHeroAttributes(tag: widget.document.id),
+        heroAttributes: PhotoViewHeroAttributes(tag: currentDoc.id),
       );
     }
 
@@ -305,17 +330,17 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
     );
   }
 
-  Future<void> _shareDocument() async {
+  Future<void> _shareDocument(DocumentEntity currentDoc) async {
     try {
       if (_localPath != null) {
         await Share.shareXFiles(
           [XFile(_localPath!)],
-          text: widget.document.title,
+          text: currentDoc.title,
         );
       } else {
         await Share.share(
-          '${widget.document.title}\n${widget.document.fileUrl}',
-          subject: widget.document.title,
+          '${currentDoc.title}\n${currentDoc.fileUrl}',
+          subject: currentDoc.title,
         );
       }
     } catch (e) {
@@ -326,7 +351,7 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
     }
   }
 
-  Future<void> _downloadDocument() async {
+  Future<void> _downloadDocument(DocumentEntity currentDoc) async {
     try {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Download started...')),
@@ -336,7 +361,7 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
       if (_localPath != null) {
         // Copy to downloads directory
         final downloadsDir = await getApplicationDocumentsDirectory();
-        final fileName = widget.document.title;
+        final fileName = currentDoc.title;
         final newPath = '${downloadsDir.path}/$fileName';
         final file = File(_localPath!);
         await file.copy(newPath);
@@ -354,22 +379,22 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
     }
   }
 
-  void _handleMenuAction(String action) {
+  void _handleMenuAction(String action, DocumentEntity currentDoc) {
     switch (action) {
       case 'info':
-        _showInfoSheet();
+        _showInfoSheet(currentDoc);
         break;
       case 'rename':
-        _renameDocument();
+        _renameDocument(currentDoc);
         break;
       case 'delete':
-        _deleteDocument();
+        _deleteDocument(currentDoc);
         break;
     }
   }
 
-  Future<void> _renameDocument() async {
-    final controller = TextEditingController(text: widget.document.title);
+  Future<void> _renameDocument(DocumentEntity currentDoc) async {
+    final controller = TextEditingController(text: currentDoc.title);
     
     final newName = await showDialog<String>(
       context: context,
@@ -404,7 +429,7 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
     );
   }
 
-  Future<void> _deleteDocument() async {
+  Future<void> _deleteDocument(DocumentEntity currentDoc) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -429,7 +454,7 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
     if (confirmed != true || !mounted) return;
 
     try {
-      await ref.read(documentProvider.notifier).delete(widget.document);
+      await ref.read(documentProvider.notifier).delete(currentDoc);
       
       if (!mounted) return;
       Navigator.pop(context);
@@ -444,7 +469,7 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
     }
   }
 
-  void _showInfoSheet() {
+  void _showInfoSheet(DocumentEntity currentDoc) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -516,23 +541,28 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                _infoRow(Icons.title_rounded, 'Title', widget.document.title),
-                _infoRow(Icons.folder_outlined, 'Folder', widget.document.folder),
-                _infoRow(Icons.category_outlined, 'Category', widget.document.category),
+                _infoRow(Icons.title_rounded, 'Title', currentDoc.title),
+                _infoRow(Icons.folder_outlined, 'Folder', currentDoc.folder),
+                _infoRow(Icons.category_outlined, 'Category', currentDoc.category),
                 _infoRow(
                   Icons.calendar_today_outlined,
                   'Uploaded',
-                  DateFormat('MMM d, yyyy • hh:mm a').format(widget.document.uploadedAt),
+                  DateFormat('MMM d, yyyy • hh:mm a').format(currentDoc.uploadedAt),
                 ),
-                _infoRow(Icons.storage_rounded, 'Size', widget.document.fileSizeString),
-                _infoRow(Icons.insert_drive_file_outlined, 'Type', widget.document.fileType),
-                const SizedBox(height: 16),
+                _infoRow(Icons.storage_rounded, 'Size', currentDoc.fileSizeString),
+                _infoRow(Icons.insert_drive_file_outlined, 'Type', currentDoc.fileType),
+                const SizedBox(height: 24),
+                
+                // Smart Intelligence Card
+                DocumentIntelligenceCard(docId: currentDoc.id),
+                
+                const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () {
                       Navigator.pop(context);
-                      Clipboard.setData(ClipboardData(text: widget.document.fileUrl));
+                      Clipboard.setData(ClipboardData(text: currentDoc.fileUrl));
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('URL copied to clipboard')),
                       );

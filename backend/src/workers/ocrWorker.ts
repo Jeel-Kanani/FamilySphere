@@ -55,20 +55,20 @@ export const startOcrWorker = (): Worker<OcrJobData> => {
             const confidence = ocrResult.confidence;
             const tier: 'auto' | 'assist' | 'unknown' =
                 confidence >= 0.75 ? 'auto' :
-                confidence >= 0.40 ? 'assist' : 'unknown';
+                    confidence >= 0.40 ? 'assist' : 'unknown';
 
             // For Tier 3, fall back to 'Other' so we never store garbage classifications
-            const safeDocType = tier === 'unknown' ? 'Other' : ocrResult.docType;
+            const safeDocType = tier === 'unknown' ? 'Other' : (ocrResult.docType || 'Other');
 
             const updatedDoc = await Document.findByIdAndUpdate(
                 documentId,
                 {
                     rawText: ocrResult.rawText,
-                    docType: safeDocType,
-                    expiryDate: tier !== 'unknown' ? ocrResult.expiryDate : undefined,
-                    dueDate:    tier !== 'unknown' ? ocrResult.dueDate    : undefined,
-                    amount:     tier !== 'unknown' ? ocrResult.amount     : undefined,
-                    ocrStatus:  tier === 'auto' ? 'done' : 'needs_confirmation',
+                    docType: ocrResult.docType || 'Other',
+                    expiryDate: ocrResult.expiryDate,
+                    dueDate: ocrResult.dueDate,
+                    amount: ocrResult.amount,
+                    ocrStatus: tier === 'auto' ? 'done' : 'analyzed',
                     ocrConfidence: confidence,
                 },
                 { new: true }
@@ -82,39 +82,61 @@ export const startOcrWorker = (): Worker<OcrJobData> => {
             // ── Step 2b: Save DocumentIntelligence (smart metadata) ──────────
             if (ocrResult.intelligence) {
                 const intel = ocrResult.intelligence;
+
+                // Helper to get first item from array safely
+                const firstValue = (arr: any[]) => arr?.[0]?.value || null;
+                const firstName = (arr: any[]) => arr?.[0]?.name || null;
+                const firstAmount = (arr: any[]) => arr?.[0]?.value || null;
+                const findDate = (tag: string) => intel.entities.important_dates.find(d => d.label?.toLowerCase().includes(tag))?.value;
+
                 await DocumentIntelligence.findOneAndUpdate(
                     { documentId },
                     {
                         documentId,
                         familyId: updatedDoc?.familyId,
-                        classification: tier === 'unknown'
-                            ? { ...intel.classification, doc_type: 'Other', category: 'Other', confidence: intel.classification.confidence }
-                            : intel.classification,
-                        entities: {
-                            person_name:         intel.entities.person_name,
-                            id_number:           intel.entities.id_number,
-                            policy_number:       intel.entities.policy_number,
-                            registration_number: intel.entities.registration_number,
-                            account_number:      intel.entities.account_number,
-                            issued_by:           intel.entities.issued_by,
-                            issue_date:          intel.entities.issue_date,
-                            expiry_date:         intel.entities.expiry_date,
-                            due_date:            intel.entities.due_date,
-                            amount:              intel.entities.amount,
-                            institution:         intel.entities.institution,
-                            address:             intel.entities.address,
-                            dob:                 intel.entities.dob,
-                            phone:               intel.entities.phone,
-                            purchase_date:       intel.entities.purchase_date,
-                            warranty_expiry_date:intel.entities.warranty_expiry_date,
-                            product_name:        intel.entities.product_name,
-                            seller_name:         intel.entities.seller_name,
-                            serial_number:       intel.entities.serial_number,
-                            warranty_years:      intel.entities.warranty_years,
+                        classification: {
+                            document_type: intel.document_classification.document_type || 'Other',
+                            category: intel.document_classification.category || 'Other',
+                            subcategory: intel.document_classification.subcategory,
+                            confidence: intel.document_classification.confidence,
+                            reasoning: intel.document_classification.subcategory || ''
                         },
+                        entities: {
+                            // Flattened for legacy/quick access
+                            person_name: firstName(intel.entities.people),
+                            id_number: firstValue(intel.entities.id_numbers),
+                            policy_number: intel.entities.id_numbers.find(id => id.type?.toLowerCase().includes('policy'))?.value,
+                            registration_number: intel.entities.id_numbers.find(id => id.type?.toLowerCase().includes('reg'))?.value,
+                            account_number: firstValue(intel.entities.financial_details.account_numbers),
+                            issued_by: firstName(intel.entities.organizations),
+                            issue_date: findDate('issue'),
+                            expiry_date: findDate('expir'),
+                            due_date: findDate('due'),
+                            amount: firstAmount(intel.entities.financial_details.amounts),
+                            institution: firstName(intel.entities.organizations),
+                            address: firstValue(intel.entities.locations),
+                            dob: findDate('birth'),
+                            purchase_date: findDate('purchase'),
+                            warranty_expiry_date: findDate('warranty'),
+                            product_name: intel.document_classification.subcategory,
+                            seller_name: firstName(intel.entities.organizations),
+                            serial_number: intel.entities.id_numbers.find(id => id.type?.toLowerCase().includes('serial'))?.value,
+
+                            // Rich Plural Arrays (Persisted for future AI Bot)
+                            people: intel.entities.people,
+                            organizations: intel.entities.organizations,
+                            id_numbers: intel.entities.id_numbers,
+                            locations: intel.entities.locations,
+                            financial_details: intel.entities.financial_details,
+                            important_dates: intel.entities.important_dates.map(d => ({
+                                ...d,
+                                value: d.value ? new Date(d.value) : null
+                            }))
+                        },
+                        summary: intel.brief_summary,
                         tags: intel.tags,
                         importance: intel.importance,
-                        suggested_events: intel.suggested_events.map(e => ({ ...e, accepted: false })),
+                        suggested_events: intel.suggested_events.map(e => ({ ...e, accepted: false, reason: '' })),
                         needs_confirmation: tier !== 'auto',
                         confirmation_tier: tier,
                         ai_model: intel.ai_model,
@@ -125,13 +147,13 @@ export const startOcrWorker = (): Worker<OcrJobData> => {
                 );
                 console.log(
                     `[OCR Worker] Intelligence saved for doc ${documentId} | ` +
-                    `type=${intel.classification.doc_type} | ` +
-                    `ai-confidence=${(intel.classification.confidence * 100).toFixed(0)}% | ` +
+                    `type=${intel.document_classification.document_type} | ` +
+                    `ai-confidence=${(intel.document_classification.confidence * 100).toFixed(0)}% | ` +
                     `tags=[${intel.tags.join(', ')}] | ` +
                     `suggested_events=${intel.suggested_events.length} | ` +
-                    `entities: name=${intel.entities.person_name ?? '-'} ` +
-                    `expiry=${intel.entities.expiry_date?.toISOString?.().slice(0, 10) ?? '-'} ` +
-                    `id=${intel.entities.id_number ?? '-'}`
+                    `entities: name=${firstName(intel.entities.people) ?? '-'} ` +
+                    `expiry=${findDate('expir') ?? '-'} ` +
+                    `id=${firstValue(intel.entities.id_numbers) ?? '-'}`
                 );
             } else {
                 console.warn(`[OCR Worker] No intelligence payload for doc ${documentId} — Gemini may be unconfigured or failed`);
@@ -180,7 +202,7 @@ export const startOcrWorker = (): Worker<OcrJobData> => {
         },
         {
             connection: redisConnectionOptions,
-            concurrency: 3,
+            concurrency: process.env.OCR_CONCURRENCY ? parseInt(process.env.OCR_CONCURRENCY) : 3,
             // Stalled-job detection: if a worker crashes mid-job, reclaim after 30 s
             stalledInterval: 30_000,
             skipVersionCheck: true, // we use Redis 5.x intentionally on dev

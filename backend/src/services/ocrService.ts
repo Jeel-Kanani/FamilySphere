@@ -33,43 +33,50 @@ export interface OcrResult {
 }
 
 export interface SmartIntelligence {
-    classification: {
-        doc_type: string;
-        category: string;
+    document_classification: {
+        document_type: string | null;
+        category: string | null;
+        subcategory: string | null;
         confidence: number;
-        reasoning: string;
     };
     entities: {
-        person_name?: string;
-        id_number?: string;                 // Aadhaar / PAN / passport number
-        policy_number?: string;             // Insurance policy, vehicle RC
-        registration_number?: string;       // Vehicle / company reg
-        account_number?: string;            // Bank / loan account
-        issued_by?: string;
-        issue_date?: Date;
-        expiry_date?: Date;
-        due_date?: Date;
-        amount?: number;
-        institution?: string;
-        address?: string;
-        dob?: Date;                         // Date of birth from identity docs
-        phone?: string;
-        // Purchase / product fields
-        purchase_date?: Date;               // When item was bought
-        warranty_expiry_date?: Date;        // purchase date + warranty period
-        product_name?: string;              // Laptop, fridge, phone, etc.
-        seller_name?: string;               // Amazon, Flipkart, local store
-        serial_number?: string;             // Product serial / IMEI
-        warranty_years?: number;            // 1, 2, or 3 years
+        people: Array<{ name: string | null; role: string | null; confidence: number }>;
+        organizations: Array<{ name: string | null; type: string | null; confidence: number }>;
+        id_numbers: Array<{ value: string | null; type: string | null; confidence: number }>;
+        financial_details: {
+            amounts: Array<{ value: number; currency: string; confidence: number }>;
+            account_numbers: Array<{ value: string | null; confidence: number }>;
+        };
+        important_dates: Array<{ label: string | null; value: string | null; confidence: number }>;
+        locations: Array<{ value: string | null; confidence: number }>;
     };
+    document_flags: {
+        is_identity_document: boolean;
+        is_financial_document: boolean;
+        is_legal_document: boolean;
+        is_medical_document: boolean;
+        is_educational_document: boolean;
+        is_business_document: boolean;
+    };
+    risk_analysis: {
+        is_expired: boolean | null;
+        expires_within_6_months: boolean | null;
+        missing_critical_fields: string[];
+        risk_level: 'low' | 'medium' | 'high' | null;
+    };
+    brief_summary: string; // Brief natural language overview for future AI bot
     tags: string[];
     importance: {
         score: number;
-        criticality: 'low' | 'medium' | 'high' | 'critical';
-        lifecycle_stage: string;
-        renewal_window_days?: number;
+        criticality: 'low' | 'medium' | 'high';
     };
-    suggested_events: Omit<ISuggestedEvent, 'accepted'>[];
+    suggested_events: Array<{
+        title: string | null;
+        date: string | null;
+        event_type: 'expiry' | 'renewal' | 'payment' | 'milestone' | 'issue' | 'other';
+        confidence: number;
+    }>;
+    overall_confidence: number;
     ai_model: string;
     raw_ai_response: string;
 }
@@ -84,167 +91,147 @@ export const getGeminiClient = () => {
 
 // ── Smart prompt ──────────────────────────────────────────────────────────────
 
-const SMART_PROMPT = (text: string, uploadDate: string) => `You are a Smart Document Intelligence Engine for a family document management app used in India.
-Analyze the following OCR-extracted document text and return STRICT JSON only.
-No markdown. No explanation. No code fences. Just raw JSON.
+const SMART_PROMPT = (text: string, uploadDate: string) => `You are a Universal Smart Document Intelligence Engine for a secure family document management system used in India.
 
-TODAY's date (document upload date): ${uploadDate}
+STRICT RULES:
+1. Extract ONLY information clearly visible in the document.
+2. Do NOT guess, assume, or infer missing values.
+3. If a value is not explicitly visible, return null.
+4. Preserve numbers exactly as written.
+5. Indian date format is DD/MM/YYYY. Convert all dates to ISO format YYYY-MM-DD.
+6. Never swap day and month.
+7. If multiple dates exist, classify them correctly (issue, expiry, payment, event, etc.).
+8. If OCR quality seems unclear, reduce confidence scores.
+9. Return STRICT JSON ONLY.
+10. No explanations. No markdown. No extra text.
 
-IMPORTANT — Date format rules:
-- Indian documents use DD/MM/YYYY format (e.g. "23/08/2028" means 23rd August 2028)
-- You MUST output all dates as YYYY-MM-DD (ISO 8601)
-- Example: "23/08/2028" → "2028-08-23", "01/01/2025" → "2025-01-01"
-- Never swap day and month. DD comes first in Indian docs.
+TODAY_DATE: ${uploadDate}
 
-ALLOWED document types (pick the closest match):
-${ALLOWED_DOC_TYPES.join(', ')}
+Analyze the attached document image. 
+${text ? `Reference decrypted text if helpful: ${text.slice(0, 4000)}` : ''}
 
-ALLOWED categories: ${DOC_CATEGORIES.join(', ')}
+Return EXACT JSON in this structure:
 
-Return this EXACT JSON structure with no extra keys:
 {
-  "doc_type": "string from allowed types",
-  "category": "string from allowed categories",
-  "confidence": 0.0 to 1.0,
-  "reasoning": "one line explaining why you chose this type",
+  "document_classification": {
+    "document_type": null,
+    "category": null,
+    "subcategory": null,
+    "confidence": 0.0
+  },
+
   "entities": {
-    "person_name": "full name or null",
-    "id_number": "Aadhaar/PAN/Passport/License number or null",
-    "policy_number": "insurance policy number or vehicle RC or null",
-    "registration_number": "vehicle registration or company reg or null",
-    "account_number": "bank/loan account number or null",
-    "issued_by": "issuing authority or null",
-    "issue_date": "YYYY-MM-DD or null",
-    "expiry_date": "YYYY-MM-DD or null",
-    "due_date": "YYYY-MM-DD or null",
-    "amount": number or null,
-    "institution": "bank/org/seller name or null",
-    "address": "address or null",
-    "dob": "YYYY-MM-DD date of birth or null",
-    "phone": "phone number or null",
-    "purchase_date": "YYYY-MM-DD date of purchase for receipts/invoices or null",
-    "warranty_expiry_date": "YYYY-MM-DD warranty end date or null (calculate: purchase_date + warranty_years if explicit, else purchase_date + 1 year for electronics)",
-    "product_name": "specific item name, e.g. Dell Laptop, Samsung Galaxy S24, LG Refrigerator or null",
-    "seller_name": "retailer/seller, e.g. Amazon, Croma, Reliance Digital, local shop name or null",
-    "serial_number": "product serial number or IMEI or null",
-    "warranty_years": warranty duration as number (1, 2, or 3) or null
+    "people": [
+      { "name": null, "role": null, "confidence": 0.0 }
+    ],
+    "organizations": [
+      { "name": null, "type": null, "confidence": 0.0 }
+    ],
+    "id_numbers": [
+      { "value": null, "type": null, "confidence": 0.0 }
+    ],
+    "financial_details": {
+      "amounts": [
+        { "value": 0.0, "currency": "INR", "confidence": 0.0 }
+      ],
+      "account_numbers": [
+        { "value": null, "confidence": 0.0 }
+      ]
+    },
+    "important_dates": [
+      { "label": null, "value": "YYYY-MM-DD", "confidence": 0.0 }
+    ],
+    "locations": [
+      { "value": null, "confidence": 0.0 }
+    ]
   },
-  "tags": ["max 6 lowercase tags, e.g. purchase, electronics, warranty, food, dining, medical, identity, travel, renewal-required, government, financial-risk, expired"],
+
+  "document_insights": {
+    "purpose": "Brief description of document intent (e.g. This is a medical lab report from SRL Diagnostics showing lipid profile results for Jeel Kanani)",
+    "is_identity_document": false,
+    "is_financial_document": false,
+    "is_legal_document": false,
+    "is_medical_document": false,
+    "is_educational_document": false,
+    "is_business_document": false
+  },
+
+  "risk_analysis": {
+    "is_expired": null,
+    "expires_within_6_months": null,
+    "missing_critical_fields": [],
+    "risk_level": null
+  },
+
+  "tags": [],
+
   "importance": {
-    "score": 1 to 10,
-    "criticality": "low or medium or high or critical",
-    "lifecycle_stage": "active or expiring-soon or expired or pending or completed",
-    "renewal_window_days": number or null
+    "score": 1,
+    "criticality": "low"
   },
+
   "suggested_events": [
     {
-      "title": "short action-oriented event title",
+      "title": null,
       "date": "YYYY-MM-DD",
-      "event_type": "expiry or renewal or payment or follow_up or milestone",
-      "reason": "why this event matters to the user"
+      "event_type": "expiry/renewal/payment/milestone/issue/other",
+      "confidence": 0.0
     }
-  ]
+  ],
+
+  "brief_summary": "One sentence summary that includes key entities and purpose. Crucial for a future AI bot to find this document.",
+  "overall_confidence": 0.0
 }
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CRITICAL RULE: EVERY document MUST have AT LEAST 1 suggested_event.
-If you cannot find any date in the document, use TODAY (${uploadDate}) as the event date with event_type="milestone".
-NEVER return an empty suggested_events array.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRITICAL:
+- There MUST be at least 1 object inside suggested_events.
+- If no valid date is found in the document, create a milestone event using TODAY_DATE.
+- All confidence values must be between 0.0 and 1.0.
+- Mark sensitive documents tags as: "identity_critical", "financial_critical", or "general".
+`;
 
-Event generation rules by document type:
-
-PURCHASE RECEIPTS / INVOICES / SHOPPING BILLS (laptop, phone, fridge, TV, AC, appliances, clothes, food, etc.):
-  → ALWAYS add "X Purchased" milestone on purchase_date (or issue_date or today)
-  → For electronics/appliances: add warranty expiry event (purchase_date + warranty_years, default 1 year for electronics if not specified)
-  → For restaurants/food bills: add "Dining at X" milestone on bill date
-  → For online shopping: add "Order Delivered" milestone on delivery/invoice date
-  → For grocery: add "Grocery Shopping" milestone on bill date
-
-IDENTITY DOCUMENTS (Aadhaar, PAN, Voter ID):
-  → Add "Document Registered" milestone on issue_date if present
-  → NO expiry events for permanent identity docs
-  → Add DOB as "Birthday" milestone if dob is present and not already in family
-
-EXPIRING DOCUMENTS (Passport, Driving License, Vehicle Insurance, Vehicle RC, Pollution Certificate):
-  → Add expiry event on expiry_date (even if past)
-  → Add renewal reminder: expiry_date minus renewal_window_days (Passport=180, License/Insurance/RC=60, Pollution=30)
-  → Add "Document Issued" milestone on issue_date
-
-INSURANCE (health, life, vehicle, home):
-  → Add "Premium Due" payment event on due_date or annually calculated date
-  → Add expiry/renewal events
-  → Add "Policy Taken" milestone on issue_date
-
-BILLS (electricity, water, gas, internet, mobile, maintenance):
-  → Add "Bill Due" payment event on due_date
-  → Add "Bill Received" milestone on issue_date
-  → If no due_date but issue_date exists: set due_date = issue_date + 15 days
-
-SALARY SLIPS:
-  → Add "Salary Credited" milestone on issue_date (the month/date on the slip)
-
-BANK STATEMENTS:
-  → Add "Statement Period" milestone on issue_date or statement end date
-
-TAX RETURNS (ITR):
-  → Add "Tax Filed" milestone on filing date or issue_date
-  → Add "Assessment Year Due" follow_up for next July 31st
-
-LOAN AGREEMENTS:
-  → Add "Loan Disbursed" milestone on issue_date
-  → Add "EMI Due" payment event on next EMI date if mentioned
-  → Add "Loan Closure" milestone on final payment date if mentioned
-
-RENT AGREEMENTS:
-  → Add "Agreement Started" milestone on start/issue date
-  → Add "Agreement Expires" expiry event on end date
-  → Add "Rent Due" milestone for 1st of next month if monthly rent is mentioned
-
-MEDICAL (prescriptions, lab reports, discharge summaries, vaccination records):
-  → Prescription: add "Prescription Issued" milestone on date + "Medicine Refill" follow_up in 30 days if chronic medication
-  → Lab Report: add "Test Completed" milestone on test date + "Doctor Consultation" follow_up in 7 days
-  → Vaccination: add "Vaccinated" milestone on vaccination date + "Next Dose Due" follow_up if schedule mentioned
-  → Discharge Summary: add "Discharged" milestone on discharge date + "Follow-up Visit" follow_up in 14 days
-
-ACADEMIC (marksheets, degrees, admission letters, fee receipts):
-  → Marksheet/Degree: add "Result Published" or "Degree Awarded" milestone on issue_date
-  → Admission Letter: add "Admission" milestone + "Semester Start" follow_up
-  → Fee Receipt: add "Fee Paid" milestone on payment date
-
-EMPLOYMENT (offer letters, appointment letters, experience letters, relieving):
-  → Offer Letter: add "Job Offer Received" milestone on issue_date + "Joining Date" milestone on joining date
-  → Appointment Letter: add "Employment Started" milestone on joining date  
-  → Experience/Relieving Letter: add "Employment Ended" milestone on last working day
-
-PROPERTY (deeds, rent agreements, NOC, affidavits):
-  → Add "Document Created" milestone on issue/registration date
-  → Rent Agreement: add start + expiry + monthly rent milestone
-
-VEHICLE:
-  → RC: add "Vehicle Registered" milestone on issue_date + registration expiry event
-  → Pollution Certificate: add issue milestone + expiry (valid 1-2 years from issue)
-  → Vehicle Insurance: add "Insurance Active" milestone + expiry + renewal reminder
-
-ANY DOCUMENT (absolute fallback — use this if no other rule matches):
-  → Add "[Document Title] Added" milestone using today's date (${uploadDate})
-  → This guarantees every document appears on the timeline
-
-DO NOT skip events because the date is in the past — past events show document history on the timeline.
-DO NOT add events with null dates.
-Maximum 4 events per document.
-
-Indian document hints:
-- Aadhaar: 12-digit number, "आधार" in Hindi
-- PAN: 10 char like ABCDE1234F
-- Passport: starts with letter, 10 year validity from issue date
-- Electronics receipts: look for model number, IMEI, serial no, invoice no
-- Bill amounts: ₹, Rs., INR prefix
-
-Document text (first 6000 chars):
-${cleanOcrText(text).slice(0, 6000)}`;
 
 // ── Clean OCR artifacts before sending to AI ─────────────────────────────────
+
+// ── Image Resizing with sharp ───────────────────────────────────────────────
+/**
+ * Resizes an image to a maximum dimension (width or height) of 1600px.
+ * This reduces upload/cloud costs and improves processing speed while
+ * maintaining enough detail for AI vision.
+ */
+async function resizeImage(buffer: Buffer, maxDim = 1600): Promise<Buffer> {
+    try {
+        const metadata = await sharp(buffer).metadata();
+        if (!metadata.width || !metadata.height) return buffer;
+
+        if (metadata.width <= maxDim && metadata.height <= maxDim) {
+            // Still normalize format — convert HEIC/TIFF to JPEG for Gemini compatibility
+            // but keep PNG as PNG to preserve transparency if needed
+            const format = metadata.format;
+            if (format === 'png') {
+                return await sharp(buffer).png({ quality: 90 }).toBuffer();
+            }
+            return await sharp(buffer).jpeg({ quality: 90 }).toBuffer();
+        }
+
+        console.log(`[OCR] Resizing image from ${metadata.width}x${metadata.height} to max ${maxDim}px`);
+
+        const pipeline = sharp(buffer)
+            .resize(maxDim, maxDim, {
+                fit: 'inside',
+                withoutEnlargement: true
+            });
+
+        // Preserve PNG format, convert everything else to JPEG
+        if (metadata.format === 'png') {
+            return await pipeline.png({ quality: 90 }).toBuffer();
+        }
+        return await pipeline.jpeg({ quality: 90 }).toBuffer();
+    } catch (err: any) {
+        console.warn(`[OCR] Resizing failed, using original: ${err.message}`);
+        return buffer;
+    }
+}
 
 function cleanOcrText(raw: string): string {
     return raw
@@ -284,7 +271,7 @@ const downloadToBuffer = (url: string): Promise<Buffer> =>
 const transformUrlForOcr = (fileUrl: string, page = 1): string => {
     const lower = fileUrl.toLowerCase();
     if (lower.includes('.pdf') && fileUrl.includes('/upload/')) {
-        // q_100 = max quality, w_2480 = A4 at 300dpi, sharpen for Tesseract
+        // q_100 = max quality, w_2480 = A4 at 300dpi, sharpen for OCR
         return fileUrl.replace('/upload/', `/upload/f_jpg,pg_${page},q_100,w_2480,e_sharpen:100/`);
     }
     // For images: upscale small images and sharpen
@@ -335,145 +322,297 @@ export function detectFileNature(
 
     return 'unknown';
 }
+
+/**
+ * Phase 6 - Direct Vision Extraction
+ * Sends image bytes directly to Gemini 1.5 Flash.
+ * This skips local OCR entirely and gets the final JSON in one pass.
+ */
+export const extractWithGeminiVision = async (
+    client: GoogleGenerativeAI,
+    imageBuffer: Buffer,
+    uploadDate: string
+): Promise<SmartIntelligence | null> => {
+    // Detect mimeType from magic bytes
+    let mimeType = 'image/jpeg';
+    if (imageBuffer.length > 4) {
+        const sig = imageBuffer.subarray(0, 4);
+        if (sig[0] === 0x89 && sig[1] === 0x50 && sig[2] === 0x4E && sig[3] === 0x47) mimeType = 'image/png';
+        else if (sig[0] === 0x47 && sig[1] === 0x49 && sig[2] === 0x46 && sig[3] === 0x38) mimeType = 'image/gif';
+        else if (sig[0] === 0x52 && sig[1] === 0x49 && sig[2] === 0x46 && sig[3] === 0x46) mimeType = 'image/webp';
+    }
+    const models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+
+    for (const modelName of models) {
+        try {
+            const model = client.getGenerativeModel({
+                model: modelName,
+                generationConfig: { temperature: 0.1, topP: 0.8, maxOutputTokens: 4096 },
+            });
+
+            // Convert buffer to base64 for Gemini vision
+            const imagePart = {
+                inlineData: {
+                    data: imageBuffer.toString('base64'),
+                    mimeType
+                }
+            };
+
+            console.log(`[OCR-Vision] Sending ${(imageBuffer.length / 1024).toFixed(0)}KB ${mimeType} to ${modelName}`);
+            const result = await model.generateContent([SMART_PROMPT('', uploadDate), imagePart]);
+            const responseText = result.response.text().trim();
+            console.log(`[OCR-Vision] ${modelName} responded (${responseText.length} chars)`);
+
+            const parsed = parseGeminiResponse(responseText, modelName);
+            if (parsed) return parsed;
+            console.warn(`[OCR-Vision] ${modelName} response could not be parsed`);
+        } catch (err: any) {
+            console.error(`[OCR-Vision] ${modelName} FAILED: ${err.message}`);
+        }
+    }
+    return null;
+};
+
+/** Shared parser for Gemini JSON responses */
+function parseGeminiResponse(responseText: string, modelName: string): SmartIntelligence | null {
+    const cleaned = responseText
+        .replace(/^```json?\s*/i, '')
+        .replace(/```\s*$/i, '')
+        .trim();
+
+    let parsed: any;
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    try {
+        parsed = JSON.parse(jsonMatch ? jsonMatch[0] : cleaned);
+    } catch (parseErr: any) {
+        console.warn(`[OCR] ${modelName} non-JSON response:`, responseText.slice(0, 300));
+        return null;
+    }
+
+    // Map user-requested structure to our SmartIntelligence interface
+    // (In this case, the interface matches the requested structure exactly)
+
+    const suggested_events = (parsed.suggested_events || [])
+        .map((e: any) => ({
+            title: String(e.title || ''),
+            date: parseGeminiDate(e.date),
+            event_type: ['expiry', 'renewal', 'payment', 'milestone', 'issue', 'other'].includes(e.event_type)
+                ? e.event_type : 'milestone',
+            confidence: typeof e.confidence === 'number' ? e.confidence : 0.5,
+        }))
+        .filter((e: any) => e.date instanceof Date && !isNaN(e.date.getTime()) && e.title);
+
+    return {
+        document_classification: {
+            document_type: parsed.document_classification?.document_type || 'Other',
+            category: parsed.document_classification?.category || 'Other',
+            subcategory: parsed.document_classification?.subcategory || null,
+            confidence: typeof parsed.document_classification?.confidence === 'number'
+                ? parsed.document_classification.confidence : 0.5,
+        },
+        entities: {
+            people: Array.isArray(parsed.entities?.people) ? parsed.entities.people : [],
+            organizations: Array.isArray(parsed.entities?.organizations) ? parsed.entities.organizations : [],
+            id_numbers: Array.isArray(parsed.entities?.id_numbers) ? parsed.entities.id_numbers : [],
+            financial_details: {
+                amounts: Array.isArray(parsed.entities?.financial_details?.amounts)
+                    ? parsed.entities.financial_details.amounts : [],
+                account_numbers: Array.isArray(parsed.entities?.financial_details?.account_numbers)
+                    ? parsed.entities.financial_details.account_numbers : [],
+            },
+            important_dates: Array.isArray(parsed.entities?.important_dates) ? parsed.entities.important_dates : [],
+            locations: Array.isArray(parsed.entities?.locations) ? parsed.entities.locations : [],
+        },
+        document_flags: {
+            is_identity_document: !!(parsed.document_insights?.is_identity_document || parsed.document_flags?.is_identity_document),
+            is_financial_document: !!(parsed.document_insights?.is_financial_document || parsed.document_flags?.is_financial_document),
+            is_legal_document: !!(parsed.document_insights?.is_legal_document || parsed.document_flags?.is_legal_document),
+            is_medical_document: !!(parsed.document_insights?.is_medical_document || parsed.document_flags?.is_medical_document),
+            is_educational_document: !!(parsed.document_insights?.is_educational_document || parsed.document_flags?.is_educational_document),
+            is_business_document: !!(parsed.document_insights?.is_business_document || parsed.document_flags?.is_business_document),
+        },
+        risk_analysis: {
+            is_expired: parsed.risk_analysis?.is_expired ?? null,
+            expires_within_6_months: parsed.risk_analysis?.expires_within_6_months ?? null,
+            missing_critical_fields: Array.isArray(parsed.risk_analysis?.missing_critical_fields)
+                ? parsed.risk_analysis.missing_critical_fields : [],
+            risk_level: ['low', 'medium', 'high'].includes(parsed.risk_analysis?.risk_level)
+                ? parsed.risk_analysis.risk_level : null,
+        },
+        brief_summary: String(parsed.brief_summary || parsed.document_insights?.purpose || 'No summary available'),
+        tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+        importance: {
+            score: typeof parsed.importance?.score === 'number' ? parsed.importance.score : 5,
+            criticality: ['low', 'medium', 'high'].includes(parsed.importance?.criticality)
+                ? parsed.importance.criticality : 'medium',
+        },
+        suggested_events: suggested_events.map((e: any) => ({
+            ...e,
+            date: e.date.toISOString().split('T')[0] // Convert back to string for the interface
+        })),
+        overall_confidence: typeof parsed.overall_confidence === 'number' ? parsed.overall_confidence : 0.5,
+        ai_model: modelName,
+        raw_ai_response: responseText,
+    };
+}
+
 //  Main entry point ────────────────────────────────────────────────────────────
 
 export const processDocumentOcr = async (fileUrl: string): Promise<OcrResult> => {
     try {
         const isPdf = fileUrl.toLowerCase().includes('.pdf');
+        const uploadDate = new Date().toISOString().slice(0, 10);
+        const gemini = getGeminiClient();
 
-        // ── Step 1: Download + Preprocess image ─────────────────────────────
-        const { text, ocrConfidence, rawBuffer } = await extractTextFromUrl(fileUrl, 1);
+        // ── Step 1: Download & Initial Resize ────────────────────────────────
+        const ocrUrl = transformUrlForOcr(fileUrl, 1);
+        const rawBuffer = await downloadToBuffer(ocrUrl);
+        const resizedBuffer = await resizeImage(rawBuffer);
 
         // ── Detect file nature from magic bytes + URL ──────────────────────
-        const fileNature = rawBuffer
-            ? detectFileNature(rawBuffer, text.trim().length, fileUrl)
-            : (isPdf ? 'scanned_pdf' : 'image');
+        // We pass 0 as text length because we haven't run OCR yet
+        const fileNature = detectFileNature(resizedBuffer, 0, fileUrl);
         console.log(`[OCR] File nature: ${fileNature} | url=${fileUrl.slice(-50)}`);
 
-        // For PDFs: if page 1 gave too little, try page 2 and merge
-        let finalText = text;
-        if (isPdf && text.trim().length < 200) {
-            console.log('[OCR] Page 1 sparse — attempting page 2 extraction');
+        // ── Step 2: STRATEGY A - Direct Gemini Vision (FASTEST) ──────────────
+        // If it's an image or scanned PDF and we have Gemini, go direct.
+        if (gemini && (fileNature === 'image' || fileNature === 'scanned_pdf' || fileNature === 'unknown')) {
+            console.log(`[OCR] Strategy A: Direct Gemini Vision | buffer=${resizedBuffer.length} bytes`);
             try {
-                const page2 = await extractTextFromUrl(fileUrl, 2);
-                if (page2.text.trim().length > text.trim().length) {
-                    finalText = `${text}\n---PAGE2---\n${page2.text}`;
-                    console.log(`[OCR] Page 2 added ${page2.text.trim().length} extra chars`);
+                const smartResult = await extractWithGeminiVision(gemini, resizedBuffer, uploadDate);
+                if (smartResult) {
+                    console.log(`[OCR] ✓ Strategy A succeeded | type=${smartResult.document_classification.document_type} | confidence=${(smartResult.overall_confidence * 100).toFixed(0)}%`);
+                    return finalizeOcrResult(smartResult, '', smartResult.overall_confidence, fileNature);
                 }
+                console.warn('[OCR] Strategy A returned null — Gemini gave no usable response');
+            } catch (err: any) {
+                console.warn(`[OCR] Strategy A failed: ${err.message}`);
+            }
+        } else {
+            console.log(`[OCR] Skipping Strategy A: gemini=${!!gemini}, fileNature=${fileNature}`);
+        }
+
+        // ── Step 3: STRATEGY B - Tesseract + Gemini (Fallback) ────────────────
+        console.log('[OCR] Strategy B: Local Tesseract OCR extraction fallback');
+        const { text: ocrText, ocrConfidence } = await runTesseractOnBuffer(resizedBuffer);
+
+        let finalText = ocrText;
+        if (isPdf && ocrText.trim().length < 200) {
+            console.log('[OCR] Page 1 sparse — attempting page 2 for Strategy B');
+            try {
+                // For page 2, we just use the old helper which does its own download/resize
+                const page2 = await extractTextFromUrl(fileUrl, 2);
+                finalText = `${ocrText}\n---PAGE2---\n${page2.text}`;
             } catch { /* page 2 optional */ }
         }
 
-        if (!finalText || finalText.trim().length < 10) {
-            console.warn(`[OCR] Too little text extracted — possible blank/unreadable scan. Confidence: ${ocrConfidence}`);
-            return { rawText: finalText || '', docType: 'unknown', confidence: 0, extractionTrace: {}, fileNature };
-        }
-
-        console.log(`[OCR] Extracted ${finalText.trim().length} chars total | Tesseract confidence: ${ocrConfidence.toFixed(1)}`);
-
-        // ── Step 2: Smart Gemini AI extraction ──────────────────────────────
-        const gemini = getGeminiClient();
-        if (gemini) {
+        if (gemini && finalText.trim().length > 10) {
             try {
-                const uploadDate = new Date().toISOString().slice(0, 10);
                 const smartResult = await extractWithSmartGemini(gemini, finalText, uploadDate);
                 if (smartResult) {
-                    const baseConfidence = ocrConfidence / 100;
-                    const boostedConfidence = Math.min(
-                        Math.max(baseConfidence + (smartResult.classification.confidence > 0.8 ? 0.2 : 0.1), 0),
-                        1
-                    );
-                    console.log(
-                        `[OCR] Gemini analysis complete | type=${smartResult.classification.doc_type} ` +
-                        `| ai-confidence=${(smartResult.classification.confidence * 100).toFixed(0)}% ` +
-                        `| events=${smartResult.suggested_events.length}`
-                    );
-                    return {
-                        rawText: finalText,
-                        docType: smartResult.classification.doc_type,
-                        expiryDate: smartResult.entities.expiry_date,
-                        dueDate: smartResult.entities.due_date,
-                        amount: smartResult.entities.amount,
-                        confidence: boostedConfidence,
-                        extractionTrace: {
-                            docType: {
-                                method: 'ai',
-                                matchedPattern: 'gemini-2.0-flash',
-                                rawSnippet: smartResult.classification.reasoning,
-                            },
-                            date: smartResult.entities.expiry_date
-                                ? { method: 'ai', matchedPattern: 'gemini-2.0-flash', rawSnippet: String(smartResult.entities.expiry_date) }
-                                : undefined,
-                            amount: smartResult.entities.amount !== undefined
-                                ? { method: 'ai', matchedPattern: 'gemini-2.0-flash', rawSnippet: String(smartResult.entities.amount) }
-                                : undefined,
-                        },
-                        intelligence: smartResult,
-                        fileNature,
-                    };
+                    return finalizeOcrResult(smartResult, finalText, ocrConfidence / 100, fileNature);
                 }
-            } catch (aiErr: any) {
-                console.warn('[OCR] Gemini analysis failed, falling back to regex:', aiErr.message);
-            }
-        } else {
-            console.warn('[OCR] No Gemini API key configured — using regex fallback only');
+            } catch { /* fallback to regex */ }
         }
 
-        // ── Step 3: Regex/keyword fallback ──────────────────────────────────
+        // ── Step 4: Strategy C - Regex Fallback ───────────────────────────────
+        console.log('[OCR] Strategy C: Final Regex Fallback');
         return { ...regexFallback(finalText, ocrConfidence), fileNature };
 
-    } catch (error) {
-        console.error('[OCR] Processing failed:', error);
+    } catch (error: any) {
+        console.error('[OCR] Processing failed:', error.message);
         return { rawText: '', docType: 'unknown', confidence: 0, extractionTrace: {}, fileNature: 'unknown' };
     }
 };
 
-// ── Download + preprocess image → run Tesseract ──────────────────────────────
+/** Shared finalizer for Gemini-based results */
+function finalizeOcrResult(
+    smartResult: SmartIntelligence,
+    rawText: string,
+    baseConfidence: number,
+    fileNature: OcrResult['fileNature']
+): OcrResult {
+    const aiConfidence = smartResult.document_classification.confidence;
 
-async function extractTextFromUrl(fileUrl: string, page: number): Promise<{ text: string; ocrConfidence: number; rawBuffer?: Buffer }> {
-    const ocrUrl = transformUrlForOcr(fileUrl, page);
-    const isPdf = fileUrl.toLowerCase().includes('.pdf');
-    console.log(`[OCR] Downloading page ${page}: ${isPdf ? 'PDF→JPEG' : 'image'} | ${ocrUrl.slice(0, 90)}…`);
+    // For direct vision (base=0.9), we trust the AI confidence but allow a slight boost
+    // if the model itself is very sure.
+    const boostedConfidence = aiConfidence > 0.9
+        ? Math.min(baseConfidence + 0.1, 1.0)
+        : aiConfidence;
 
-    const rawBuffer = await downloadToBuffer(ocrUrl);
-    console.log(`[OCR] Downloaded ${rawBuffer.length} bytes`);
+    // Extraction trace needs to map some best-guess fields
+    // We'll use the first entries from the smarter arrays
+    const mainPerson = smartResult.entities.people[0];
+    const mainOrg = smartResult.entities.organizations[0];
+    const mainAmount = smartResult.entities.financial_details.amounts[0];
 
-    // Preprocess with sharp: grayscale + increase contrast + normalise
-    // This significantly improves Tesseract accuracy on low-contrast scans
-    let imageBuffer: Buffer;
+    return {
+        rawText,
+        docType: smartResult.document_classification.document_type || 'Other',
+        // Note: Field mapping for legacy UI happens in OcrResult mapping
+        confidence: boostedConfidence,
+        extractionTrace: {
+            docType: {
+                method: 'ai',
+                matchedPattern: smartResult.ai_model,
+                rawSnippet: `Type: ${smartResult.document_classification.document_type}, Cat: ${smartResult.document_classification.category}`,
+            },
+            date: smartResult.entities.important_dates[0]
+                ? { method: 'ai', matchedPattern: smartResult.ai_model, rawSnippet: 'ext-date' }
+                : undefined,
+            amount: mainAmount
+                ? { method: 'ai', matchedPattern: smartResult.ai_model, rawSnippet: 'ext-amt' }
+                : undefined,
+        },
+        intelligence: smartResult,
+        fileNature,
+    };
+}
+
+// ── Run Tesseract on Buffer ──────────────────────────────────────────────────
+/**
+ * Runs Tesseract OCR on a provided image buffer.
+ * Includes sharp preprocessing for better accuracy.
+ */
+async function runTesseractOnBuffer(imageBuffer: Buffer): Promise<{ text: string; ocrConfidence: number }> {
+    let processed: Buffer;
     try {
-        imageBuffer = await sharp(rawBuffer)
+        processed = await sharp(imageBuffer)
             .grayscale()
             .normalise()
-            .linear(1.2, -20)   // slight contrast boost
+            .linear(1.2, -20)
             .sharpen({ sigma: 1.5 })
             .toBuffer();
-        console.log(`[OCR] Image preprocessed: ${imageBuffer.length} bytes`);
-    } catch (sharpErr: any) {
-        console.warn('[OCR] sharp preprocessing failed, using raw buffer:', sharpErr.message);
-        imageBuffer = rawBuffer;
+    } catch {
+        processed = imageBuffer;
     }
 
-    // Tesseract with PSM 6 (uniform block of text — best for structured forms/IDs)
-    let text = '';
-    let ocrConfidence = 0;
     try {
-        const result = await Tesseract.recognize(imageBuffer, 'eng+hin', {
-            // @ts-ignore — Tesseract.js accepts these params
-            tessedit_pageseg_mode: '6',
-        });
-        text = result.data.text;
-        ocrConfidence = result.data.confidence;
-    } catch (tessErr: any) {
-        console.warn('[OCR] eng+hin failed, retrying with eng only:', tessErr.message);
-        const fallbackResult = await Tesseract.recognize(imageBuffer, 'eng', {
+        // We use @ts-ignore because Tesseract.js types sometimes lag behind accepted worker params
+        const result = await Tesseract.recognize(processed, 'eng+hin', {
             // @ts-ignore
             tessedit_pageseg_mode: '6',
         });
-        text = fallbackResult.data.text;
-        ocrConfidence = fallbackResult.data.confidence;
+        return { text: result.data.text, ocrConfidence: result.data.confidence };
+    } catch (err: any) {
+        console.warn(`[OCR] Tesseract eng+hin failed: ${err.message}. Retrying eng only.`);
+        const fallback = await Tesseract.recognize(processed, 'eng', {
+            // @ts-ignore
+            tessedit_pageseg_mode: '6',
+        });
+        return { text: fallback.data.text, ocrConfidence: fallback.data.confidence };
     }
+}
 
-    return { text, ocrConfidence, rawBuffer };
+async function extractTextFromUrl(fileUrl: string, page: number): Promise<{ text: string; ocrConfidence: number; rawBuffer?: Buffer }> {
+    const ocrUrl = transformUrlForOcr(fileUrl, page);
+    console.log(`[OCR] Downloading page ${page} | ${ocrUrl.slice(0, 90)}…`);
+
+    const rawBuffer = await downloadToBuffer(ocrUrl);
+    const resized = await resizeImage(rawBuffer);
+    const { text, ocrConfidence } = await runTesseractOnBuffer(resized);
+
+    return { text, ocrConfidence, rawBuffer: resized };
 }
 
 //  Smart Gemini extractor ──────────────────────────────────────────────────────
@@ -495,88 +634,9 @@ export const extractWithSmartGemini = async (
             const responseText = result.response.text().trim();
             console.log(`[OCR] Gemini model=${modelName} responded (${responseText.length} chars)`);
 
-            const cleaned = responseText
-                .replace(/^```json?\s*/i, '')
-                .replace(/```\s*$/i, '')
-                .trim();
-
-            let parsed: any;
-            const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-            try {
-                parsed = JSON.parse(jsonMatch ? jsonMatch[0] : cleaned);
-            } catch (parseErr: any) {
-                console.warn(`[OCR] ${modelName} non-JSON response:`, responseText.slice(0, 300));
-                continue; // try next model
-            }
-
-            const docType = ALLOWED_DOC_TYPES.includes(parsed.doc_type) ? parsed.doc_type : 'Other';
-            const category = DOC_CATEGORIES.includes(parsed.category) ? parsed.category : 'Other';
-            const ent = parsed.entities || {};
-
-            const suggested_events: Omit<ISuggestedEvent, 'accepted'>[] = (parsed.suggested_events || [])
-                .map((e: any) => ({
-                    title: String(e.title || ''),
-                    date: parseGeminiDate(e.date),
-                    event_type: ['expiry', 'renewal', 'payment', 'follow_up', 'milestone'].includes(e.event_type)
-                        ? e.event_type : 'milestone',
-                    reason: String(e.reason || ''),
-                }))
-                .filter((e: any) => e.date instanceof Date && !isNaN(e.date.getTime()) && e.title);
-
-            let warrantyExpiry = parseGeminiDate(ent.warranty_expiry_date);
-            if (!warrantyExpiry && ent.purchase_date) {
-                const pDate = parseGeminiDate(ent.purchase_date);
-                const wYears = typeof ent.warranty_years === 'number' ? ent.warranty_years : 1;
-                if (pDate) warrantyExpiry = new Date(pDate.getFullYear() + wYears, pDate.getMonth(), pDate.getDate());
-            }
-
-            return {
-                classification: {
-                    doc_type: docType, category,
-                    confidence: typeof parsed.confidence === 'number' ? Math.min(Math.max(parsed.confidence, 0), 1) : 0.5,
-                    reasoning: String(parsed.reasoning || ''),
-                },
-                entities: {
-                    person_name:            ent.person_name         || undefined,
-                    id_number:              ent.id_number           || undefined,
-                    policy_number:          ent.policy_number       || undefined,
-                    registration_number:    ent.registration_number || undefined,
-                    account_number:         ent.account_number      || undefined,
-                    issued_by:              ent.issued_by           || undefined,
-                    issue_date:             parseGeminiDate(ent.issue_date),
-                    expiry_date:            parseGeminiDate(ent.expiry_date),
-                    due_date:               parseGeminiDate(ent.due_date),
-                    amount:                 typeof ent.amount === 'number' ? ent.amount : undefined,
-                    institution:            ent.institution         || undefined,
-                    address:                ent.address             || undefined,
-                    dob:                    parseGeminiDate(ent.dob),
-                    phone:                  ent.phone               || undefined,
-                    purchase_date:          parseGeminiDate(ent.purchase_date),
-                    warranty_expiry_date:   warrantyExpiry,
-                    product_name:           ent.product_name        || undefined,
-                    seller_name:            ent.seller_name         || ent.institution || undefined,
-                    serial_number:          ent.serial_number       || undefined,
-                    warranty_years:         typeof ent.warranty_years === 'number' ? ent.warranty_years : undefined,
-                },
-                tags: Array.isArray(parsed.tags)
-                    ? parsed.tags.slice(0, 6).map((t: any) => String(t).toLowerCase().replace(/[^a-z0-9\-]/g, ''))
-                    : [],
-                importance: {
-                    score: typeof parsed.importance?.score === 'number'
-                        ? Math.min(Math.max(Math.round(parsed.importance.score), 1), 10) : 5,
-                    criticality: ['low', 'medium', 'high', 'critical'].includes(parsed.importance?.criticality)
-                        ? parsed.importance.criticality : 'medium',
-                    lifecycle_stage: String(parsed.importance?.lifecycle_stage || 'active'),
-                    renewal_window_days: typeof parsed.importance?.renewal_window_days === 'number'
-                        ? parsed.importance.renewal_window_days : undefined,
-                },
-                suggested_events,
-                ai_model: modelName,
-                raw_ai_response: responseText,
-            };
+            return parseGeminiResponse(responseText, modelName);
         } catch (err: any) {
             console.error(`[OCR] Gemini model=${modelName} FAILED: ${err.message}`);
-            // try next model in the list
         }
     }
 
@@ -609,11 +669,11 @@ const parseGeminiDate = (value: any): Date | undefined => {
 
 const regexFallback = (text: string, ocrConfidence: number): OcrResult => {
     const classification = classifyDocument(text);
-    const dateResult     = extractDates(text);
-    const amountResult   = extractAmount(text);
+    const dateResult = extractDates(text);
+    const amountResult = extractAmount(text);
 
     let finalConfidence = ocrConfidence / 100;
-    if (classification.score > 0.8)  finalConfidence += 0.1;
+    if (classification.score > 0.8) finalConfidence += 0.1;
     if (dateResult.dates.length > 2) finalConfidence -= 0.15;
 
     const now = new Date();
@@ -625,11 +685,11 @@ const regexFallback = (text: string, ocrConfidence: number): OcrResult => {
         docType: classification.type,
         expiryDate,
         dueDate: dateResult.dates.length > 1 ? dateResult.dates[1] : undefined,
-        amount:  amountResult.amount,
+        amount: amountResult.amount,
         confidence: Math.min(Math.max(finalConfidence, 0), 1),
         extractionTrace: {
-            date:    dateResult.trace,
-            amount:  amountResult.trace,
+            date: dateResult.trace,
+            amount: amountResult.trace,
             docType: classification.trace,
         },
     };
@@ -638,15 +698,15 @@ const regexFallback = (text: string, ocrConfidence: number): OcrResult => {
 const classifyDocument = (text: string): { type: string; score: number; trace: ExtractionTrace } => {
     const keywords: Record<string, string[]> = {
         electricity_bill: ['electricity', 'mseb', 'power', 'bill', 'unit', 'consumer', 'kwh'],
-        insurance:        ['policy', 'insurance', 'premium', 'sum insured', 'validity', 'nominee'],
-        passport:         ['passport', 'republic of india', 'nationality', 'p-ind', 'visa'],
-        aadhaar:          ['aadhaar', 'unique identification', 'government of india', 'male', 'female'],
-        driving_license:  ['license', 'driving', 'transport', 'license no', 'haz', 'invalid'],
-        tax_return:       ['income tax', 'itr', 'tax return', 'assessment year', 'pan card'],
-        pan_card:         ['permanent account number', 'pan', 'income tax department'],
-        voter_id:         ['election commission', 'voter', 'electors photo'],
-        vehicle_rc:       ['registration certificate', 'rc book', 'vehicle', 'chassis'],
-        bank_statement:   ['account statement', 'transactions', 'balance', 'ifsc', 'bank'],
+        insurance: ['policy', 'insurance', 'premium', 'sum insured', 'validity', 'nominee'],
+        passport: ['passport', 'republic of india', 'nationality', 'p-ind', 'visa'],
+        aadhaar: ['aadhaar', 'unique identification', 'government of india', 'male', 'female'],
+        driving_license: ['license', 'driving', 'transport', 'license no', 'haz', 'invalid'],
+        tax_return: ['income tax', 'itr', 'tax return', 'assessment year', 'pan card'],
+        pan_card: ['permanent account number', 'pan', 'income tax department'],
+        voter_id: ['election commission', 'voter', 'electors photo'],
+        vehicle_rc: ['registration certificate', 'rc book', 'vehicle', 'chassis'],
+        bank_statement: ['account statement', 'transactions', 'balance', 'ifsc', 'bank'],
     };
 
     const lower = text.toLowerCase();

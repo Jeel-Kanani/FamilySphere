@@ -26,7 +26,7 @@ export interface IDocument extends Document {
     rawText?: string;
 
     // Phase 4 – background queue tracking
-    ocrStatus: 'pending' | 'processing' | 'done' | 'failed' | 'needs_confirmation';
+    ocrStatus: 'pending' | 'processing' | 'done' | 'failed' | 'needs_confirmation' | 'analyzed';
     ocrJobId?: string;
     ocrConfidence?: number;
 
@@ -67,10 +67,10 @@ const documentSchema: Schema = new Schema(
         // Phase 4 – background queue tracking
         ocrStatus: {
             type: String,
-            enum: ['pending', 'processing', 'done', 'failed', 'needs_confirmation'],
+            enum: ['pending', 'processing', 'done', 'failed', 'needs_confirmation', 'analyzed'],
             default: 'pending',
         },
-        ocrJobId:      { type: String },
+        ocrJobId: { type: String },
         ocrConfidence: { type: Number },
     },
     { timestamps: true }

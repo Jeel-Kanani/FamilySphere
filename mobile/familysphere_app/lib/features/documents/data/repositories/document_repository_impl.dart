@@ -168,4 +168,29 @@ class DocumentRepositoryImpl implements DocumentRepository {
   }) async {
     await remoteDataSource.permanentlyDeleteDocument(documentId: documentId);
   }
+
+  @override
+  Future<Map<String, dynamic>> getOcrStatus({
+    required String documentId,
+  }) async {
+    return await remoteDataSource.getOcrStatus(documentId: documentId);
+  }
+
+  @override
+  Future<dynamic> getDocumentIntelligence({
+    required String documentId,
+  }) async {
+    return await remoteDataSource.getDocumentIntelligence(documentId: documentId);
+  }
+
+  @override
+  Future<void> confirmDocumentType({
+    required String documentId,
+    required String docType,
+  }) async {
+    await remoteDataSource.confirmDocumentType(
+      documentId: documentId,
+      docType: docType,
+    );
+  }
 }

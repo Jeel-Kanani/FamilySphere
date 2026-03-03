@@ -106,4 +106,20 @@ abstract class DocumentRepository {
   Future<void> permanentlyDeleteDocument({
     required String documentId,
   });
+
+  /// Get OCR job status
+  Future<Map<String, dynamic>> getOcrStatus({
+    required String documentId,
+  });
+
+  /// Get document intelligence metadata
+  Future<dynamic> getDocumentIntelligence({
+    required String documentId,
+  });
+
+  /// Confirm or correct document type
+  Future<void> confirmDocumentType({
+    required String documentId,
+    required String docType,
+  });
 }

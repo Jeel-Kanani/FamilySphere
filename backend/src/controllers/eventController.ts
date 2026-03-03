@@ -107,13 +107,13 @@ export const createManualEvent = async (req: Request, res: Response) => {
 export const updateEvent = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const userId = (req as any).user._id;
+        const familyId = (req as any).user.familyId;
 
         if (!mongoose.Types.ObjectId.isValid(id as string)) {
             return res.status(400).json({ success: false, message: 'Invalid event ID' });
         }
 
-        const allowedFields = ['title', 'description', 'startDate', 'endDate', 'priority', 'status'];
+        const allowedFields = ['title', 'description', 'startDate', 'endDate', 'priority', 'status', 'type'];
         const updates: Record<string, any> = { isUserModified: true };
 
         for (const field of allowedFields) {
@@ -121,13 +121,13 @@ export const updateEvent = async (req: Request, res: Response) => {
         }
 
         const event = await Event.findOneAndUpdate(
-            { _id: id, userId }, // ensures ownership
+            { _id: id, familyId },
             { $set: updates },
             { new: true, runValidators: true }
         );
 
         if (!event) {
-            return res.status(404).json({ success: false, message: 'Event not found or not owned by user' });
+            return res.status(404).json({ success: false, message: 'Event not found' });
         }
 
         res.status(200).json({ success: true, data: event });
@@ -144,7 +144,7 @@ export const updateEvent = async (req: Request, res: Response) => {
 export const dismissReview = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const userId = (req as any).user._id;
+        const familyId = (req as any).user.familyId;
         const { correctedDate } = req.body; // optional user correction
 
         if (!mongoose.Types.ObjectId.isValid(id as string)) {
@@ -160,7 +160,7 @@ export const dismissReview = async (req: Request, res: Response) => {
         }
 
         const event = await Event.findOneAndUpdate(
-            { _id: id, userId },
+            { _id: id, familyId },
             { $set: updates },
             { new: true }
         );
@@ -170,6 +170,31 @@ export const dismissReview = async (req: Request, res: Response) => {
         }
 
         res.status(200).json({ success: true, data: event });
+    } catch (error: any) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+/**
+ * DELETE /api/events/:id
+ * Permanently delete an event.
+ */
+export const deleteEvent = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const familyId = (req as any).user.familyId;
+
+        if (!mongoose.Types.ObjectId.isValid(id as string)) {
+            return res.status(400).json({ success: false, message: 'Invalid event ID' });
+        }
+
+        const event = await Event.findOneAndDelete({ _id: id, familyId });
+
+        if (!event) {
+            return res.status(404).json({ success: false, message: 'Event not found' });
+        }
+
+        res.status(200).json({ success: true, message: 'Event deleted' });
     } catch (error: any) {
         res.status(400).json({ success: false, message: error.message });
     }

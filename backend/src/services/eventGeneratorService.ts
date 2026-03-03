@@ -87,28 +87,28 @@ export class EventGeneratorService {
                 { relatedDocumentId: document._id, type: eventType, startDate: eventDate },
                 {
                     $setOnInsert: {
-                        userId:            document.uploadedBy,
-                        familyId:          document.familyId,
-                        source:            EventSource.AI,
+                        userId: document.uploadedBy,
+                        familyId: document.familyId,
+                        source: EventSource.AI,
                         relatedDocumentId: document._id,
-                        createdAt:         new Date(),
+                        createdAt: new Date(),
                     },
                     $set: {
-                        title:       suggested.title,
+                        title: suggested.title,
                         description: suggested.reason,
-                        startDate:   eventDate,
+                        startDate: eventDate,
                         status,
-                        priority:    this.calcPriority(intelligence.importance.criticality, eventType),
+                        priority: this.calcPriority(intelligence.importance.criticality, eventType),
                         needsReview: isLowConfidence,
                         snapshot: {
-                            docTitle:            document.title,
-                            amount:              intelligence.entities.amount,
-                            currency:            'INR',
+                            docTitle: document.title,
+                            amount: intelligence.entities.amount,
+                            currency: 'INR',
                             extractedExpiryDate: intelligence.entities.expiry_date,
                             extractionTrace: {
-                                method:         'ai',
+                                method: 'ai',
                                 matchedPattern: intelligence.ai_model || 'gemini-2.0-flash',
-                                rawSnippet:     intelligence.classification.reasoning,
+                                rawSnippet: intelligence.classification.reasoning,
                             },
                         },
                     },
@@ -141,7 +141,7 @@ export class EventGeneratorService {
         const now = new Date();
         const ents = intelligence.entities;
         const renewalDays = intelligence.importance.renewal_window_days ?? 60;
-        const docType = intelligence.classification.doc_type;
+        const docType = intelligence.classification.document_type || 'Other';
         let created = 0;
 
         const upsert = async (
@@ -240,9 +240,9 @@ export class EventGeneratorService {
     // ── Rule-based fallback: when no DocumentIntelligence at all ──────────────
 
     private static async createRuleBasedEvents(document: IDocument): Promise<number> {
-        const docType  = (document.docType || '').toLowerCase();
-        const now      = new Date();
-        let created    = 0;
+        const docType = (document.docType || '').toLowerCase();
+        const now = new Date();
+        let created = 0;
 
         const save = async (
             type: EventType, title: string, description: string,
@@ -307,13 +307,13 @@ export class EventGeneratorService {
                     source: EventSource.AI, relatedDocumentId: document._id, createdAt: new Date(),
                 },
                 $set: {
-                    title:       `${document.title} Added`,
+                    title: `${document.title} Added`,
                     description: `Document saved to family vault`,
-                    startDate:   date,
-                    status:      EventStatus.COMPLETED,
-                    priority:    1,
+                    startDate: date,
+                    status: EventStatus.COMPLETED,
+                    priority: 1,
                     needsReview: false,
-                    snapshot:    { docTitle: document.title, currency: 'INR' },
+                    snapshot: { docTitle: document.title, currency: 'INR' },
                 },
             },
             { upsert: true, new: true, setDefaultsOnInsert: true }
@@ -325,12 +325,12 @@ export class EventGeneratorService {
 
     private static mapEventType(eventType: string): EventType {
         switch (eventType) {
-            case 'expiry':    return EventType.EXPIRY;
-            case 'payment':   return EventType.BILL_DUE;
-            case 'renewal':   return EventType.TASK;
+            case 'expiry': return EventType.EXPIRY;
+            case 'payment': return EventType.BILL_DUE;
+            case 'renewal': return EventType.TASK;
             case 'follow_up': return EventType.TASK;
             case 'milestone': return EventType.MILESTONE;
-            default:          return EventType.MILESTONE;
+            default: return EventType.MILESTONE;
         }
     }
 

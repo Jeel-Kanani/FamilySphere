@@ -173,7 +173,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       Color border, Color textP, Color textS, bool isDark,
       DocumentState documentsState) {
     final pendingCount = documentsState.documents
-        .where((d) => d.ocrStatus == 'needs_confirmation')
+        .where((d) => d.ocrStatus == 'needs_confirmation' || d.ocrStatus == 'analyzed')
         .length;
     return Row(
       children: [
@@ -227,7 +227,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           onTap: () => _showNotificationPanel(
             context,
             documentsState.documents
-                .where((d) => d.ocrStatus == 'needs_confirmation')
+                .where((d) => d.ocrStatus == 'needs_confirmation' || d.ocrStatus == 'analyzed')
                 .toList(),
             isDark,
           ),
@@ -1633,9 +1633,9 @@ class _DocConfirmCardState extends State<_DocConfirmCard>
                               border: Border.all(
                                   color: _amber.withValues(alpha: 0.5)),
                             ),
-                            child: const Text(
-                              'AI: Low',
-                              style: TextStyle(
+                            child: Text(
+                              doc.ocrStatus == 'analyzed' ? 'AI: Review' : 'AI: Low',
+                              style: const TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
                                 color: _amberDeep,

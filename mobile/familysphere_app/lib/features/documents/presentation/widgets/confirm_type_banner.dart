@@ -12,11 +12,15 @@ class ConfirmTypeBanner extends ConsumerStatefulWidget {
   /// Called after user successfully confirms the type.
   final VoidCallback? onConfirmed;
 
+  /// Called when user wants to see AI insights.
+  final VoidCallback? onReviewInsights;
+
   const ConfirmTypeBanner({
     super.key,
     required this.docId,
     required this.aiDetectedType,
     this.onConfirmed,
+    this.onReviewInsights,
   });
 
   @override
@@ -100,6 +104,29 @@ class _ConfirmTypeBannerState extends ConsumerState<ConfirmTypeBanner> {
             'Detected as "${widget.aiDetectedType}". Confidence is low — pick the correct type:',
             style: TextStyle(fontSize: 11.5, color: textSub),
           ),
+          if (widget.onReviewInsights != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: InkWell(
+                onTap: widget.onReviewInsights,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.psychology_outlined, size: 14, color: amberDeep),
+                    const SizedBox(width: 4),
+                    Text(
+                      'View AI Extracted Data',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: amberDeep,
+                        fontWeight: FontWeight.w700,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           const SizedBox(height: 12),
 
           // ── Dropdown ───────────────────────────────────────────────────────

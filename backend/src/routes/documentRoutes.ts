@@ -15,6 +15,7 @@ import {
     getDocumentIntelligence,
     confirmDocumentType,
     confirmIntelligence,
+    reprocessOcr,
 } from '../controllers/documentController';
 import { upload } from '../config/cloudinary';
 
@@ -65,5 +66,8 @@ router.patch('/:id/confirm-intelligence', confirmIntelligence);
 
 // POST /api/documents/requeue-stuck - Re-queue all pending/processing stuck docs
 router.post('/requeue-stuck', requeueStuckDocuments);
+
+// POST /api/documents/:id/reprocess - Trigger OCR reprocessing for a single doc
+router.post('/:id/reprocess', reprocessOcr);
 
 export default router;

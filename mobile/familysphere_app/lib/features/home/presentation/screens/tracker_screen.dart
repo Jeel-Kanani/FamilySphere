@@ -668,6 +668,7 @@ class _CreateEventSheet extends StatefulWidget {
 
 class _CreateEventSheetState extends State<_CreateEventSheet> {
   final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
   String _selectedType = 'task';
   bool _isLoading = false;
@@ -677,11 +678,13 @@ class _CreateEventSheetState extends State<_CreateEventSheet> {
     ('expiry', 'Expiry', Icons.timer_rounded, Colors.orangeAccent),
     ('bill_due', 'Bill Due', Icons.receipt_long_rounded, Colors.redAccent),
     ('birthday', 'Birthday', Icons.cake_rounded, Colors.pinkAccent),
+    ('milestone', 'Milestone', Icons.emoji_events_rounded, Colors.amberAccent),
   ];
 
   @override
   void dispose() {
     _titleController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -740,6 +743,29 @@ class _CreateEventSheetState extends State<_CreateEventSheet> {
                 labelStyle: GoogleFonts.plusJakartaSans(
                     color:
                         isDark ? Colors.white38 : Colors.black38),
+                filled: true,
+                fillColor: isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.black.withValues(alpha: 0.03),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Description input
+            TextField(
+              controller: _descriptionController,
+              maxLines: 2,
+              style: GoogleFonts.plusJakartaSans(
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+              decoration: InputDecoration(
+                labelText: 'Description (optional)',
+                labelStyle: GoogleFonts.plusJakartaSans(
+                    color: isDark ? Colors.white38 : Colors.black38),
                 filled: true,
                 fillColor: isDark
                     ? Colors.white.withValues(alpha: 0.05)
@@ -919,6 +945,7 @@ class _CreateEventSheetState extends State<_CreateEventSheet> {
           title: title,
           type: _selectedType,
           startDate: _selectedDate,
+          description: _descriptionController.text.trim(),
         );
 
     if (!mounted) return;
