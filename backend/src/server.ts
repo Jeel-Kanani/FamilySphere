@@ -14,6 +14,7 @@ import documentRoutes from './routes/documentRoutes';
 import vaultRoutes from './routes/vaultRoutes';
 import eventRoutes from './routes/eventRoutes';
 import adminRoutes from './routes/adminRoutes';
+import intelligenceRoutes from './routes/intelligenceRoutes';
 
 import { initScheduler } from './services/scheduler';
 import { startOcrWorker } from './workers/ocrWorker';
@@ -26,6 +27,10 @@ initScheduler();
 
 // Phase 4 — Only start the BullMQ worker when Redis is reachable.
 // Falls back to direct (synchronous) OCR processing in documentController.
+// Emergency Demo Bypass: Forcibly disable Redis queue to prevent ECONNRESET errors
+appState.ocrQueueEnabled = false;
+console.log('[Server] 🚨 EMERGENCY: AI/Redis Queue forcibly disabled for demonstration.');
+/*
 checkRedisWithRetries().then((available) => {
     appState.ocrQueueEnabled = available;
     if (available) {
@@ -40,6 +45,7 @@ checkRedisWithRetries().then((available) => {
         );
     }
 });
+*/
 
 const app = express();
 
@@ -98,6 +104,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/vault', vaultRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/intelligence', intelligenceRoutes);
 
 const PORT = process.env.PORT || 5000;
 

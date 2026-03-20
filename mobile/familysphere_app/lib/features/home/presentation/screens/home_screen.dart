@@ -53,6 +53,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     });
 
     _staggerController.forward();
+
+    // Load global documents for the "Recent" section
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(documentProvider.notifier).loadDocuments(forceRefresh: true);
+    });
   }
 
   @override
@@ -110,24 +115,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               // ── Section 0: Header ──
               _animatedSection(
                 index: 0,
-                child: _buildHeader(
-                    context, firstName, cardBg, border, textP, textS, isDark,
-                    documentsState),
+                child: _buildHeader(context, firstName, cardBg, border, textP,
+                    textS, isDark, documentsState),
               ),
               const SizedBox(height: 28),
 
               // ── Section 1: Family Overview Card ──
               _animatedSection(
                 index: 1,
-                child: _buildFamilyCard(
-                    context, familyName, memberCount, familyState, textP, cardBg, isDark),
+                child: _buildFamilyCard(context, familyName, memberCount,
+                    familyState, textP, cardBg, isDark),
               ),
               const SizedBox(height: 24),
 
               // ── Section 2: Quick Actions ──
               _animatedSection(
                 index: 2,
-                child: _buildQuickActions(context, isDark, cardBg, border, textP),
+                child:
+                    _buildQuickActions(context, isDark, cardBg, border, textP),
               ),
               const SizedBox(height: 24),
 
@@ -135,16 +140,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               _animatedSection(
                 index: 3,
                 child: _buildStorageCard(
-                    context, storageUsed, storageLimit, storagePercent, docCount,
-                    cardBg, border, textP, textS, isDark),
+                    context,
+                    storageUsed,
+                    storageLimit,
+                    storagePercent,
+                    docCount,
+                    cardBg,
+                    border,
+                    textP,
+                    textS,
+                    isDark),
               ),
               const SizedBox(height: 24),
 
               // ── Section 4: Recent Activity ──
               _animatedSection(
                 index: 4,
-                child: _buildRecentDocs(
-                    context, documentsState, cardBg, border, textP, textS, isDark),
+                child: _buildRecentDocs(context, documentsState, cardBg, border,
+                    textP, textS, isDark),
               ),
             ],
           ),
@@ -169,11 +182,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // ────────────────────────────────────────────────────────────
   //  0 · Header
   // ────────────────────────────────────────────────────────────
-  Widget _buildHeader(BuildContext context, String firstName, Color cardBg,
-      Color border, Color textP, Color textS, bool isDark,
+  Widget _buildHeader(
+      BuildContext context,
+      String firstName,
+      Color cardBg,
+      Color border,
+      Color textP,
+      Color textS,
+      bool isDark,
       DocumentState documentsState) {
     final pendingCount = documentsState.documents
-        .where((d) => d.ocrStatus == 'needs_confirmation' || d.ocrStatus == 'analyzed')
+        .where((d) =>
+            d.ocrStatus == 'needs_confirmation' || d.ocrStatus == 'analyzed')
         .length;
     return Row(
       children: [
@@ -186,7 +206,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                color: AppTheme.primaryColor.withOpacity(0.3),
                 blurRadius: 16,
                 offset: const Offset(0, 6),
               ),
@@ -227,7 +247,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           onTap: () => _showNotificationPanel(
             context,
             documentsState.documents
-                .where((d) => d.ocrStatus == 'needs_confirmation' || d.ocrStatus == 'analyzed')
+                .where((d) =>
+                    d.ocrStatus == 'needs_confirmation' ||
+                    d.ocrStatus == 'analyzed')
                 .toList(),
             isDark,
           ),
@@ -262,8 +284,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // ────────────────────────────────────────────────────────────
   //  1 · Family Overview Card
   // ────────────────────────────────────────────────────────────
-  Widget _buildFamilyCard(BuildContext context, String familyName,
-      int memberCount, FamilyState familyState, Color textP, Color cardBg, bool isDark) {
+  Widget _buildFamilyCard(
+      BuildContext context,
+      String familyName,
+      int memberCount,
+      FamilyState familyState,
+      Color textP,
+      Color cardBg,
+      bool isDark) {
     final members = familyState.members.take(5).toList();
 
     return GestureDetector(
@@ -281,7 +309,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primaryColor.withValues(alpha: isDark ? 0.2 : 0.3),
+              color:
+                  AppTheme.primaryColor.withValues(alpha: isDark ? 0.2 : 0.3),
               blurRadius: 24,
               offset: const Offset(0, 10),
             ),
@@ -308,7 +337,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       Text(
                         '$memberCount ${memberCount == 1 ? 'member' : 'members'}',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.8),
+                              color: Colors.white.withOpacity(0.8),
                             ),
                       ),
                     ],
@@ -317,7 +346,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
+                    color: Colors.white.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
@@ -340,7 +369,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white.withValues(alpha: 0.7),
+                      color: Colors.white.withOpacity(0.7),
                     ),
                   ),
                 ),
@@ -350,13 +379,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
+                  color: Colors.white.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   'Invite your family members',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.85),
+                        color: Colors.white.withOpacity(0.85),
                       ),
                 ),
               )
@@ -407,10 +436,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 7),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
+                      color: Colors.white.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -452,8 +481,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 icon: Icons.document_scanner_rounded,
                 label: 'Scan',
                 gradient: AppTheme.primaryGradient,
-                onTap: () =>
-                    Navigator.pushNamed(context, AppRoutes.scanner),
+                onTap: () => Navigator.pushNamed(context, AppRoutes.scanner),
               ),
             ),
             const SizedBox(width: 12),
@@ -476,21 +504,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                onTap: () =>
-                    Navigator.pushNamed(context, AppRoutes.documents),
+                onTap: () => Navigator.pushNamed(context, AppRoutes.documents),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _QuickActionCard(
-                icon: Icons.science_rounded,
-                label: 'Lab',
+                icon: Icons.auto_awesome_rounded,
+                label: 'Intel',
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFF97316), Color(0xFFFBBF24)],
+                  colors: [Color(0xFF1D4ED8), Color(0xFF38BDF8)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                onTap: () => Navigator.pushNamed(context, AppRoutes.lab),
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.intelligence),
               ),
             ),
           ],
@@ -543,7 +571,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  color: AppTheme.primaryColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -619,7 +647,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.primaryColor,
                 side: BorderSide(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                    color: AppTheme.primaryColor.withOpacity(0.3)),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -635,15 +663,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // ────────────────────────────────────────────────────────────
   //  4 · Recent Documents
   // ────────────────────────────────────────────────────────────
-  Widget _buildRecentDocs(
-      BuildContext context,
-      DocumentState documentsState,
-      Color cardBg,
-      Color border,
-      Color textP,
-      Color textS,
-      bool isDark) {
-    final recentDocs = documentsState.documents.take(3).toList();
+  Widget _buildRecentDocs(BuildContext context, DocumentState documentsState,
+      Color cardBg, Color border, Color textP, Color textS, bool isDark) {
+    final recentDocs = documentsState.documents.take(5).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -660,8 +682,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
             if (recentDocs.isNotEmpty)
               GestureDetector(
-                onTap: () =>
-                    Navigator.pushNamed(context, AppRoutes.documents),
+                onTap: () => Navigator.pushNamed(context, AppRoutes.recentDocuments),
                 child: Text(
                   'See All',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -701,7 +722,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               children: [
                 Icon(
                   Icons.description_outlined,
-                  color: textS.withValues(alpha: 0.5),
+                  color: textS.withOpacity(0.5),
                   size: 36,
                 ),
                 const SizedBox(height: 10),
@@ -715,7 +736,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 Text(
                   'Scan or upload your first document',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: textS.withValues(alpha: 0.7),
+                        color: textS.withOpacity(0.7),
                       ),
                 ),
               ],
@@ -855,9 +876,7 @@ class _HeaderIconButtonState extends State<_HeaderIconButton>
             ),
           ),
         Material(
-          color: hasBadge
-              ? _amber.withValues(alpha: 0.1)
-              : widget.cardBg,
+          color: hasBadge ? _amber.withOpacity(0.1) : widget.cardBg,
           borderRadius: BorderRadius.circular(14),
           child: InkWell(
             onTap: widget.onTap,
@@ -867,9 +886,8 @@ class _HeaderIconButtonState extends State<_HeaderIconButton>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: hasBadge
-                      ? _amber.withValues(alpha: 0.55)
-                      : widget.border,
+                  color:
+                      hasBadge ? _amber.withOpacity(0.55) : widget.border,
                   width: hasBadge ? 1.5 : 1.0,
                 ),
               ),
@@ -896,7 +914,7 @@ class _HeaderIconButtonState extends State<_HeaderIconButton>
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
-                    color: _amber.withValues(alpha: 0.45),
+                    color: _amber.withOpacity(0.45),
                     blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
@@ -978,7 +996,7 @@ class _QuickActionCardState extends State<_QuickActionCard>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: widget.gradient.colors.first.withValues(alpha: 0.3),
+                color: widget.gradient.colors.first.withOpacity(0.3),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -1083,7 +1101,7 @@ class _RecentDocTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.1),
+                  color: iconColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -1224,7 +1242,7 @@ class _NotificationPanelState extends ConsumerState<_NotificationPanel>
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
+              color: Colors.black.withOpacity(0.2),
               blurRadius: 32,
               offset: const Offset(0, -6),
             ),
@@ -1258,7 +1276,7 @@ class _NotificationPanelState extends ConsumerState<_NotificationPanel>
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                    color: const Color(0xFFF59E0B).withOpacity(0.35),
                     blurRadius: 18,
                     offset: const Offset(0, 6),
                   ),
@@ -1269,7 +1287,7 @@ class _NotificationPanelState extends ConsumerState<_NotificationPanel>
                   Container(
                     padding: const EdgeInsets.all(9),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
+                      color: Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -1298,7 +1316,7 @@ class _NotificationPanelState extends ConsumerState<_NotificationPanel>
                               ? 'All confirmed – you\'re all set!'
                               : '${_remaining.length} document${_remaining.length > 1 ? 's' : ''} need your review',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.85),
+                            color: Colors.white.withOpacity(0.85),
                             fontSize: 12,
                           ),
                         ),
@@ -1310,7 +1328,7 @@ class _NotificationPanelState extends ConsumerState<_NotificationPanel>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.25),
+                        color: Colors.white.withOpacity(0.25),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -1328,7 +1346,7 @@ class _NotificationPanelState extends ConsumerState<_NotificationPanel>
                     child: Container(
                       padding: const EdgeInsets.all(7),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
+                        color: Colors.white.withOpacity(0.2),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -1353,8 +1371,7 @@ class _NotificationPanelState extends ConsumerState<_NotificationPanel>
                     : AnimatedList(
                         key: _listKey,
                         controller: scrollCtrl,
-                        padding:
-                            const EdgeInsets.fromLTRB(16, 4, 16, 32),
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
                         initialItemCount: _remaining.length,
                         itemBuilder: (_, i, anim) {
                           final doc = _remaining[i];
@@ -1403,7 +1420,7 @@ class _NotificationPanelState extends ConsumerState<_NotificationPanel>
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                    color: const Color(0xFF10B981).withOpacity(0.35),
                     blurRadius: 24,
                     offset: const Offset(0, 8),
                   ),
@@ -1462,11 +1479,20 @@ class _DocConfirmCardState extends State<_DocConfirmCard>
   late final Animation<double> _chevronTurn;
 
   static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec'
   ];
-  String _fmtDate(DateTime d) =>
-      '${d.day} ${_months[d.month - 1]} ${d.year}';
+  String _fmtDate(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
 
   static const _amber = Color(0xFFF59E0B);
   static const _amberDeep = Color(0xFFFF6F00);
@@ -1501,13 +1527,20 @@ class _DocConfirmCardState extends State<_DocConfirmCard>
 
   IconData _iconForCategory(String cat) {
     switch (cat.toLowerCase()) {
-      case 'identity':   return Icons.badge_rounded;
-      case 'insurance':  return Icons.shield_rounded;
-      case 'utility':    return Icons.receipt_long_rounded;
-      case 'property':   return Icons.home_work_rounded;
-      case 'medical':    return Icons.medical_services_rounded;
-      case 'education':  return Icons.school_rounded;
-      default:           return Icons.description_rounded;
+      case 'identity':
+        return Icons.badge_rounded;
+      case 'insurance':
+        return Icons.shield_rounded;
+      case 'utility':
+        return Icons.receipt_long_rounded;
+      case 'property':
+        return Icons.home_work_rounded;
+      case 'medical':
+        return Icons.medical_services_rounded;
+      case 'education':
+        return Icons.school_rounded;
+      default:
+        return Icons.description_rounded;
     }
   }
 
@@ -1520,7 +1553,7 @@ class _DocConfirmCardState extends State<_DocConfirmCard>
     final textP = isDark ? Colors.white : const Color(0xFF0F172A);
     final textS = isDark ? Colors.white60 : const Color(0xFF64748B);
     final borderColor =
-        isDark ? _amber.withValues(alpha: 0.3) : _amber.withValues(alpha: 0.45);
+        isDark ? _amber.withOpacity(0.3) : _amber.withOpacity(0.45);
     final confidenceBg = isDark ? const Color(0xFF2D1F00) : _amberBg;
 
     return Container(
@@ -1571,7 +1604,7 @@ class _DocConfirmCardState extends State<_DocConfirmCard>
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: _amber.withValues(alpha: 0.12),
+                              color: _amber.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
@@ -1616,7 +1649,7 @@ class _DocConfirmCardState extends State<_DocConfirmCard>
                                   'Uploaded ${_fmtDate(doc.uploadedAt)}',
                                   style: TextStyle(
                                     fontSize: 10,
-                                    color: textS.withValues(alpha: 0.65),
+                                    color: textS.withOpacity(0.65),
                                   ),
                                 ),
                               ],
@@ -1631,10 +1664,12 @@ class _DocConfirmCardState extends State<_DocConfirmCard>
                               color: confidenceBg,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                  color: _amber.withValues(alpha: 0.5)),
+                                  color: _amber.withOpacity(0.5)),
                             ),
                             child: Text(
-                              doc.ocrStatus == 'analyzed' ? 'AI: Review' : 'AI: Low',
+                              doc.ocrStatus == 'analyzed'
+                                  ? 'AI: Review'
+                                  : 'AI: Low',
                               style: const TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
@@ -1667,7 +1702,7 @@ class _DocConfirmCardState extends State<_DocConfirmCard>
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
-                                  color: _amber.withValues(alpha: 0.3),
+                                  color: _amber.withOpacity(0.3),
                                   blurRadius: 8,
                                   offset: const Offset(0, 3),
                                 ),
@@ -1702,8 +1737,7 @@ class _DocConfirmCardState extends State<_DocConfirmCard>
                       curve: Curves.easeInOutCubic,
                       child: _expanded
                           ? Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:familysphere_app/features/home/presentation/screens/home_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/vault_screen.dart';
 import 'package:familysphere_app/features/home/presentation/screens/tracker_screen.dart';
+import 'package:familysphere_app/features/intelligence/presentation/screens/intelligence_hub_screen.dart';
 import 'package:familysphere_app/features/lab/presentation/screens/lab_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/profile_screen.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
@@ -19,27 +20,29 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _screens = [
     const HomeScreen(),
     const VaultScreen(),
-    const LabScreen(),
+    const IntelligenceHubScreen(),
     const TrackerScreen(),
+    const LabScreen(),
     const ProfileScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
       ),
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.only(bottom: 24, left: 16, right: 16, top: 12),
+        padding:
+            const EdgeInsets.only(bottom: 24, left: 16, right: 16, top: 12),
         decoration: BoxDecoration(
           color: Theme.of(context).scaffoldBackgroundColor,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Colors.black.withOpacity(0.05),
               blurRadius: 10,
               offset: const Offset(0, -5),
             ),
@@ -51,7 +54,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             borderRadius: BorderRadius.circular(AppTheme.radiusXL),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
+                color: Colors.black.withOpacity(0.08),
                 blurRadius: 15,
                 offset: const Offset(0, 5),
               ),
@@ -68,7 +71,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               onTap: (index) => setState(() => _currentIndex = index),
               type: BottomNavigationBarType.fixed,
               selectedItemColor: AppTheme.primaryColor,
-              unselectedItemColor: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+              unselectedItemColor:
+                  isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
               showSelectedLabels: true,
               showUnselectedLabels: true,
               elevation: 0,
@@ -85,14 +89,19 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   label: 'Vault',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.science_rounded),
-                  activeIcon: Icon(Icons.science_rounded),
-                  label: 'Lab',
+                  icon: Icon(Icons.auto_awesome_rounded),
+                  activeIcon: Icon(Icons.auto_awesome_rounded),
+                  label: 'Intel',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.analytics_rounded),
                   activeIcon: Icon(Icons.analytics_rounded),
                   label: 'Tracker',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.science_rounded),
+                  activeIcon: Icon(Icons.science_rounded),
+                  label: 'Lab',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.settings_rounded),

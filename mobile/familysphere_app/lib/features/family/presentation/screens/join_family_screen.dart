@@ -128,7 +128,7 @@ class _JoinFamilyScreenState extends ConsumerState<JoinFamilyScreen> with Single
               counterText: '',
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
               filled: true,
-              fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[100],
+              fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey[100],
             ),
             maxLength: 8,
             textAlign: TextAlign.center,

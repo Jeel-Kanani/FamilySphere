@@ -129,7 +129,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen>
                   child: Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      color: AppTheme.primaryColor.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.mark_email_read_rounded, size: 48, color: AppTheme.primaryColor),

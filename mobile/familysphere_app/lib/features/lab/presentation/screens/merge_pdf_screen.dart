@@ -135,11 +135,11 @@ class _MergePdfScreenState extends ConsumerState<MergePdfScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isDark
-              ? _primaryBlue.withValues(alpha: 0.15)
-              : _primaryBlue.withValues(alpha: 0.08),
+              ? _primaryBlue.withOpacity(0.15)
+              : _primaryBlue.withOpacity(0.08),
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
           border: Border.all(
-            color: _primaryBlue.withValues(alpha: 0.2),
+            color: _primaryBlue.withOpacity(0.2),
           ),
         ),
         child: Row(
@@ -209,7 +209,7 @@ class _MergePdfScreenState extends ConsumerState<MergePdfScreen> {
               border: Border.all(
                 color: isAtLimit
                     ? (isDark ? AppTheme.darkBorder : const Color(0xFFE2E8F0))
-                    : _primaryBlue.withValues(alpha: 0.4),
+                    : _primaryBlue.withOpacity(0.4),
                 width: 2,
                 strokeAlign: BorderSide.strokeAlignInside,
               ),
@@ -260,7 +260,7 @@ class _MergePdfScreenState extends ConsumerState<MergePdfScreen> {
               decoration: BoxDecoration(
                 color: isDark
                     ? AppTheme.darkSurface
-                    : _primaryBlue.withValues(alpha: 0.08),
+                    : _primaryBlue.withOpacity(0.08),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -460,7 +460,7 @@ class _MergePdfScreenState extends ConsumerState<MergePdfScreen> {
               height: 40,
               decoration: BoxDecoration(
                 color: isDark
-                    ? const Color(0xFFEF4444).withValues(alpha: 0.15)
+                    ? const Color(0xFFEF4444).withOpacity(0.15)
                     : const Color(0xFFFEE2E2),
                 borderRadius: BorderRadius.circular(AppTheme.radiusM),
               ),
@@ -529,7 +529,7 @@ class _MergePdfScreenState extends ConsumerState<MergePdfScreen> {
                   Icons.drag_indicator_rounded,
                   size: 22,
                   color: isDark
-                      ? AppTheme.darkTextSecondary.withValues(alpha: 0.5)
+                      ? AppTheme.darkTextSecondary.withOpacity(0.5)
                       : const Color(0xFFCBD5E1),
                 ),
               ),
@@ -645,7 +645,7 @@ class _MergePdfScreenState extends ConsumerState<MergePdfScreen> {
 
   Widget _buildProgressOverlay(bool isDark, MergePdfState state) {
     return Container(
-      color: (isDark ? Colors.black : Colors.white).withValues(alpha: 0.85),
+      color: (isDark ? Colors.black : Colors.white).withOpacity(0.85),
       child: Center(
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 40),
@@ -655,7 +655,7 @@ class _MergePdfScreenState extends ConsumerState<MergePdfScreen> {
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
+                color: Colors.black.withOpacity(0.1),
                 blurRadius: 20,
                 offset: const Offset(0, 4),
               ),
@@ -739,8 +739,8 @@ class _MergePdfScreenState extends ConsumerState<MergePdfScreen> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       decoration: BoxDecoration(
         color: isDark
-            ? AppTheme.darkBackground.withValues(alpha: 0.85)
-            : Colors.white.withValues(alpha: 0.85),
+            ? AppTheme.darkBackground.withOpacity(0.85)
+            : Colors.white.withOpacity(0.85),
         border: Border(
           top: BorderSide(
             color: isDark ? AppTheme.darkBorder : const Color(0xFFE2E8F0),
@@ -762,13 +762,13 @@ class _MergePdfScreenState extends ConsumerState<MergePdfScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _primaryBlue,
                   disabledBackgroundColor: isDark
-                      ? _primaryBlue.withValues(alpha: 0.3)
-                      : _primaryBlue.withValues(alpha: 0.4),
+                      ? _primaryBlue.withOpacity(0.3)
+                      : _primaryBlue.withOpacity(0.4),
                   foregroundColor: Colors.white,
                   disabledForegroundColor:
-                      Colors.white.withValues(alpha: 0.6),
+                      Colors.white.withOpacity(0.6),
                   elevation: canMerge ? 4 : 0,
-                  shadowColor: _primaryBlue.withValues(alpha: 0.3),
+                  shadowColor: _primaryBlue.withOpacity(0.3),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppTheme.radiusL),
                   ),
@@ -784,7 +784,7 @@ class _MergePdfScreenState extends ConsumerState<MergePdfScreen> {
                             fontWeight: FontWeight.bold,
                             color: canMerge
                                 ? Colors.white
-                                : Colors.white.withValues(alpha: 0.6),
+                                : Colors.white.withOpacity(0.6),
                             letterSpacing: 1.0,
                           ),
                     ),

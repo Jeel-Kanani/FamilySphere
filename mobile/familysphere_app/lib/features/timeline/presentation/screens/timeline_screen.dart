@@ -85,8 +85,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    AppTheme.primaryColor.withValues(alpha: 0.3),
-                    AppTheme.primaryColor.withValues(alpha: 0.3),
+                    AppTheme.primaryColor.withOpacity(0.3),
+                    AppTheme.primaryColor.withOpacity(0.3),
                     Colors.transparent,
                   ],
                 ),
@@ -215,7 +215,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF0F172A) : Colors.white,
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
+                  border: Border.all(color: color.withOpacity(0.5), width: 1),
                 ),
                 child: Text(
                   _formatDate(event.startDate),
@@ -247,16 +247,16 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: isDark
-                                ? [Colors.white.withValues(alpha: 0.05), Colors.white.withValues(alpha: 0.02)]
-                                : [Colors.white, Colors.white.withValues(alpha: 0.8)],
+                                ? [Colors.white.withOpacity(0.05), Colors.white.withOpacity(0.02)]
+                                : [Colors.white, Colors.white.withOpacity(0.8)],
                           ),
                           border: Border.all(
-                            color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
+                            color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
                           ),
                           boxShadow: [
                             if (!isDark)
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.03),
+                                color: Colors.black.withOpacity(0.03),
                                 blurRadius: 20,
                                 offset: const Offset(0, 10),
                               ),
@@ -301,7 +301,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
             decoration: BoxDecoration(
               color: color.withValues(alpha: isDark ? 0.2 : 0.1),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: color.withValues(alpha: 0.3)),
+              border: Border.all(color: color.withOpacity(0.3)),
             ),
             child: Icon(event.icon, color: color, size: 24),
           ),
@@ -327,9 +327,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.orange.withValues(alpha: 0.2),
+                          color: Colors.orange.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
+                          border: Border.all(color: Colors.orange.withOpacity(0.5)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -407,7 +407,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF0F172A) : Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
+          border: Border.all(color: color.withOpacity(0.3)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -419,7 +419,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                 Container(
                   width: 48, height: 48,
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.15),
+                    color: color.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(event.icon, color: color, size: 24),
@@ -471,7 +471,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                     label: const Text('Edit'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+                      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
                   ),
@@ -552,7 +552,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF0F172A) : Colors.white,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-                border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
+                border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -573,7 +573,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                       labelText: 'Title',
                       labelStyle: GoogleFonts.plusJakartaSans(color: isDark ? Colors.white38 : Colors.black38),
                       filled: true,
-                      fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+                      fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                     ),
                   ),
@@ -586,7 +586,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                       labelText: 'Description (optional)',
                       labelStyle: GoogleFonts.plusJakartaSans(color: isDark ? Colors.white38 : Colors.black38),
                       filled: true,
-                      fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+                      fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                     ),
                   ),
@@ -604,7 +604,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+                        color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
@@ -613,7 +613,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                           const SizedBox(width: 12),
                           Text(dateStr, style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w600, color: isDark ? Colors.white70 : Colors.black87)),
                           const Spacer(),
-                          Text('TAP TO CHANGE', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.0, color: AppTheme.primaryColor.withValues(alpha: 0.7))),
+                          Text('TAP TO CHANGE', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.0, color: AppTheme.primaryColor.withOpacity(0.7))),
                         ],
                       ),
                     ),
@@ -672,7 +672,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF0F172A) : Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-          border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+          border: Border.all(color: Colors.orange.withOpacity(0.3)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -729,7 +729,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                     },
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+                      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
                     child: const Text('Correct Date'),
@@ -773,9 +773,9 @@ class _YearIndicator extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+            color: AppTheme.primaryColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
+            border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
           ),
           child: Text(
             year,
@@ -806,7 +806,7 @@ class _GapIndicator extends StatelessWidget {
           style: GoogleFonts.plusJakartaSans(
             fontSize: 9,
             fontWeight: FontWeight.bold,
-            color: Colors.grey.withValues(alpha: 0.5),
+            color: Colors.grey.withOpacity(0.5),
             letterSpacing: 1.5,
           ),
         ),
@@ -860,12 +860,12 @@ class _PulsingTodayIndicatorState extends State<_PulsingTodayIndicator>
                 borderRadius: BorderRadius.circular(30),
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.4),
+                    color: AppTheme.primaryColor.withOpacity(0.4),
                     blurRadius: 15 * _animation.value,
                     spreadRadius: 2 * _animation.value,
                   ),
                 ],
-                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
               ),
               child: child,
             );
@@ -898,7 +898,7 @@ class _SectionHeader extends StatelessWidget {
           fontSize: 11,
           fontWeight: FontWeight.w900,
           letterSpacing: 4.0,
-          color: Colors.grey.withValues(alpha: 0.6),
+          color: Colors.grey.withOpacity(0.6),
         ),
       ),
     );

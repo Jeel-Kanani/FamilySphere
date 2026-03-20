@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
+import '../../core/config/api_config.dart';
 import 'widgets/search_bar_widget.dart';
 import 'document_preview_screen.dart';
 
@@ -22,7 +23,7 @@ class _PrivateVaultScreenState extends State<PrivateVaultScreen> {
   Future<void> fetchDocuments() async {
     try {
       final response = await http.get(
-        Uri.parse('http://10.0.2.2:5000/api/documents'), // Replace with baseUrl
+        Uri.parse('${ApiConfig.baseUrl}${ApiConfig.getDocumentsEndpoint}'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -46,7 +47,8 @@ class _PrivateVaultScreenState extends State<PrivateVaultScreen> {
       filteredDocuments = documents.where((doc) {
         final title = doc['title']?.toLowerCase() ?? '';
         final category = doc['category']?.toLowerCase() ?? '';
-        return title.contains(query.toLowerCase()) || category.contains(query.toLowerCase());
+        return title.contains(query.toLowerCase()) ||
+            category.contains(query.toLowerCase());
       }).toList();
     });
   }

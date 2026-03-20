@@ -128,7 +128,12 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
         super(DocumentState.initial());
 
   /// Load documents for family
-  Future<void> loadDocuments({String? category, String? folder, String? memberId}) async {
+  Future<void> loadDocuments({
+    String? category,
+    String? folder,
+    String? memberId,
+    bool forceRefresh = false,
+  }) async {
     final user = _ref.read(authProvider).user;
     if (user == null || user.familyId == null) {
       if (kDebugMode) {
@@ -138,35 +143,43 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
     }
 
     final queryKey = '${user.familyId}|${category ?? ''}|${folder ?? ''}|${memberId ?? ''}';
-    if (_isLoadingDocuments && _activeDocumentsQueryKey == queryKey) {
-      return;
+    
+    // Check cache unless forceRefresh is true
+    if (!forceRefresh) {
+      if (_isLoadingDocuments && _activeDocumentsQueryKey == queryKey) {
+        return;
+      }
+      final cachedDocs = _documentsByQueryCache[queryKey];
+      final cachedAt = _documentsCacheAt[queryKey];
+      if (cachedDocs != null &&
+          cachedAt != null &&
+          DateTime.now().difference(cachedAt).inSeconds < 30) { // Increased to 30s
+        state = state.copyWith(
+          documents: cachedDocs,
+          isLoading: false,
+          error: null,
+        );
+        _lastLoadedDocumentsQueryKey = queryKey;
+        return;
+      }
     }
-    final cachedDocs = _documentsByQueryCache[queryKey];
-    final cachedAt = _documentsCacheAt[queryKey];
-    if (cachedDocs != null &&
-        cachedAt != null &&
-        DateTime.now().difference(cachedAt).inSeconds < 20) {
-      state = state.copyWith(
-        documents: cachedDocs,
-        isLoading: false,
-        error: null,
-      );
-      _lastLoadedDocumentsQueryKey = queryKey;
-      return;
-    }
+
     final requestSeq = ++_documentsRequestSeq;
     final isQueryChanged = _lastLoadedDocumentsQueryKey != queryKey;
 
     if (kDebugMode) {
-      debugPrint('DocumentNotifier: Loading documents. FamilyId: ${user.familyId}, Category: $category, Folder: $folder, MemberId: $memberId');
+      debugPrint('DocumentNotifier: Loading documents. FamilyId: ${user.familyId}, Query: $queryKey, Force: $forceRefresh');
     }
     _isLoadingDocuments = true;
     _activeDocumentsQueryKey = queryKey;
+    
+    // Don't clear documents if it's the same query (refreshing) or if we want to show old results while loading
     state = state.copyWith(
       isLoading: true,
-      documents: isQueryChanged ? const <DocumentEntity>[] : state.documents,
+      documents: (isQueryChanged && !forceRefresh) ? const <DocumentEntity>[] : state.documents,
       error: null,
     );
+
     try {
       final result = await _getDocuments(
         user.familyId!,
@@ -174,31 +187,29 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
         folder: folder,
         memberId: memberId,
       );
+      
       if (requestSeq != _documentsRequestSeq) {
         return;
       }
+
       final requestedCanonical = _canonicalCategory(category);
       final fetchedDocs = List<DocumentEntity>.from(result['documents']);
+      
+      // Secondary safety check for category filtering (if backend doesn't support it perfectly)
       final filteredDocs = requestedCanonical == null
           ? fetchedDocs
           : fetchedDocs.where((doc) => _canonicalCategory(doc.category) == requestedCanonical).toList();
+
       _documentsByQueryCache[queryKey] = filteredDocs;
       _documentsCacheAt[queryKey] = DateTime.now();
+      
       if (kDebugMode) {
-        debugPrint('DocumentNotifier: Loaded ${fetchedDocs.length} documents, kept ${filteredDocs.length} after category guard');
+        debugPrint('DocumentNotifier: Loaded ${fetchedDocs.length} documents for $queryKey');
       }
       
-      // Get storage from backend, or calculate dynamically as fallback
+      // Get storage from backend
       int finalStorageUsed = result['storageUsed'] ?? 0;
       final backendStorageLimit = result['storageLimit'] ?? (25 * 1024 * 1024 * 1024);
-      
-      // If backend storage seems off (0 or negative), calculate from documents
-      if (finalStorageUsed <= 0 && filteredDocs.isNotEmpty) {
-        finalStorageUsed = filteredDocs.fold<int>(0, (sum, doc) => sum + doc.sizeBytes.toInt());
-        if (kDebugMode) {
-          debugPrint('DocumentNotifier: Backend storage was $finalStorageUsed, calculated from docs: $finalStorageUsed');
-        }
-      }
       
       state = state.copyWith(
         documents: filteredDocs,

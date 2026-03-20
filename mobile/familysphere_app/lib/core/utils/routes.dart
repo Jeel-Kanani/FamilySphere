@@ -21,15 +21,26 @@ import 'package:familysphere_app/features/lab/presentation/screens/protect_pdf_s
 import 'package:familysphere_app/features/lab/presentation/screens/unlock_pdf_screen.dart';
 import 'package:familysphere_app/features/lab/presentation/screens/crop_image_screen.dart';
 import 'package:familysphere_app/features/lab/presentation/screens/compress_pdf_screen.dart';
+import 'package:familysphere_app/features/lab/presentation/screens/rotate_pdf_screen.dart';
+import 'package:familysphere_app/features/lab/presentation/screens/pdf_to_text_screen.dart';
+import 'package:familysphere_app/features/lab/presentation/screens/image_compress_screen.dart';
+import 'package:familysphere_app/features/lab/presentation/screens/image_convert_screen.dart';
+import 'package:familysphere_app/features/lab/presentation/screens/bg_remover_screen.dart';
+import 'package:familysphere_app/features/lab/presentation/screens/file_converter_screen.dart';
+import 'package:familysphere_app/features/lab/presentation/screens/zip_screen.dart';
+import 'package:familysphere_app/features/lab/presentation/screens/batch_rename_screen.dart';
+import 'package:familysphere_app/features/lab/presentation/screens/preview_share_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/auth_checker.dart';
 import 'package:familysphere_app/features/family/presentation/screens/join_family_screen.dart';
 import 'package:familysphere_app/features/family/presentation/screens/join_success_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/phone_login_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/otp_verification_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/admin_engine_dashboard.dart';
+import 'package:familysphere_app/features/documents/presentation/screens/recent_documents_screen.dart';
+import 'package:familysphere_app/features/intelligence/presentation/screens/intelligence_hub_screen.dart';
 
 /// Application Routes
-/// 
+///
 /// Centralized route management for the app.
 class AppRoutes {
   static const String root = '/';
@@ -48,6 +59,7 @@ class AppRoutes {
   static const String documentViewer = '/document-viewer';
   static const String phoneLogin = '/phone-login';
   static const String otpVerification = '/otp-verification';
+  static const String recentDocuments = '/recent-documents';
   static const String scanner = '/scanner';
   static const String lab = '/lab';
   static const String mergePdf = '/merge-pdf';
@@ -61,7 +73,17 @@ class AppRoutes {
   static const String memberDocs = '/member-docs';
   static const String privateLocker = '/private-locker';
   static const String compressPdf = '/compress-pdf';
+  static const String rotatePdf = '/rotate-pdf';
+  static const String pdfToText = '/pdf-to-text';
+  static const String imageCompress = '/image-compress';
+  static const String imageConvert = '/image-convert';
+  static const String bgRemover = '/bg-remover';
+  static const String fileConverter = '/file-converter';
+  static const String zipUnzip = '/zip-unzip';
+  static const String batchRename = '/batch-rename';
+  static const String previewShare = '/preview-share';
   static const String adminEngineDashboard = '/admin/engine-dashboard';
+  static const String intelligence = '/intelligence';
 
   // Route generator
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -80,7 +102,8 @@ class AppRoutes {
 
       case otpVerification:
         final phone = settings.arguments as String;
-        return MaterialPageRoute(builder: (_) => OtpVerificationScreen(phoneNumber: phone));
+        return MaterialPageRoute(
+            builder: (_) => OtpVerificationScreen(phoneNumber: phone));
 
       case profileSetup:
         return MaterialPageRoute(builder: (_) => const ProfileSetupScreen());
@@ -115,6 +138,11 @@ class AppRoutes {
         return MaterialPageRoute(
           builder: (_) => DocumentListScreen(initialCategory: category),
         );
+      
+      case recentDocuments:
+        return MaterialPageRoute(
+          builder: (_) => const RecentDocumentsScreen(),
+        );
 
       case addDocument:
         final args = settings.arguments;
@@ -143,7 +171,8 @@ class AppRoutes {
 
       case documentViewer:
         final document = settings.arguments as DocumentEntity;
-        return MaterialPageRoute(builder: (_) => DocumentViewerScreen(document: document));
+        return MaterialPageRoute(
+            builder: (_) => DocumentViewerScreen(document: document));
 
       case scanner:
         final args = settings.arguments;
@@ -199,7 +228,7 @@ class AppRoutes {
           builder: (_) => const UnlockPdfScreen(),
           settings: settings,
         );
-      
+
       case cropImage:
         return MaterialPageRoute(
           builder: (_) => const CropImageScreen(),
@@ -212,8 +241,38 @@ class AppRoutes {
           settings: settings,
         );
 
+      case rotatePdf:
+        return MaterialPageRoute(builder: (_) => const RotatePdfScreen());
+
+      case pdfToText:
+        return MaterialPageRoute(builder: (_) => const PdfToTextScreen());
+
+      case imageCompress:
+        return MaterialPageRoute(builder: (_) => const ImageCompressScreen());
+
+      case imageConvert:
+        return MaterialPageRoute(builder: (_) => const ImageConvertScreen());
+
+      case bgRemover:
+        return MaterialPageRoute(builder: (_) => const BgRemoverScreen());
+
+      case fileConverter:
+        return MaterialPageRoute(builder: (_) => const FileConverterScreen());
+
+      case zipUnzip:
+        return MaterialPageRoute(builder: (_) => const ZipScreen());
+
+      case batchRename:
+        return MaterialPageRoute(builder: (_) => const BatchRenameScreen());
+
+      case previewShare:
+        return MaterialPageRoute(builder: (_) => const PreviewShareScreen());
+
       case adminEngineDashboard:
         return MaterialPageRoute(builder: (_) => const AdminEngineDashboard());
+
+      case intelligence:
+        return MaterialPageRoute(builder: (_) => const IntelligenceHubScreen());
 
       case folderDetails:
       case memberDocs:

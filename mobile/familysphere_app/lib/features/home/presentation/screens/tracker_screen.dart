@@ -93,8 +93,8 @@ class TrackerScreen extends ConsumerWidget {
       height: 48,
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withValues(alpha: 0.05)
-            : Colors.black.withValues(alpha: 0.03),
+            ? Colors.white.withOpacity(0.05)
+            : Colors.black.withOpacity(0.03),
         borderRadius: BorderRadius.circular(24),
       ),
       child: TabBar(
@@ -103,7 +103,7 @@ class TrackerScreen extends ConsumerWidget {
           gradient: AppTheme.primaryGradient,
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primaryColor.withValues(alpha: 0.3),
+              color: AppTheme.primaryColor.withOpacity(0.3),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
@@ -210,12 +210,12 @@ class TrackerScreen extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
+        color: isDark ? Colors.white.withOpacity(0.04) : Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: isDark
-              ? Colors.white.withValues(alpha: 0.05)
-              : Colors.black.withValues(alpha: 0.02),
+              ? Colors.white.withOpacity(0.05)
+              : Colors.black.withOpacity(0.02),
         ),
       ),
       child: Row(
@@ -229,7 +229,7 @@ class TrackerScreen extends ConsumerWidget {
                 child: CircularProgressIndicator(
                   value: progress,
                   strokeWidth: 3,
-                  backgroundColor: color.withValues(alpha: 0.1),
+                  backgroundColor: color.withOpacity(0.1),
                   valueColor: AlwaysStoppedAnimation<Color>(color),
                 ),
               ),
@@ -266,10 +266,10 @@ class TrackerScreen extends ConsumerWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.15),
+                color: Colors.orange.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(8),
                 border:
-                    Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+                    Border.all(color: Colors.orange.withOpacity(0.4)),
               ),
               child: Text(
                 'REVIEW',
@@ -286,7 +286,7 @@ class TrackerScreen extends ConsumerWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
+                color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -412,10 +412,10 @@ class TrackerScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: isDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : Colors.black.withValues(alpha: 0.05),
+                  ? Colors.white.withOpacity(0.08)
+                  : Colors.black.withOpacity(0.05),
               border:
-                  Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  Border.all(color: Colors.white.withOpacity(0.1)),
             ),
             child: Icon(icon,
                 color: isDark ? Colors.white70 : Colors.black54, size: 22),
@@ -449,14 +449,14 @@ class TrackerScreen extends ConsumerWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              color.withValues(alpha: 0.15),
-              color.withValues(alpha: 0.05)
+              color.withOpacity(0.15),
+              color.withOpacity(0.05)
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
+          border: Border.all(color: color.withOpacity(0.2)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -547,7 +547,7 @@ class TrackerScreen extends ConsumerWidget {
             child: LinearProgressIndicator(
               value: urgency,
               minHeight: 8,
-              backgroundColor: color.withValues(alpha: 0.1),
+              backgroundColor: color.withOpacity(0.1),
               valueColor: AlwaysStoppedAnimation<Color>(color),
             ),
           ),
@@ -599,13 +599,13 @@ class TrackerScreen extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withValues(alpha: 0.03)
-            : Colors.black.withValues(alpha: 0.02),
+            ? Colors.white.withOpacity(0.03)
+            : Colors.black.withOpacity(0.02),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isDark
-              ? Colors.white.withValues(alpha: 0.04)
-              : Colors.black.withValues(alpha: 0.04),
+              ? Colors.white.withOpacity(0.04)
+              : Colors.black.withOpacity(0.04),
         ),
       ),
       child: Text(
@@ -626,7 +626,7 @@ class TrackerScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withValues(alpha: 0.4),
+            color: AppTheme.primaryColor.withOpacity(0.4),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -708,7 +708,7 @@ class _CreateEventSheetState extends State<_CreateEventSheet> {
           borderRadius:
               const BorderRadius.vertical(top: Radius.circular(32)),
           border: Border.all(
-              color: AppTheme.primaryColor.withValues(alpha: 0.2)),
+              color: AppTheme.primaryColor.withOpacity(0.2)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -745,8 +745,8 @@ class _CreateEventSheetState extends State<_CreateEventSheet> {
                         isDark ? Colors.white38 : Colors.black38),
                 filled: true,
                 fillColor: isDark
-                    ? Colors.white.withValues(alpha: 0.05)
-                    : Colors.black.withValues(alpha: 0.03),
+                    ? Colors.white.withOpacity(0.05)
+                    : Colors.black.withOpacity(0.03),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
@@ -768,8 +768,8 @@ class _CreateEventSheetState extends State<_CreateEventSheet> {
                     color: isDark ? Colors.white38 : Colors.black38),
                 filled: true,
                 fillColor: isDark
-                    ? Colors.white.withValues(alpha: 0.05)
-                    : Colors.black.withValues(alpha: 0.03),
+                    ? Colors.white.withOpacity(0.05)
+                    : Colors.black.withOpacity(0.03),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
@@ -803,14 +803,14 @@ class _CreateEventSheetState extends State<_CreateEventSheet> {
                         horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: selected
-                          ? color.withValues(alpha: 0.2)
+                          ? color.withOpacity(0.2)
                           : (isDark
-                              ? Colors.white.withValues(alpha: 0.05)
-                              : Colors.black.withValues(alpha: 0.03)),
+                              ? Colors.white.withOpacity(0.05)
+                              : Colors.black.withOpacity(0.03)),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: selected
-                            ? color.withValues(alpha: 0.6)
+                            ? color.withOpacity(0.6)
                             : Colors.transparent,
                       ),
                     ),
@@ -855,8 +855,8 @@ class _CreateEventSheetState extends State<_CreateEventSheet> {
                     horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
                   color: isDark
-                      ? Colors.white.withValues(alpha: 0.05)
-                      : Colors.black.withValues(alpha: 0.03),
+                      ? Colors.white.withOpacity(0.05)
+                      : Colors.black.withOpacity(0.03),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
@@ -881,7 +881,7 @@ class _CreateEventSheetState extends State<_CreateEventSheet> {
                         fontSize: 9,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 1.0,
-                        color: AppTheme.primaryColor.withValues(alpha: 0.7),
+                        color: AppTheme.primaryColor.withOpacity(0.7),
                       ),
                     ),
                   ],

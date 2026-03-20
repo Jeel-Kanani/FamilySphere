@@ -95,7 +95,7 @@ class _InviteMemberScreenState extends ConsumerState<InviteMemberScreen> {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
+                color: Colors.black.withOpacity(0.1),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -158,10 +158,10 @@ class _InviteMemberScreenState extends ConsumerState<InviteMemberScreen> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[100],
+            color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey[100],
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey[300]!,
+              color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey[300]!,
             ),
           ),
           child: Row(
@@ -221,7 +221,7 @@ class _InviteMemberScreenState extends ConsumerState<InviteMemberScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withValues(alpha: 0.05),
+        color: AppTheme.primaryColor.withOpacity(0.05),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(

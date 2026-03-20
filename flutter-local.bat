@@ -29,4 +29,5 @@ echo  Quit: press 'q'
 echo.
 
 cd /d %~dp0mobile\familysphere_app
+
 flutter run --dart-define=API_BASE_URL=http://%PC_IP%:5000

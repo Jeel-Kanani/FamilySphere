@@ -84,8 +84,8 @@ class _LabScreenState extends ConsumerState<LabScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: isDark
-            ? AppTheme.darkBackground.withValues(alpha: 0.95)
-            : _pageBackground.withValues(alpha: 0.95),
+            ? AppTheme.darkBackground.withOpacity(0.95)
+            : _pageBackground.withOpacity(0.95),
         border: Border(
           bottom: BorderSide(
             color: isDark ? AppTheme.darkBorder : const Color(0xFFE2E8F0),
@@ -93,16 +93,19 @@ class _LabScreenState extends ConsumerState<LabScreen> {
           ),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          _buildCircleButton(
-            context,
-            icon: Icons.menu_rounded,
-            isDark: isDark,
-            onTap: () {
-              Scaffold.of(context).openDrawer();
-            },
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _buildCircleButton(
+              context,
+              icon: Icons.info_outline_rounded,
+              isDark: isDark,
+              onTap: () {
+                // Show lab info
+              },
+            ),
           ),
           Text(
             'LAB',
@@ -112,11 +115,14 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                   letterSpacing: 0.5,
                 ),
           ),
-          _buildCircleButton(
-            context,
-            icon: Icons.settings_rounded,
-            isDark: isDark,
-            onTap: () {},
+          Align(
+            alignment: Alignment.centerRight,
+            child: _buildCircleButton(
+              context,
+              icon: Icons.settings_rounded,
+              isDark: isDark,
+              onTap: () {},
+            ),
           ),
         ],
       ),
@@ -140,7 +146,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: isDark
-                ? AppTheme.darkSurface.withValues(alpha: 0.5)
+                ? AppTheme.darkSurface.withOpacity(0.5)
                 : Colors.transparent,
           ),
           child: Icon(
@@ -167,7 +173,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: Colors.black.withOpacity(0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -373,7 +379,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: _primaryBlue.withValues(alpha: 0.12),
+                        color: _primaryBlue.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -396,7 +402,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                         icon: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: (isDark ? Colors.black : Colors.white).withValues(alpha: 0.7),
+                            color: (isDark ? Colors.black : Colors.white).withOpacity(0.7),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -980,9 +986,9 @@ class _LabScreenState extends ConsumerState<LabScreen> {
       _LabToolData(icon: Icons.call_merge_rounded, label: 'Merge PDF', route: '/merge-pdf'),
       _LabToolData(icon: Icons.call_split_rounded, label: 'Split PDF', route: '/split-pdf'),
       _LabToolData(icon: Icons.compress_rounded, label: 'Compress', route: '/compress-pdf'),
-      _LabToolData(icon: Icons.text_snippet_rounded, label: 'To Word'),
+      _LabToolData(icon: Icons.text_snippet_rounded, label: 'To Text', route: '/pdf-to-text'),
       _LabToolData(icon: Icons.lock_rounded, label: 'Protect', route: '/protect-pdf'),
-      _LabToolData(icon: Icons.rotate_right_rounded, label: 'Rotate'),
+      _LabToolData(icon: Icons.rotate_right_rounded, label: 'Rotate', route: '/rotate-pdf'),
       _LabToolData(icon: Icons.lock_open_rounded, label: 'Unlock PDF', route: '/unlock-pdf'),
     ];
 
@@ -999,12 +1005,12 @@ class _LabScreenState extends ConsumerState<LabScreen> {
 
   Widget _buildImageLabSection(BuildContext context, bool isDark) {
     final imageTools = [
-      _LabToolData(icon: Icons.photo_size_select_small_rounded, label: 'Compress'),
+      _LabToolData(icon: Icons.photo_size_select_small_rounded, label: 'Compress', route: '/image-compress'),
       _LabToolData(icon: Icons.aspect_ratio_rounded, label: 'Resize', route: '/image-resize'),
       _LabToolData(icon: Icons.crop_rounded, label: 'Crop Image', route: '/crop-image'),
-      _LabToolData(icon: Icons.transform_rounded, label: 'Convert'),
+      _LabToolData(icon: Icons.transform_rounded, label: 'Convert', route: '/image-convert'),
       _LabToolData(icon: Icons.picture_as_pdf_rounded, label: 'Image to PDF', route: '/image-process'),
-      _LabToolData(icon: Icons.auto_fix_high_rounded, label: 'BG Remover'),
+      _LabToolData(icon: Icons.auto_fix_high_rounded, label: 'BG Remover', route: '/bg-remover'),
     ];
 
     return _buildToolGridSection(
@@ -1128,10 +1134,10 @@ class _LabScreenState extends ConsumerState<LabScreen> {
 
   Widget _buildDocumentToolsSection(BuildContext context, bool isDark) {
     final docTools = [
-      _LabToolData(icon: Icons.swap_horiz_rounded, label: 'File Converter'),
-      _LabToolData(icon: Icons.folder_zip_rounded, label: 'Zip / Unzip'),
-      _LabToolData(icon: Icons.edit_square, label: 'Rename Files'),
-      _LabToolData(icon: Icons.visibility_rounded, label: 'Preview & Share'),
+      _LabToolData(icon: Icons.swap_horiz_rounded, label: 'File Converter', route: '/file-converter'),
+      _LabToolData(icon: Icons.folder_zip_rounded, label: 'Zip / Unzip', route: '/zip-unzip'),
+      _LabToolData(icon: Icons.edit_square, label: 'Rename Files', route: '/batch-rename'),
+      _LabToolData(icon: Icons.visibility_rounded, label: 'Preview & Share', route: '/preview-share'),
     ];
 
     return Padding(
@@ -1166,7 +1172,9 @@ class _LabScreenState extends ConsumerState<LabScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            // TODO: Navigate to tool screen
+            if (tool.route != null) {
+              Navigator.pushNamed(context, tool.route!);
+            }
           },
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
           child: Container(

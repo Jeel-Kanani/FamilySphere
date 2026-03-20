@@ -17,8 +17,6 @@ class VaultScreen extends ConsumerStatefulWidget {
 
 class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
-  final TextEditingController _searchController = TextEditingController();
-  bool _showSearch = false;
 
   @override
   void initState() {
@@ -43,7 +41,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
   @override
   void dispose() {
     _animationController.dispose();
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -62,13 +59,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
     final storageLimitStr = _formatBytes(storageLimit);
     final progress = storageLimit > 0 ? (storageUsed / storageLimit).clamp(0, 1).toDouble() : 0.0;
 
-    // Filter documents based on search
-    final filteredDocs = _searchController.text.isEmpty
-        ? documents
-        : documents.where((doc) => 
-            doc.title.toLowerCase().contains(_searchController.text.toLowerCase()) ||
-            doc.folder.toLowerCase().contains(_searchController.text.toLowerCase())
-          ).toList();
+    // Recalculate storage after loading documents to ensure accuracy
 
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.backgroundColor,
@@ -88,8 +79,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
                 
               const SizedBox(height: 16),
               
-              // Search Bar
-              _buildSearchBar(context),
               const SizedBox(height: 16),
               
               // Statistics Row
@@ -136,42 +125,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
                 documentCount: _getDocCountByCategory(documents, 'Private'),
               ),
               const SizedBox(height: 22),
-              
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildSectionTitle(context, _showSearch && _searchController.text.isNotEmpty 
-                    ? 'Search Results' 
-                    : 'Recent Documents'),
-                  if (documents.isNotEmpty)
-                    TextButton(
-                      onPressed: () => Navigator.pushNamed(
-                        context, 
-                        AppRoutes.documents, 
-                        arguments: {'category': 'Shared'}
-                      ),
-                      child: const Text('View All'),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              
-              if (isLoading && documents.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(24.0),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (filteredDocs.isEmpty && _searchController.text.isNotEmpty)
-                _buildEmptySearchState(context)
-              else if (filteredDocs.isEmpty)
-                _buildEmptyState(context)
-              else
-                ...filteredDocs.take(6).map(
-                      (doc) => _buildRecentItem(
-                        context,
-                        document: doc,
-                      ),
-                    ),
             ],
           ),
         ),
@@ -249,67 +202,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildSearchBar(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkSurface : Colors.white,
-        borderRadius: BorderRadius.circular(AppTheme.radiusL),
-        border: Border.all(
-          color: _showSearch 
-            ? AppTheme.primaryColor.withOpacity(0.5)
-            : (isDark ? AppTheme.darkBorder : AppTheme.borderColor),
-          width: _showSearch ? 2 : 1,
-        ),
-        boxShadow: _showSearch ? [
-          BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ] : null,
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.search_rounded,
-            color: _showSearch ? AppTheme.primaryColor : AppTheme.textSecondary,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) => setState(() {}),
-              onTap: () => setState(() => _showSearch = true),
-              decoration: InputDecoration(
-                hintText: 'Search documents, folders...',
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-                hintStyle: TextStyle(color: AppTheme.textSecondary),
-              ),
-            ),
-          ),
-          if (_searchController.text.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.clear_rounded, size: 20),
-              onPressed: () {
-                setState(() {
-                  _searchController.clear();
-                  _showSearch = false;
-                });
-              },
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildStatsRow(BuildContext context, List documents) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
@@ -318,34 +210,21 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
         Expanded(
           child: _buildStatCard(
             context,
-            icon: Icons.description_rounded,
-            label: 'Documents',
+            icon: Icons.description_outlined,
+            label: 'Total Files',
             value: documents.length.toString(),
             color: const Color(0xFF0EA5E9),
             isDark: isDark,
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Expanded(
           child: _buildStatCard(
             context,
-            icon: Icons.folder_rounded,
-            label: 'Categories',
-            value: '3',
+            icon: Icons.folder_open_rounded,
+            label: 'Folders',
+            value: '22', // Assuming custom folders or categories
             color: const Color(0xFF10B981),
-            isDark: isDark,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _buildStatCard(
-            context,
-            icon: Icons.schedule_rounded,
-            label: 'Recent',
-            value: documents.where((d) => 
-              DateTime.now().difference(d.uploadedAt).inDays < 7
-            ).length.toString(),
-            color: const Color(0xFFF97316),
             isDark: isDark,
           ),
         ),
@@ -752,189 +631,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildRecentItem(
-    BuildContext context, {
-    required dynamic document,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isPdf = document.fileType.toLowerCase().contains('pdf') ||
-        document.fileUrl.toLowerCase().endsWith('.pdf');
-    
-    return InkWell(
-      onTap: () => Navigator.pushNamed(
-        context,
-        AppRoutes.documentViewer,
-        arguments: document,
-      ),
-      borderRadius: BorderRadius.circular(AppTheme.radiusM),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isDark ? AppTheme.darkSurface : Colors.white,
-          borderRadius: BorderRadius.circular(AppTheme.radiusM),
-          border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.borderColor),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isPdf 
-                    ? [Colors.red.withOpacity(0.2), Colors.red.withOpacity(0.1)]
-                    : [Colors.blue.withOpacity(0.2), Colors.blue.withOpacity(0.1)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isPdf 
-                    ? Colors.red.withOpacity(0.3)
-                    : Colors.blue.withOpacity(0.3),
-                ),
-              ),
-              child: Icon(
-                isPdf ? Icons.picture_as_pdf_rounded : Icons.image_rounded,
-                color: isPdf ? Colors.red : Colors.blue,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    document.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.folder_outlined,
-                        size: 14,
-                        color: AppTheme.textSecondary,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          '${document.folder} • ${_formatDate(document.uploadedAt)}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppTheme.textSecondary,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 16,
-              color: AppTheme.textSecondary,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkSurface : Colors.white,
-        borderRadius: BorderRadius.circular(AppTheme.radiusL),
-        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.borderColor),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.folder_open_rounded,
-              size: 48,
-              color: AppTheme.primaryColor,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No documents yet',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Upload your first document to start organizing your vault.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppTheme.textSecondary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptySearchState(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkSurface : Colors.white,
-        borderRadius: BorderRadius.circular(AppTheme.radiusL),
-        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.borderColor),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.search_off_rounded,
-            size: 48,
-            color: AppTheme.textSecondary,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No results found',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Try adjusting your search terms',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppTheme.textSecondary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildBottomBar(BuildContext context, Color surface, Color border) {
     return Container(

@@ -123,7 +123,7 @@ class MergeResultSheet extends StatelessWidget {
           width: 64,
           height: 64,
           decoration: BoxDecoration(
-            color: const Color(0xFF10B981).withValues(alpha: 0.12),
+            color: const Color(0xFF10B981).withOpacity(0.12),
             shape: BoxShape.circle,
           ),
           child: const Icon(
@@ -236,7 +236,7 @@ class MergeResultSheet extends StatelessWidget {
           width: 64,
           height: 64,
           decoration: BoxDecoration(
-            color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+            color: const Color(0xFFEF4444).withOpacity(0.12),
             shape: BoxShape.circle,
           ),
           child: const Icon(

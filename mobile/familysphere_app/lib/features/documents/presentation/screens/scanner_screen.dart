@@ -118,7 +118,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 icon: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.1),
+                    color: Colors.red.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.delete_sweep_rounded,
@@ -179,7 +179,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                   height: 72,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppTheme.primaryColor.withValues(alpha: 0.16),
+                    color: AppTheme.primaryColor.withOpacity(0.16),
                   ),
                   child: const Icon(Icons.camera_alt_rounded, size: 34, color: AppTheme.primaryColor),
                 ),
@@ -221,7 +221,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
               right: 10,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.45),
+                  color: Colors.black.withOpacity(0.45),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Padding(
@@ -317,7 +317,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           color: isDark ? const Color(0xFF0F172A) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-              color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+              color: AppTheme.primaryColor.withOpacity(0.3)),
         ),
         child: Row(
           children: [
@@ -340,7 +340,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: isDark
-                          ? Colors.white.withValues(alpha: 0.87)
+                          ? Colors.white.withOpacity(0.87)
                           : const Color(0xFF0F172A),
                     ),
                   ),
@@ -410,7 +410,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                   gradient: LinearGradient(
                     colors: [
                       confidenceColor,
-                      confidenceColor.withValues(alpha: 0.4)
+                      confidenceColor.withOpacity(0.4)
                     ],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -430,7 +430,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                             padding: const EdgeInsets.all(7),
                             decoration: BoxDecoration(
                               color: AppTheme.primaryColor
-                                  .withValues(alpha: 0.1),
+                                  .withOpacity(0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Icon(
@@ -460,11 +460,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
                               color: confidenceColor
-                                  .withValues(alpha: 0.12),
+                                  .withOpacity(0.12),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                   color: confidenceColor
-                                      .withValues(alpha: 0.4)),
+                                      .withOpacity(0.4)),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -587,7 +587,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withValues(alpha: 0.04)
+            ? Colors.white.withOpacity(0.04)
             : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(10),
       ),
@@ -596,7 +596,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              color: AppTheme.primaryColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, size: 14, color: AppTheme.primaryColor),
@@ -688,7 +688,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                           : [
                               BoxShadow(
                                 color: AppTheme.primaryColor
-                                    .withValues(alpha: 0.35),
+                                    .withOpacity(0.35),
                                 blurRadius: 16,
                                 offset: const Offset(0, 6),
                               ),
@@ -750,11 +750,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
                         height: 50,
                         decoration: BoxDecoration(
                           color: const Color(0xFF10B981)
-                              .withValues(alpha: 0.1),
+                              .withOpacity(0.1),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: const Color(0xFF10B981)
-                                .withValues(alpha: 0.45),
+                                .withOpacity(0.45),
                           ),
                         ),
                         child: Row(
@@ -902,7 +902,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.18),
+                color: Colors.black.withOpacity(0.18),
                 blurRadius: 28,
                 offset: const Offset(0, -4),
               ),
@@ -932,7 +932,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                   borderRadius: BorderRadius.circular(18),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                      color: AppTheme.primaryColor.withOpacity(0.3),
                       blurRadius: 14,
                       offset: const Offset(0, 5),
                     ),
@@ -943,7 +943,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
+                        color: Colors.white.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.photo_library_rounded,
@@ -965,7 +965,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                           Text(
                             'What would you like to do?',
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.8),
+                              color: Colors.white.withOpacity(0.8),
                               fontSize: 12,
                             ),
                           ),
@@ -1047,7 +1047,7 @@ class _BottomIconAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = isDark
-        ? Colors.white.withValues(alpha: 0.07)
+        ? Colors.white.withOpacity(0.07)
         : const Color(0xFFF1F5F9);
     final iconColor = onTap == null
         ? (isDark ? Colors.white24 : Colors.black26)
@@ -1070,7 +1070,7 @@ class _BottomIconAction extends StatelessWidget {
               border: Border.all(
                 color: isDark
                     ? Colors.white12
-                    : Colors.black.withValues(alpha: 0.06),
+                    : Colors.black.withOpacity(0.06),
               ),
             ),
             child: Icon(icon, color: iconColor, size: 22),
@@ -1119,7 +1119,7 @@ class _ContinueOption extends StatelessWidget {
     final bg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
     final border = isDark
         ? Colors.white12
-        : Colors.black.withValues(alpha: 0.07);
+        : Colors.black.withOpacity(0.07);
 
     return GestureDetector(
       onTap: onTap,
@@ -1135,7 +1135,7 @@ class _ContinueOption extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.12),
+                color: iconColor.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: iconColor, size: 20),

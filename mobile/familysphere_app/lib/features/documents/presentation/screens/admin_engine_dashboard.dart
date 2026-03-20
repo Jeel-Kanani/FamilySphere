@@ -352,7 +352,7 @@ class _AdminEngineDashboardState extends ConsumerState<AdminEngineDashboard>
               Text(
                 'Smart Document Engine',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: Colors.white.withOpacity(0.9),
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
                 ),
@@ -362,8 +362,8 @@ class _AdminEngineDashboardState extends ConsumerState<AdminEngineDashboard>
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: data.queueEnabled
-                      ? const Color(0xFF10B981).withValues(alpha: 0.2)
-                      : const Color(0xFFEF4444).withValues(alpha: 0.2),
+                      ? const Color(0xFF10B981).withOpacity(0.2)
+                      : const Color(0xFFEF4444).withOpacity(0.2),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: data.queueEnabled ? const Color(0xFF10B981) : const Color(0xFFEF4444),
@@ -555,13 +555,13 @@ class _AdminEngineDashboardState extends ConsumerState<AdminEngineDashboard>
         borderRadius: BorderRadius.circular(AppTheme.radiusL),
         border: Border.all(
           color: isProcessing
-              ? cfg.color.withValues(alpha: 0.6)
+              ? cfg.color.withOpacity(0.6)
               : (isDark ? AppTheme.darkBorder : AppTheme.borderColor),
           width: isProcessing ? 1.5 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -697,9 +697,9 @@ class _AdminEngineDashboardState extends ConsumerState<AdminEngineDashboard>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
-                color: confColor.withValues(alpha: 0.15),
+                color: confColor.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: confColor.withValues(alpha: 0.4)),
+                border: Border.all(color: confColor.withOpacity(0.4)),
               ),
               child: Text(
                 '${ai.confidencePercent}% conf.',
@@ -833,9 +833,9 @@ class _AdminEngineDashboardState extends ConsumerState<AdminEngineDashboard>
               margin: const EdgeInsets.only(right: 6),
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
-                color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                color: const Color(0xFF6366F1).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.2)),
+                border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2)),
               ),
               child: Text(
                 '#$t',
@@ -919,7 +919,7 @@ class _PipelineBar extends StatelessWidget {
             final color = filled
                 ? const Color(0xFF6366F1)
                 : active
-                    ? const Color(0xFF6366F1).withValues(alpha: 0.5)
+                    ? const Color(0xFF6366F1).withOpacity(0.5)
                     : const Color(0xFFE2E8F0);
             return Expanded(
               child: Container(
@@ -978,9 +978,9 @@ class _StageBadge extends StatelessWidget {
     Widget badge = Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
+        color: color.withOpacity(0.15),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
+        border: Border.all(color: color.withOpacity(0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1036,7 +1036,7 @@ class _StageStatChip extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? color : color.withValues(alpha: 0.15),
+          color: selected ? color : color.withOpacity(0.15),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: color.withValues(alpha: selected ? 1 : 0.3)),
         ),
@@ -1058,7 +1058,7 @@ class _StageStatChip extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 10,
-                color: selected ? Colors.white.withValues(alpha: 0.9) : color,
+                color: selected ? Colors.white.withOpacity(0.9) : color,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -1083,9 +1083,9 @@ class _QueueStat extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(AppTheme.radiusM),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Column(
         children: [
@@ -1099,7 +1099,7 @@ class _QueueStat extends StatelessWidget {
           ),
           Text(
             label,
-            style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.8)),
+            style: TextStyle(fontSize: 10, color: color.withOpacity(0.8)),
           ),
         ],
       ),

@@ -5,6 +5,8 @@ import { processDocumentOcr } from '../services/ocrService';
 import { EventGeneratorService } from '../services/eventGeneratorService';
 import { NotificationService } from '../services/notificationService';
 import DocumentIntelligence from '../models/DocumentIntelligence';
+import { IntelligenceCoreService } from '../services/intelligence/IntelligenceCore';
+import { FactSourceType } from '../models/IntelligenceFact';
 
 /**
  * Phase 4 – OCR Background Worker
@@ -145,6 +147,21 @@ export const startOcrWorker = (): Worker<OcrJobData> => {
                     },
                     { upsert: true, new: true }
                 );
+
+                // 🔥 Unified Intelligence Platform: Create a Fact
+                try {
+                    await IntelligenceCoreService.processSource({
+                        familyId: String(updatedDoc?.familyId),
+                        userId: String(updatedDoc?.uploadedBy),
+                        sourceType: FactSourceType.DOCUMENT,
+                        sourceId: documentId,
+                        rawText: ocrResult.rawText,
+                        intelligence: intel,
+                    });
+                } catch (intelErr: any) {
+                    console.error(`[OCR Worker] Failed to save unified fact for doc ${documentId}:`, intelErr.message);
+                }
+
                 console.log(
                     `[OCR Worker] Intelligence saved for doc ${documentId} | ` +
                     `type=${intel.document_classification.document_type} | ` +

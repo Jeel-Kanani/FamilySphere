@@ -18,8 +18,11 @@ import {
     reprocessOcr,
 } from '../controllers/documentController';
 import { upload } from '../config/cloudinary';
+import { protect } from '../middleware/authMiddleware';
 
 const router = Router();
+
+router.use(protect);
 
 // POST /api/documents/upload - Upload a new document
 router.post('/upload', upload.single('file'), uploadDocument);

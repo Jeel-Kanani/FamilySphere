@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -92,7 +92,9 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
     if (widget.initialImagePaths != null) {
       _selectedFiles = widget.initialImagePaths!.map(File.new).toList();
       if (_selectedFiles.isNotEmpty) {
-        _titleController.text = 'Doc_${DateTime.now().millisecondsSinceEpoch}';
+        final fileName = _selectedFiles.first.path.split(Platform.pathSeparator).last;
+        final dotIndex = fileName.lastIndexOf('.');
+        _titleController.text = dotIndex > 0 ? fileName.substring(0, dotIndex) : fileName;
       }
     }
   }
@@ -114,7 +116,15 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
 
       if (result != null) {
         setState(() {
-          _selectedFiles.addAll(result.files.where((f) => f.path != null).map((f) => File(f.path!)));
+          final newFiles = result.files.where((f) => f.path != null).map((f) => File(f.path!)).toList();
+          _selectedFiles.addAll(newFiles);
+          
+          // Pre-fill title from the first picked file if title is empty
+          if (_titleController.text.isEmpty && newFiles.isNotEmpty) {
+            final fileName = newFiles.first.path.split(Platform.pathSeparator).last;
+            final dotIndex = fileName.lastIndexOf('.');
+            _titleController.text = dotIndex > 0 ? fileName.substring(0, dotIndex) : fileName;
+          }
         });
       }
     } catch (e) {
@@ -367,7 +377,7 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
                                     CircleAvatar(
                                       radius: 10,
                                       backgroundColor: AppTheme.primaryColor
-                                          .withValues(alpha: 0.15),
+                                          .withOpacity(0.15),
                                       child: Text(
                                         _initials(m.displayName),
                                         style: const TextStyle(
@@ -538,9 +548,9 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
                           color: isCompleted
                               ? AppTheme.primaryColor
                               : isActive
-                                  ? AppTheme.primaryColor.withValues(alpha: 0.12)
+                                  ? AppTheme.primaryColor.withOpacity(0.12)
                                   : (isDark
-                                      ? Colors.white.withValues(alpha: 0.05)
+                                      ? Colors.white.withOpacity(0.05)
                                       : const Color(0xFFF1F5F9)),
                           shape: BoxShape.circle,
                           border: Border.all(color: color, width: 1.8),
@@ -588,7 +598,7 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
                               : [
                                   isActive
                                       ? AppTheme.primaryColor
-                                          .withValues(alpha: 0.4)
+                                          .withOpacity(0.4)
                                       : (isDark
                                           ? Colors.white12
                                           : AppTheme.borderColor),
@@ -631,7 +641,7 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                  color: AppTheme.primaryColor.withOpacity(0.3),
                   blurRadius: 18,
                   offset: const Offset(0, 6),
                 ),
@@ -709,7 +719,7 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
             padding: const EdgeInsets.symmetric(vertical: 14),
             decoration: BoxDecoration(
               color: isDark
-                  ? Colors.white.withValues(alpha: 0.04)
+                  ? Colors.white.withOpacity(0.04)
                   : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
@@ -724,7 +734,7 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
                 Container(
                   padding: const EdgeInsets.all(7),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    color: AppTheme.primaryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(9),
                   ),
                   child: Icon(
@@ -740,7 +750,7 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
                     color: isDark
-                        ? Colors.white.withValues(alpha: 0.87)
+                        ? Colors.white.withOpacity(0.87)
                         : const Color(0xFF0F172A),
                   ),
                 ),
@@ -788,7 +798,7 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
             boxShadow: canSave
                 ? [
                     BoxShadow(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.35),
+                      color: AppTheme.primaryColor.withOpacity(0.35),
                       blurRadius: 16,
                       offset: const Offset(0, 6),
                     ),
@@ -832,7 +842,7 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 9, vertical: 3),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.22),
+                            color: Colors.white.withOpacity(0.22),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(

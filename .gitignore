@@ -65,3 +65,6 @@ db-output*.txt
 *.gz
 *.rar
 *.7z
+
+# DevContext - AI coding context
+.devctx/

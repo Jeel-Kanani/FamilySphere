@@ -52,12 +52,12 @@ class _ConfirmTypeBannerState extends ConsumerState<ConfirmTypeBanner> {
     const amberDeep = Color(0xFFFF6F00);
     const amber = Color(0xFFF59E0B);
     final textPrimary = isDark
-        ? Colors.white.withValues(alpha: 0.9)
+        ? Colors.white.withOpacity(0.9)
         : const Color(0xFF1C1917);
     final textSub = isDark ? Colors.white54 : Colors.grey.shade600;
     final dropdownBg = isDark ? const Color(0xFF1E1A00) : Colors.white;
     final dropdownBorder =
-        isDark ? amber.withValues(alpha: 0.3) : amber.withValues(alpha: 0.45);
+        isDark ? amber.withOpacity(0.3) : amber.withOpacity(0.45);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -75,7 +75,7 @@ class _ConfirmTypeBannerState extends ConsumerState<ConfirmTypeBanner> {
               Container(
                 padding: const EdgeInsets.all(5),
                 decoration: BoxDecoration(
-                  color: amberDeep.withValues(alpha: 0.12),
+                  color: amberDeep.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(7),
                 ),
                 child: const Icon(Icons.auto_awesome_rounded,
@@ -209,7 +209,7 @@ class _ConfirmTypeBannerState extends ConsumerState<ConfirmTypeBanner> {
                           : [
                               BoxShadow(
                                 color: const Color(0xFFF59E0B)
-                                    .withValues(alpha: 0.35),
+                                    .withOpacity(0.35),
                                 blurRadius: 8,
                                 offset: const Offset(0, 3),
                               ),

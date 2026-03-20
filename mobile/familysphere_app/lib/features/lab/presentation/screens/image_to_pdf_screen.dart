@@ -139,11 +139,11 @@ class _ImageToPdfScreenState extends ConsumerState<ImageToPdfScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isDark
-              ? _primaryBlue.withValues(alpha: 0.15)
-              : _primaryBlue.withValues(alpha: 0.08),
+              ? _primaryBlue.withOpacity(0.15)
+              : _primaryBlue.withOpacity(0.08),
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
           border: Border.all(
-            color: _primaryBlue.withValues(alpha: 0.2),
+            color: _primaryBlue.withOpacity(0.2),
           ),
         ),
         child: Row(
@@ -157,7 +157,7 @@ class _ImageToPdfScreenState extends ConsumerState<ImageToPdfScreen> {
                 borderRadius: BorderRadius.circular(AppTheme.radiusM),
                 boxShadow: [
                   BoxShadow(
-                    color: _primaryBlue.withValues(alpha: 0.3),
+                    color: _primaryBlue.withOpacity(0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -228,7 +228,7 @@ class _ImageToPdfScreenState extends ConsumerState<ImageToPdfScreen> {
                     ? (isDark
                         ? AppTheme.darkBorder
                         : const Color(0xFFE2E8F0))
-                    : _primaryBlue.withValues(alpha: 0.4),
+                    : _primaryBlue.withOpacity(0.4),
                 width: 2,
                 strokeAlign: BorderSide.strokeAlignInside,
               ),
@@ -244,7 +244,7 @@ class _ImageToPdfScreenState extends ConsumerState<ImageToPdfScreen> {
                         ? (isDark
                             ? AppTheme.darkBorder
                             : const Color(0xFFE2E8F0))
-                        : _primaryBlue.withValues(alpha: 0.1),
+                        : _primaryBlue.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -304,7 +304,7 @@ class _ImageToPdfScreenState extends ConsumerState<ImageToPdfScreen> {
               decoration: BoxDecoration(
                 color: isDark
                     ? AppTheme.darkSurface
-                    : _primaryBlue.withValues(alpha: 0.08),
+                    : _primaryBlue.withOpacity(0.08),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -365,7 +365,7 @@ class _ImageToPdfScreenState extends ConsumerState<ImageToPdfScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _primaryBlue.withValues(alpha: 0.1),
+                  color: _primaryBlue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -584,7 +584,7 @@ class _ImageToPdfScreenState extends ConsumerState<ImageToPdfScreen> {
                   Icons.drag_indicator_rounded,
                   size: 22,
                   color: isDark
-                      ? AppTheme.darkTextSecondary.withValues(alpha: 0.5)
+                      ? AppTheme.darkTextSecondary.withOpacity(0.5)
                       : const Color(0xFFCBD5E1),
                 ),
               ),
@@ -853,10 +853,10 @@ class _ImageToPdfScreenState extends ConsumerState<ImageToPdfScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: _primaryBlue.withValues(alpha: 0.08),
+                color: _primaryBlue.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(AppTheme.radiusM),
                 border: Border.all(
-                  color: _primaryBlue.withValues(alpha: 0.2),
+                  color: _primaryBlue.withOpacity(0.2),
                   width: 1,
                 ),
               ),
@@ -893,7 +893,7 @@ class _ImageToPdfScreenState extends ConsumerState<ImageToPdfScreen> {
 
   Widget _buildProgressOverlay(bool isDark, ImageToPdfState state) {
     return Container(
-      color: (isDark ? Colors.black : Colors.white).withValues(alpha: 0.85),
+      color: (isDark ? Colors.black : Colors.white).withOpacity(0.85),
       child: Center(
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 40),
@@ -903,7 +903,7 @@ class _ImageToPdfScreenState extends ConsumerState<ImageToPdfScreen> {
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
+                color: Colors.black.withOpacity(0.1),
                 blurRadius: 20,
                 offset: const Offset(0, 4),
               ),
@@ -987,8 +987,8 @@ class _ImageToPdfScreenState extends ConsumerState<ImageToPdfScreen> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       decoration: BoxDecoration(
         color: isDark
-            ? AppTheme.darkBackground.withValues(alpha: 0.85)
-            : Colors.white.withValues(alpha: 0.85),
+            ? AppTheme.darkBackground.withOpacity(0.85)
+            : Colors.white.withOpacity(0.85),
         border: Border(
           top: BorderSide(
             color: isDark ? AppTheme.darkBorder : const Color(0xFFE2E8F0),
@@ -1012,13 +1012,13 @@ class _ImageToPdfScreenState extends ConsumerState<ImageToPdfScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _primaryBlue,
                   disabledBackgroundColor: isDark
-                      ? _primaryBlue.withValues(alpha: 0.3)
-                      : _primaryBlue.withValues(alpha: 0.4),
+                      ? _primaryBlue.withOpacity(0.3)
+                      : _primaryBlue.withOpacity(0.4),
                   foregroundColor: Colors.white,
                   disabledForegroundColor:
-                      Colors.white.withValues(alpha: 0.6),
+                      Colors.white.withOpacity(0.6),
                   elevation: canConvert ? 4 : 0,
-                  shadowColor: _primaryBlue.withValues(alpha: 0.3),
+                  shadowColor: _primaryBlue.withOpacity(0.3),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppTheme.radiusL),
                   ),
@@ -1034,7 +1034,7 @@ class _ImageToPdfScreenState extends ConsumerState<ImageToPdfScreen> {
                             fontWeight: FontWeight.bold,
                             color: canConvert
                                 ? Colors.white
-                                : Colors.white.withValues(alpha: 0.6),
+                                : Colors.white.withOpacity(0.6),
                             letterSpacing: 1.0,
                           ),
                     ),

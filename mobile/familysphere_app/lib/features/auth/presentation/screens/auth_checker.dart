@@ -91,8 +91,8 @@ class SplashScreen extends StatelessWidget {
             end: Alignment.bottomRight,
             colors: [
               AppTheme.primaryColor,
-              AppTheme.primaryColor.withValues(alpha: 0.8),
-              AppTheme.secondaryColor.withValues(alpha: 0.9),
+              AppTheme.primaryColor.withOpacity(0.8),
+              AppTheme.secondaryColor.withOpacity(0.9),
             ],
           ),
         ),
@@ -119,7 +119,7 @@ class SplashScreen extends StatelessWidget {
               Text(
                 'Your Family, Connected',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: Colors.white.withOpacity(0.9),
                     ),
               ),
               const SizedBox(height: 60),

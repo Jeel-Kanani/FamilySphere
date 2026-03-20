@@ -115,13 +115,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen>
                                 color: isDark ? AppTheme.darkSurface : Colors.white,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                    color: AppTheme.primaryColor.withOpacity(0.1),
                                     blurRadius: 20,
                                     spreadRadius: 5,
                                   ),
                                 ],
                                 border: Border.all(
-                                  color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                                  color: AppTheme.primaryColor.withOpacity(0.2),
                                   width: 4,
                                 ),
                               ),

@@ -6,6 +6,7 @@ import DocumentIntelligence, { ALLOWED_DOC_TYPES } from '../models/DocumentIntel
 import { cloudinary } from '../config/cloudinary';
 import { ocrQueue } from '../queues/ocrQueue';
 import { appState } from '../config/appState';
+import Family from '../models/Family';
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const BUILT_IN_FOLDERS: Record<string, string[]> = {
@@ -49,12 +50,66 @@ const canonicalCategory = (value: string | undefined): string => {
     return value?.trim() || 'Shared';
 };
 
+const getAuthenticatedUser = (req: Request) => (req as any).user;
+
+const getAuthenticatedUserId = (req: Request): string | null => {
+    const user = getAuthenticatedUser(req);
+    return user?._id ? String(user._id) : null;
+};
+
+const getAuthenticatedFamilyId = (req: Request): string | null => {
+    const user = getAuthenticatedUser(req);
+    return user?.familyId ? String(user.familyId) : null;
+};
+
+const isFamilyAdmin = (req: Request): boolean => getAuthenticatedUser(req)?.role === 'admin';
+
+const ensureFamilyAccess = (req: Request, familyId: string): string | null => {
+    const userId = getAuthenticatedUserId(req);
+    const requesterFamilyId = getAuthenticatedFamilyId(req);
+
+    if (!userId || !requesterFamilyId) {
+        return null;
+    }
+
+    return requesterFamilyId === String(familyId) ? userId : null;
+};
+
+const canActForMember = (req: Request, memberId?: string): boolean => {
+    if (!memberId) {
+        return true;
+    }
+
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return false;
+    }
+
+    return isFamilyAdmin(req) || userId === String(memberId);
+};
+
+const getAuthorizedDocumentById = async (req: Request, documentId: string) => {
+    const requesterFamilyId = getAuthenticatedFamilyId(req);
+    if (!requesterFamilyId) {
+        return null;
+    }
+
+    const document = await Document.findById(documentId);
+    if (!document) {
+        return null;
+    }
+
+    return String(document.familyId) === requesterFamilyId ? document : null;
+};
+
 /** Fire-and-forget OCR when Redis / BullMQ is unavailable. */
 const runOcrDirectly = (docId: any, fileUrl: string, familyId: string) => {
     Promise.all([
         import('../services/ocrService'),
         import('../services/eventGeneratorService'),
-    ]).then(async ([{ processDocumentOcr }, { EventGeneratorService }]) => {
+        import('../services/intelligence/IntelligenceCore'),
+        import('../models/IntelligenceFact'),
+    ]).then(async ([{ processDocumentOcr }, { EventGeneratorService }, { IntelligenceCoreService }, { FactSourceType }]) => {
         try {
             const ocrResult = await processDocumentOcr(fileUrl);
             await Document.findByIdAndUpdate(docId, {
@@ -67,7 +122,23 @@ const runOcrDirectly = (docId: any, fileUrl: string, familyId: string) => {
                 ocrConfidence: ocrResult.confidence,
             });
             const updatedDoc = await Document.findById(docId);
-            if (updatedDoc) await EventGeneratorService.generateEventsFromDocument(updatedDoc);
+            if (updatedDoc) {
+                // 🔥 Unified Intelligence Platform: Create a Fact
+                try {
+                    await IntelligenceCoreService.processSource({
+                        familyId: String(updatedDoc.familyId),
+                        userId: String(updatedDoc.uploadedBy),
+                        sourceType: FactSourceType.DOCUMENT,
+                        sourceId: String(updatedDoc._id),
+                        rawText: ocrResult.rawText,
+                        intelligence: ocrResult.intelligence,
+                    });
+                } catch (intelErr: any) {
+                    console.error('[Upload] Direct Intel Fact failed:', intelErr.message);
+                }
+                
+                await EventGeneratorService.generateEventsFromDocument(updatedDoc);
+            }
         } catch (err: any) {
             console.error('[Upload] Direct OCR failed:', err.message);
             await Document.findByIdAndUpdate(docId, { ocrStatus: 'failed' });
@@ -77,12 +148,21 @@ const runOcrDirectly = (docId: any, fileUrl: string, familyId: string) => {
 
 export const uploadDocument = async (req: Request, res: Response) => {
     try {
-        const { title, category, familyId, uploadedBy, folder, memberId } = req.body;
+        const { title, category, familyId, folder, memberId } = req.body;
         const file = req.file as any;
+        const userId = ensureFamilyAccess(req, String(familyId));
 
         console.log('--- Upload Document ---');
         console.log('Body:', req.body);
         console.log('File:', file ? { mimetype: file.mimetype, size: file.size } : 'NONE');
+
+        if (!userId) {
+            return res.status(403).json({ message: 'Not allowed to upload to this family' });
+        }
+
+        if (!canActForMember(req, memberId)) {
+            return res.status(403).json({ message: 'Not allowed to upload for this member' });
+        }
 
         if (!file) {
             return res.status(400).json({ message: 'No file uploaded' });
@@ -102,14 +182,13 @@ export const uploadDocument = async (req: Request, res: Response) => {
             fileSize: file.size,
             cloudinaryId: file.filename,
             familyId,
-            uploadedBy,
+            uploadedBy: userId,
             ocrStatus: 'pending',
         });
 
         await newDocument.save();
 
         // Update family storage
-        const Family = (await import('../models/Family')).default;
         await Family.findByIdAndUpdate(familyId, {
             $inc: { storageUsed: file.size || 0 }
         });
@@ -150,15 +229,20 @@ export const getDocuments = async (req: Request, res: Response) => {
     try {
         const { familyId } = req.params;
         const { category, folder, memberId } = req.query;
+        const userId = ensureFamilyAccess(req, String(familyId));
 
         console.log('--- Get Documents ---');
         console.log('Family ID:', familyId);
         console.log('Category Filter:', category);
 
+        if (!userId) {
+            return res.status(403).json({ message: 'Not allowed to access this family' });
+        }
+
         const query: any = { familyId, deleted: false };
         const normalizedCategory = typeof category === 'string' ? category.trim() : '';
+        const categoryValue = normalizedCategory ? canonicalCategory(normalizedCategory) : '';
         if (normalizedCategory) {
-            const categoryValue = canonicalCategory(normalizedCategory);
             // Backward compatibility: old Individual data is treated as Shared.
             if (categoryValue === 'Shared') {
                 query.$or = [
@@ -179,7 +263,13 @@ export const getDocuments = async (req: Request, res: Response) => {
                 $options: 'i',
             };
         }
-        const normalizedMemberId = typeof memberId === 'string' ? memberId.trim() : '';
+        let normalizedMemberId = typeof memberId === 'string' ? memberId.trim() : '';
+        if ((categoryValue === 'Personal' || categoryValue === 'Private') && !isFamilyAdmin(req)) {
+            normalizedMemberId = userId;
+        }
+        if (normalizedMemberId && !canActForMember(req, normalizedMemberId)) {
+            return res.status(403).json({ message: 'Not allowed to query documents for this member' });
+        }
         if (normalizedMemberId) {
             const memberScope = [
                 { memberId: normalizedMemberId },
@@ -199,19 +289,18 @@ export const getDocuments = async (req: Request, res: Response) => {
             .populate('uploadedBy', 'name');
 
         // Get storage from family model (cached value)
-        const Family = (await import('../models/Family')).default;
-        const family = await Family.findById(familyId);
+        const family = await Family.findById(String(familyId));
 
         let storageUsed = family?.storageUsed || 0;
         const storageLimit = family?.storageLimit || (25 * 1024 * 1024 * 1024);
 
         // Periodically recalculate storage to fix any discrepancies (every 10th request)
         if (Math.random() < 0.1) {
-            const allDocs = await Document.find({ familyId, deleted: false });
+            const allDocs = await Document.find({ familyId: String(familyId), deleted: false });
             const actualSize = allDocs.reduce((acc, doc) => acc + (doc.fileSize || 0), 0);
             if (Math.abs(actualSize - storageUsed) > 1024) { // Update if difference > 1KB
                 storageUsed = actualSize;
-                await Family.findByIdAndUpdate(familyId, { storageUsed: actualSize });
+                await Family.findByIdAndUpdate(String(familyId), { storageUsed: actualSize });
             }
         }
 
@@ -228,14 +317,13 @@ export const getDocuments = async (req: Request, res: Response) => {
 export const deleteDocument = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const document = await Document.findById(id);
+        const document = await getAuthorizedDocumentById(req, String(id));
 
         if (!document) {
             return res.status(404).json({ message: 'Document not found' });
         }
 
         // Update family storage
-        const Family = (await import('../models/Family')).default;
         await Family.findByIdAndUpdate(document.familyId, {
             $inc: { storageUsed: -(document.fileSize || 0) }
         });
@@ -255,7 +343,20 @@ export const getFolders = async (req: Request, res: Response) => {
     try {
         const { familyId } = req.params;
         const category = canonicalCategory(typeof req.query.category === 'string' ? req.query.category : undefined);
-        const memberId = typeof req.query.memberId === 'string' ? req.query.memberId.trim() : '';
+        const userId = ensureFamilyAccess(req, String(familyId));
+        let memberId = typeof req.query.memberId === 'string' ? req.query.memberId.trim() : '';
+
+        if (!userId) {
+            return res.status(403).json({ message: 'Not allowed to access this family' });
+        }
+
+        if ((category === 'Personal' || category === 'Private') && !isFamilyAdmin(req)) {
+            memberId = userId;
+        }
+
+        if (memberId && !canActForMember(req, memberId)) {
+            return res.status(403).json({ message: 'Not allowed to access folders for this member' });
+        }
 
         const folderQuery: any = { familyId };
         if (category === 'Shared') {
@@ -369,6 +470,14 @@ export const createFolder = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'familyId, category and name are required' });
         }
 
+        if (!ensureFamilyAccess(req, String(familyId))) {
+            return res.status(403).json({ message: 'Not allowed to create folders in this family' });
+        }
+
+        if (!canActForMember(req, memberId)) {
+            return res.status(403).json({ message: 'Not allowed to create folders for this member' });
+        }
+
         const categoryValue = canonicalCategory(category);
         const existing = await VaultFolder.findOne({
             familyId,
@@ -402,8 +511,17 @@ export const moveDocumentToFolder = async (req: Request, res: Response) => {
         const { id } = req.params;
         const { folder, memberId } = req.body;
         const normalizedFolder = (folder || '').trim();
+        const document = await getAuthorizedDocumentById(req, String(id));
         if (!normalizedFolder) {
             return res.status(400).json({ message: 'folder is required' });
+        }
+
+        if (!document) {
+            return res.status(404).json({ message: 'Document not found' });
+        }
+
+        if (!canActForMember(req, memberId)) {
+            return res.status(403).json({ message: 'Not allowed to move document for this member' });
         }
 
         const updated = await Document.findByIdAndUpdate(
@@ -425,6 +543,14 @@ export const deleteFolder = async (req: Request, res: Response) => {
     try {
         const { folderId } = req.params;
         const { folderName, familyId, category, memberId } = req.body;
+
+        if (familyId && !ensureFamilyAccess(req, String(familyId))) {
+            return res.status(403).json({ message: 'Not allowed to delete folders in this family' });
+        }
+
+        if (!canActForMember(req, memberId)) {
+            return res.status(403).json({ message: 'Not allowed to delete folders for this member' });
+        }
 
         // Try to find existing folder (validate ObjectId first to avoid cast errors)
         const isValidId = folderId && mongoose.Types.ObjectId.isValid(folderId as string);
@@ -453,6 +579,15 @@ export const deleteFolder = async (req: Request, res: Response) => {
 
         if (!folder) {
             return res.status(404).json({ message: 'Folder not found' });
+        }
+
+        const requesterFamilyId = getAuthenticatedFamilyId(req);
+        if (!requesterFamilyId || requesterFamilyId !== String(folder.familyId)) {
+            return res.status(403).json({ message: 'Not allowed to delete this folder' });
+        }
+
+        if (!canActForMember(req, folder.memberId ? String(folder.memberId) : undefined)) {
+            return res.status(403).json({ message: 'Not allowed to delete this folder' });
         }
 
         // Check if folder or any of its subfolders contains any documents
@@ -500,6 +635,9 @@ export const deleteFolder = async (req: Request, res: Response) => {
 export const getTrashedDocuments = async (req: Request, res: Response) => {
     try {
         const { familyId } = req.params;
+        if (!ensureFamilyAccess(req, String(familyId))) {
+            return res.status(403).json({ message: 'Not allowed to access this family' });
+        }
 
         const documents = await Document.find({
             familyId,
@@ -517,7 +655,7 @@ export const getTrashedDocuments = async (req: Request, res: Response) => {
 export const restoreDocument = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const document = await Document.findById(id);
+        const document = await getAuthorizedDocumentById(req, String(id));
 
         if (!document) {
             return res.status(404).json({ message: 'Document not found' });
@@ -541,7 +679,7 @@ export const restoreDocument = async (req: Request, res: Response) => {
 export const permanentlyDeleteDocument = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const document = await Document.findById(id);
+        const document = await getAuthorizedDocumentById(req, String(id));
 
         if (!document) {
             return res.status(404).json({ message: 'Document not found' });
@@ -572,7 +710,13 @@ export const requeueStuckDocuments = async (req: Request, res: Response) => {
             return res.status(503).json({ message: 'OCR queue is not enabled — Redis not connected.' });
         }
 
+        const familyId = getAuthenticatedFamilyId(req);
+        if (!familyId || !isFamilyAdmin(req)) {
+            return res.status(403).json({ message: 'Only family admins can requeue OCR jobs' });
+        }
+
         const stuckDocs = await Document.find({
+            familyId,
             ocrStatus: { $in: ['pending', 'processing'] },
             deletedAt: null,
         }).select('_id fileUrl familyId title');
@@ -628,6 +772,11 @@ export const requeueStuckDocuments = async (req: Request, res: Response) => {
 export const getOcrStatus = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
+        const authorizedDocument = await getAuthorizedDocumentById(req, String(id));
+
+        if (!authorizedDocument) {
+            return res.status(404).json({ message: 'Document not found' });
+        }
 
         const document = await Document.findById(id).select(
             'ocrStatus ocrConfidence docType expiryDate dueDate amount ocrJobId'
@@ -660,6 +809,11 @@ export const getOcrStatus = async (req: Request, res: Response) => {
 export const getDocumentIntelligence = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
+        const authorizedDocument = await getAuthorizedDocumentById(req, String(id));
+
+        if (!authorizedDocument) {
+            return res.status(404).json({ message: 'No intelligence data found for this document.' });
+        }
 
         const intelligence = await DocumentIntelligence.findOne({ documentId: id });
 
@@ -683,9 +837,14 @@ export const confirmDocumentType = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const { doc_type } = req.body;
+        const authorizedDocument = await getAuthorizedDocumentById(req, String(id));
 
         if (!doc_type) {
             return res.status(400).json({ message: 'doc_type is required.' });
+        }
+
+        if (!authorizedDocument) {
+            return res.status(404).json({ message: 'Document not found' });
         }
 
         // Validate against allowed types
@@ -756,6 +915,11 @@ export const confirmIntelligence = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const { doc_type, confirmed_events = [], manual_entities } = req.body;
+        const authorizedDocument = await getAuthorizedDocumentById(req, String(id));
+
+        if (!authorizedDocument) {
+            return res.status(404).json({ message: 'Document not found' });
+        }
 
         // ── Validate doc type if provided ────────────────────────────────────
         if (doc_type && !ALLOWED_DOC_TYPES.includes(doc_type)) {
@@ -888,7 +1052,7 @@ export const confirmIntelligence = async (req: Request, res: Response) => {
 export const reprocessOcr = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const doc = await Document.findById(id);
+        const doc = await getAuthorizedDocumentById(req, String(id));
 
         if (!doc) {
             return res.status(404).json({ message: 'Document not found' });

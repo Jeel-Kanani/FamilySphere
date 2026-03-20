@@ -137,7 +137,7 @@ class _UnlockPdfScreenState extends ConsumerState<UnlockPdfScreen> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withOpacity(0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -149,7 +149,7 @@ class _UnlockPdfScreenState extends ConsumerState<UnlockPdfScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: _primaryBlue.withValues(alpha: 0.1),
+              color: _primaryBlue.withOpacity(0.1),
               borderRadius: BorderRadius.circular(AppTheme.radiusM),
             ),
             child: const Icon(Icons.lock_open_rounded, color: _primaryBlue, size: 24),
@@ -190,10 +190,10 @@ class _UnlockPdfScreenState extends ConsumerState<UnlockPdfScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 40),
         decoration: BoxDecoration(
-          color: _primaryBlue.withValues(alpha: 0.05),
+          color: _primaryBlue.withOpacity(0.05),
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
           border: Border.all(
-            color: _primaryBlue.withValues(alpha: 0.3),
+            color: _primaryBlue.withOpacity(0.3),
             width: 2,
             style: BorderStyle.solid, // Replaced dashed with solid as per app style
           ),
@@ -208,7 +208,7 @@ class _UnlockPdfScreenState extends ConsumerState<UnlockPdfScreen> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: _primaryBlue.withValues(alpha: 0.3),
+                    color: _primaryBlue.withOpacity(0.3),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -249,7 +249,7 @@ class _UnlockPdfScreenState extends ConsumerState<UnlockPdfScreen> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
+                  color: Colors.red.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(AppTheme.radiusM),
                 ),
                 child: const Icon(Icons.picture_as_pdf_rounded, color: Colors.red, size: 28),
@@ -425,13 +425,13 @@ class _UnlockPdfScreenState extends ConsumerState<UnlockPdfScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.wifi_off_rounded, 
-                   color: isDark ? AppTheme.darkTextSecondary.withValues(alpha: 0.5) : AppTheme.textTertiary, 
+                   color: isDark ? AppTheme.darkTextSecondary.withOpacity(0.5) : AppTheme.textTertiary, 
                    size: 14),
               const SizedBox(width: 6),
               Text(
                 'FULLY OFFLINE MODE',
                 style: TextStyle(
-                  color: isDark ? AppTheme.darkTextSecondary.withValues(alpha: 0.5) : AppTheme.textTertiary,
+                  color: isDark ? AppTheme.darkTextSecondary.withOpacity(0.5) : AppTheme.textTertiary,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.2,
@@ -443,7 +443,7 @@ class _UnlockPdfScreenState extends ConsumerState<UnlockPdfScreen> {
           Text(
             'FAMILY SPHERE – LAB UTILITY • SECURE LOCAL PROCESSING',
             style: TextStyle(
-              color: isDark ? AppTheme.darkTextSecondary.withValues(alpha: 0.3) : AppTheme.textTertiary.withValues(alpha: 0.5),
+              color: isDark ? AppTheme.darkTextSecondary.withOpacity(0.3) : AppTheme.textTertiary.withOpacity(0.5),
               fontSize: 8,
               letterSpacing: 0.5,
             ),
@@ -460,7 +460,7 @@ class _UnlockPdfScreenState extends ConsumerState<UnlockPdfScreen> {
         color: state.canUnlock ? _primaryBlue : (isDark ? AppTheme.darkBorder : AppTheme.borderColor),
         borderRadius: BorderRadius.circular(AppTheme.radiusXL),
         elevation: state.canUnlock ? 8 : 0,
-        shadowColor: _primaryBlue.withValues(alpha: 0.3),
+        shadowColor: _primaryBlue.withOpacity(0.3),
         child: InkWell(
           onTap: state.canUnlock ? () => ref.read(unlockPdfProvider.notifier).startUnlock() : null,
           borderRadius: BorderRadius.circular(AppTheme.radiusXL),
@@ -498,7 +498,7 @@ class _UnlockPdfScreenState extends ConsumerState<UnlockPdfScreen> {
 
   Widget _buildProgressOverlay(bool isDark, UnlockPdfState state) {
     return Container(
-      color: Colors.black.withValues(alpha: 0.3),
+      color: Colors.black.withOpacity(0.3),
       width: double.infinity,
       height: double.infinity,
       child: Center(
@@ -514,7 +514,7 @@ class _UnlockPdfScreenState extends ConsumerState<UnlockPdfScreen> {
             children: [
               CircularProgressIndicator(
                 value: state.progress,
-                backgroundColor: _primaryBlue.withValues(alpha: 0.1),
+                backgroundColor: _primaryBlue.withOpacity(0.1),
                 color: _primaryBlue,
               ),
               const SizedBox(height: 20),

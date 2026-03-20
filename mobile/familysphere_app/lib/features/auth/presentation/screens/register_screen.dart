@@ -180,7 +180,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppTheme.primaryColor.withValues(alpha: 0.05),
+                color: AppTheme.primaryColor.withOpacity(0.05),
               ),
             ),
           ),

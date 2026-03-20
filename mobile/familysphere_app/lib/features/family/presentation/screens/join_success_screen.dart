@@ -55,7 +55,7 @@ class _JoinSuccessScreenState extends ConsumerState<JoinSuccessScreen> {
                   'You have successfully joined',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.white.withValues(alpha: 0.8),
+                    color: Colors.white.withOpacity(0.8),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -76,7 +76,7 @@ class _JoinSuccessScreenState extends ConsumerState<JoinSuccessScreen> {
                   'Setting up your workspace...',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.white.withValues(alpha: 0.7),
+                    color: Colors.white.withOpacity(0.7),
                   ),
                 ),
               ],

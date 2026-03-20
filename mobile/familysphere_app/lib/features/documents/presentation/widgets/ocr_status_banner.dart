@@ -123,7 +123,7 @@ class _OcrStatusBannerState extends ConsumerState<OcrStatusBanner>
                 Icons.analytics_rounded,
                 '${result.confidencePct}% confidence',
                 _confidenceColor(result.ocrConfidence ?? 0),
-                _confidenceColor(result.ocrConfidence ?? 0).withValues(alpha: 0.1),
+                _confidenceColor(result.ocrConfidence ?? 0).withOpacity(0.1),
               ),
               if (result.expiryDate != null)
                 _chip(
@@ -269,10 +269,10 @@ class _OcrStatusBannerState extends ConsumerState<OcrStatusBanner>
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: border.withValues(alpha: 0.4), width: 1.2),
+        border: Border.all(color: border.withOpacity(0.4), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: border.withValues(alpha: 0.08),
+            color: border.withOpacity(0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -288,7 +288,7 @@ class _OcrStatusBannerState extends ConsumerState<OcrStatusBanner>
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: fg.withValues(alpha: 0.25)),
+        border: Border.all(color: fg.withOpacity(0.25)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, size: 12, color: fg),

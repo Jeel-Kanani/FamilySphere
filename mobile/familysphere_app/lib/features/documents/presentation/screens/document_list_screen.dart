@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
@@ -90,7 +90,11 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedCategory = _normalizeVaultCategory(widget.initialCategory) ?? 'Shared';
+    // If initialCategory is null, it means "All" (from Home's See All)
+    _selectedCategory = widget.initialCategory != null 
+        ? _normalizeVaultCategory(widget.initialCategory) 
+        : null;
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (_isShared) {
         await _ensureMembersLoaded();
@@ -116,11 +120,12 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     final currentUser = ref.read(authProvider).user;
     if (_isShared) return _selectedMemberId;
     if (_isPersonal || _isPrivate) return currentUser?.id;
+    // For "All" view, we fetch everything for the family regardless of memberId constraints
+    // (though backend might still enforce some based on familyId)
     return null;
   }
 
   Future<void> _reloadData({bool reloadFolders = true}) async {
-    if (_selectedCategory == null) return;
     final notifier = ref.read(documentProvider.notifier);
     final memberId = _categoryScopedMemberId();
 
@@ -130,13 +135,14 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
       folderParam = [..._currentPath, _selectedFolder].join('/');
     }
 
+    // If _selectedCategory is null, it fetches all documents for the family
     await notifier.loadDocuments(
       category: _selectedCategory,
       folder: folderParam,
       memberId: memberId,
     );
 
-    if (reloadFolders) {
+    if (reloadFolders && _selectedCategory != null) {
       notifier.loadFolders(
         category: _selectedCategory!,
         memberId: memberId,
@@ -447,14 +453,14 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
         decoration: BoxDecoration(
           color: isDark ? AppTheme.darkSurface : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.1)),
+          border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1)),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                color: AppTheme.primaryColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.folder_rounded, color: AppTheme.primaryColor, size: 30),
@@ -629,7 +635,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
           color: isDark ? AppTheme.darkSurface : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? AppTheme.secondaryColor : AppTheme.primaryColor.withValues(alpha: 0.1),
+            color: isSelected ? AppTheme.secondaryColor : AppTheme.primaryColor.withOpacity(0.1),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -643,7 +649,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                   decoration: BoxDecoration(
                     color: Colors.grey[200],
                     borderRadius: BorderRadius.circular(4),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))],
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(4),
@@ -673,7 +679,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withValues(alpha: 0.05),
+                          color: AppTheme.primaryColor.withOpacity(0.05),
                           borderRadius: BorderRadius.circular(2),
                         ),
                         child: Text(isPdf ? 'PDF' : 'JPG', 
@@ -691,7 +697,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFFBEB),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5)),
+                        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.5)),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
@@ -887,11 +893,11 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
             color: isDark ? AppTheme.darkSurface : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isDark ? AppTheme.darkBorder : AppTheme.primaryColor.withValues(alpha: 0.1),
+              color: isDark ? AppTheme.darkBorder : AppTheme.primaryColor.withOpacity(0.1),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
+                color: Colors.black.withOpacity(0.03),
                 blurRadius: 10,
                 offset: const Offset(0, 2),
               ),
@@ -903,7 +909,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: effectiveIconColor.withValues(alpha: 0.1),
+                  color: effectiveIconColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: effectiveIconColor, size: 24),

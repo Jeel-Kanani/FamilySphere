@@ -85,7 +85,7 @@ class _CropImageScreenState extends ConsumerState<CropImageScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.add_photo_alternate_rounded, size: 80, color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+          Icon(Icons.add_photo_alternate_rounded, size: 80, color: AppTheme.primaryColor.withOpacity(0.3)),
           const SizedBox(height: 20),
           Text(
             'No image selected',
@@ -134,9 +134,9 @@ class _CropImageScreenState extends ConsumerState<CropImageScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                color: AppTheme.primaryColor.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(AppTheme.radiusM),
-                border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3), style: BorderStyle.none), // Should be dashed but we'll use solid for now
+                border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3), style: BorderStyle.none), // Should be dashed but we'll use solid for now
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -662,7 +662,7 @@ extension _Placeholder on _CropImageScreenState {
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         decoration: BoxDecoration(
-          color: (isDark ? AppTheme.darkBackground : Colors.white).withValues(alpha: 0.9),
+          color: (isDark ? AppTheme.darkBackground : Colors.white).withOpacity(0.9),
           border: Border(top: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.borderColor)),
         ),
         child: ElevatedButton.icon(
