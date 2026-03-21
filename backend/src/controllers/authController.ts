@@ -84,27 +84,15 @@ const sendEmailOtpController = async (req: AuthRequest, res: Response) => {
             { upsert: true, new: true },
         );
 
-        // Try to send email, but don't fail the endpoint if SMTP is broken
+        // Try to send email, but don't fail the endpoint if email delivery fails
         try {
             await sendEmailOtp(normalizedEmail, code);
         } catch (emailError: any) {
-            console.error('[OTP] SMTP send failed:', emailError.message);
-            if (emailError.message?.includes('timed out')) {
-                console.error('[OTP] SMTP connection timed out — check SMTP_HOST/PORT and firewall rules.');
-            } else if (emailError.code === 'EAUTH') {
-                console.error('[OTP] SMTP authentication failed — check SMTP_USER/SMTP_PASS credentials.');
-            } else if (emailError.code === 'ECONNREFUSED') {
-                console.error('[OTP] SMTP connection refused — SMTP server unreachable.');
-            }
+            console.error('[OTP] Email send failed:', emailError.message);
             // OTP is still saved in DB; user can retry or use devOtp in non-production
         }
 
-        const response: Record<string, unknown> = { message: 'OTP sent to email' };
-        if (process.env.NODE_ENV !== 'production') {
-            response.devOtp = code;
-        }
-
-        return res.json(response);
+        return res.json({ message: 'OTP sent to email' });
     } catch (error: any) {
         return res.status(500).json({ message: error.message || 'Server error' });
     }

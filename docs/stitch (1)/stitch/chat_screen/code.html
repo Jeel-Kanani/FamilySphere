@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>FamilySphere - My Family Chat</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Be_Vietnam+Pro:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary-container": "#8dc6ff",
+              "primary-fixed": "#8dc6ff",
+              "on-error-container": "#65000b",
+              "error-dim": "#70030f",
+              "surface-dim": "#dadad2",
+              "surface-bright": "#fbf9f4",
+              "secondary-fixed-dim": "#a6eea7",
+              "on-secondary-container": "#1f632c",
+              "surface-variant": "#e3e3db",
+              "surface-tint": "#00639f",
+              "surface-container-lowest": "#ffffff",
+              "surface-container-high": "#e9e8e1",
+              "on-tertiary-container": "#583700",
+              "secondary": "#286c34",
+              "surface-container-low": "#f5f4ee",
+              "secondary-container": "#b4fdb4",
+              "on-primary": "#f7f9ff",
+              "on-primary-fixed-variant": "#004876",
+              "tertiary-fixed-dim": "#eea840",
+              "secondary-dim": "#1a5f29",
+              "tertiary-container": "#feb64c",
+              "primary-fixed-dim": "#6eb9ff",
+              "on-secondary": "#e9ffe4",
+              "inverse-on-surface": "#9e9d99",
+              "primary": "#00639f",
+              "surface-container-highest": "#e3e3db",
+              "on-tertiary-fixed-variant": "#644000",
+              "on-surface-variant": "#5e605a",
+              "error": "#ac3434",
+              "secondary-fixed": "#b4fdb4",
+              "primary-dim": "#00578c",
+              "tertiary-dim": "#744a00",
+              "surface-container": "#efeee8",
+              "on-primary-fixed": "#002a47",
+              "outline": "#7a7b75",
+              "on-error": "#fff7f6",
+              "on-tertiary-fixed": "#3d2500",
+              "on-surface": "#31332e",
+              "error-container": "#f56965",
+              "inverse-primary": "#40a4f4",
+              "tertiary": "#845500",
+              "on-secondary-fixed-variant": "#2a6e35",
+              "background": "#fbf9f4",
+              "on-primary-container": "#003f68",
+              "on-background": "#31332e",
+              "on-tertiary": "#fff7f3",
+              "tertiary-fixed": "#feb64c",
+              "outline-variant": "#b2b2ab",
+              "surface": "#fbf9f4",
+              "on-secondary-fixed": "#03501b",
+              "inverse-surface": "#0e0e0c"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Be Vietnam Pro"],
+              "label": ["Be Vietnam Pro"]
+            },
+            borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-header {
+            background: rgba(251, 249, 244, 0.8);
+            backdrop-filter: blur(20px);
+        }
+        .message-shadow {
+            box-shadow: 0px 4px 12px rgba(49, 51, 46, 0.03);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background font-body text-on-background min-h-screen flex flex-col">
+<!-- TopAppBar - Shared Component Execution -->
+<header class="fixed top-0 w-full z-50 bg-[#fbf9f4]/80 dark:bg-[#31332e]/80 backdrop-blur-xl flex items-center justify-between px-6 h-16 w-full">
+<div class="flex items-center gap-4">
+<button class="text-[#00639f] dark:text-[#8dc6ff] hover:opacity-70 transition-opacity Active: scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<div class="flex items-center gap-3">
+<div class="relative">
+<img alt="Family Avatar" class="w-10 h-10 rounded-full object-cover ring-2 ring-surface-container-high" data-alt="A warm candid photo of a happy multi-generational family" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVY04ezwotS9vtV07Y5_yEmO07QwbR32ICrnV6idUrZkDKdNEBizNTnTYSxXDjVE2o94FwakX58qOZ1lKKKu8PakAQpAFoyjY4nZuBDIuSGLgB0FKMGMlUK6UnosZNglmCPVcf0o_XJhdjThPGzfABEF3ioJqCK2Zg6t2eU1lX12EQFZmJIoO2VPWYrTsr8RyqBq1K-6UwBEAZAyKlbIgOfIG2lAE8N1-tPugCBJe7IaZIx2dgqQMh5y_bjzayVZSAOrw_4840rzI"/>
+<div class="absolute bottom-0 right-0 w-3 h-3 bg-secondary rounded-full border-2 border-surface"></div>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<h1 class="font-headline font-bold tracking-tight text-lg text-on-surface">My Family</h1>
+<span class="bg-primary-container text-on-primary-container text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Family</span>
+</div>
+<span class="text-xs text-on-surface-variant font-medium">Mom, Dad, Sophie, and 2 others</span>
+</div>
+</div>
+</div>
+<button class="text-[#5e605a] dark:text-[#b2b2ab] hover:opacity-70 transition-opacity Active: scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="bubble_chart">bubble_chart</span>
+</button>
+</header>
+<!-- Main Chat Canvas -->
+<main class="flex-grow pt-20 pb-28 px-4 max-w-3xl mx-auto w-full flex flex-col gap-8">
+<!-- Date Divider -->
+<div class="flex justify-center my-4">
+<span class="bg-surface-container-low text-on-surface-variant text-xs font-semibold px-4 py-1.5 rounded-full">Yesterday</span>
+</div>
+<!-- Received Message Block (Mom) -->
+<div class="flex flex-col gap-2 max-w-[85%] self-start group">
+<div class="flex items-center gap-2 mb-1 px-2">
+<span class="text-xs font-bold text-secondary">Mom</span>
+<span class="text-[10px] text-on-surface-variant">4:20 PM</span>
+</div>
+<div class="relative">
+<div class="bg-[#E8F5E9] text-on-surface p-4 rounded-[1rem] rounded-bl-[2px] message-shadow">
+<p class="text-[15px] leading-relaxed">Looking forward to it! ❤️</p>
+</div>
+<!-- Micro-reaction -->
+<div class="absolute -bottom-3 -right-2 flex gap-1">
+<div class="bg-surface-container-lowest shadow-sm rounded-full px-1.5 py-0.5 flex items-center scale-90">
+<span class="text-xs">😂</span>
+<span class="text-[10px] font-bold ml-1">1</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Image Message (Memory Highlight Style) -->
+<div class="flex flex-col gap-2 max-w-[90%] self-end">
+<div class="flex items-center justify-end gap-2 mb-1 px-2">
+<span class="text-[10px] text-on-surface-variant">4:25 PM</span>
+<span class="text-xs font-bold text-primary">You</span>
+</div>
+<div class="bg-surface-container-low p-2 rounded-lg message-shadow overflow-hidden">
+<img alt="Family Garden" class="w-full aspect-[4/3] object-cover rounded-[1.5rem]" data-alt="Beautiful summer garden with a picnic blanket spread out" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDA8xfEKsb5As43EV2RH2I7Im7WhsnnQLNwZbT0RiaC0xz6mP3Cwv3GGkOuNg3evOsQiwEIWB1txhmg3KscxTAbiDbeXsj0H7gtbeCXYq5g8P4zmbAoja50_-8X9-tkJtQLlNwAclt4Jgsas_kP0f_Qj0duw1toQnDNuY2SH3R2cirKKd8x6yFjegYg7L-7sddVtFWirViMI4Bfqj4E-5MXp2LlLgVvRE5mKtokcYtAhj2wvhm9q78fudieOT-OEfoXHaFwRRdQstk"/>
+<div class="pt-3 pb-1 px-2">
+<p class="text-sm italic text-on-surface-variant">Thinking about last summer at the cabin... can't wait!</p>
+</div>
+</div>
+</div>
+<!-- Sent Message Block (User) -->
+<div class="flex flex-col gap-2 max-w-[85%] self-end">
+<div class="relative">
+<div class="bg-[#E3F2FD] text-on-surface p-4 rounded-[1rem] rounded-br-[2px] message-shadow">
+<p class="text-[15px] leading-relaxed">See you all tomorrow!</p>
+</div>
+<!-- Micro-reaction -->
+<div class="absolute -bottom-3 -left-2 flex gap-1">
+<div class="bg-surface-container-lowest shadow-sm rounded-full px-1.5 py-0.5 flex items-center scale-90">
+<span class="text-xs">❤️</span>
+<span class="text-[10px] font-bold ml-1">3</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Received Message Block (Sophie) -->
+<div class="flex flex-col gap-2 max-w-[85%] self-start mt-4">
+<div class="flex items-center gap-2 mb-1 px-2">
+<span class="text-xs font-bold text-tertiary">Sophie</span>
+<span class="text-[10px] text-on-surface-variant">Just now</span>
+</div>
+<div class="bg-[#E8F5E9] text-on-surface p-4 rounded-[1rem] rounded-bl-[2px] message-shadow">
+<p class="text-[15px] leading-relaxed">I'm bringing the homemade cookies! 🍪✨</p>
+</div>
+</div>
+</main>
+<!-- Floating Input Area -->
+<div class="fixed bottom-0 left-0 w-full px-4 pb-8 pt-4 bg-gradient-to-t from-background via-background/90 to-transparent z-40">
+<div class="max-w-3xl mx-auto flex items-center gap-3 bg-surface-container-low p-2 rounded-full shadow-lg ring-1 ring-on-surface/[0.03]">
+<!-- Emoji Toggle -->
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="mood">mood</span>
+</button>
+<!-- Main Input -->
+<input class="flex-grow bg-transparent border-none focus:ring-0 text-[15px] placeholder-on-surface-variant/60 font-medium" placeholder="Message your family..." type="text"/>
+<!-- Attachment -->
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="attachment">attachment</span>
+</button>
+<!-- Send Button -->
+<button class="w-10 h-10 flex items-center justify-center bg-secondary rounded-full text-white shadow-md active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="send" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+</div>
+<!-- Hidden bottom nav for spacing compliance, though suppressed as per Task-Focused rule -->
+<div class="h-12 w-full md:hidden"></div>
+</body></html>

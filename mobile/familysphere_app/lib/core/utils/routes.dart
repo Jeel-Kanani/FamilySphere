@@ -38,6 +38,10 @@ import 'package:familysphere_app/features/auth/presentation/screens/otp_verifica
 import 'package:familysphere_app/features/documents/presentation/screens/admin_engine_dashboard.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/recent_documents_screen.dart';
 import 'package:familysphere_app/features/intelligence/presentation/screens/intelligence_hub_screen.dart';
+import 'package:familysphere_app/features/hub/presentation/screens/family_hub_screen.dart';
+import 'package:familysphere_app/features/hub/presentation/screens/family_feed_screen.dart';
+import 'package:familysphere_app/features/hub/presentation/screens/add_post_screen.dart';
+import 'package:familysphere_app/features/chat/presentation/screens/family_chat_screen.dart';
 
 /// Application Routes
 ///
@@ -84,6 +88,10 @@ class AppRoutes {
   static const String previewShare = '/preview-share';
   static const String adminEngineDashboard = '/admin/engine-dashboard';
   static const String intelligence = '/intelligence';
+  static const String hub = '/hub';
+  static const String feed = '/feed';
+  static const String addPost = '/add-post';
+  static const String chat = '/chat';
 
   // Route generator
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -273,6 +281,18 @@ class AppRoutes {
 
       case intelligence:
         return MaterialPageRoute(builder: (_) => const IntelligenceHubScreen());
+
+      case hub:
+        return MaterialPageRoute(builder: (_) => const FamilyHubScreen());
+
+      case feed:
+        return MaterialPageRoute(builder: (_) => const FamilyFeedScreen());
+
+      case addPost:
+        return MaterialPageRoute(builder: (_) => const AddPostScreen());
+
+      case chat:
+        return MaterialPageRoute(builder: (_) => const FamilyChatScreen());
 
       case folderDetails:
       case memberDocs:

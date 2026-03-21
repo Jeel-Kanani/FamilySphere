@@ -56,7 +56,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     // Load global documents for the "Recent" section
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(documentProvider.notifier).loadDocuments(forceRefresh: true);
+      ref.read(documentProvider.notifier).loadDocuments();
     });
   }
 
@@ -238,6 +238,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ],
           ),
         ),
+        _HeaderIconButton(
+          icon: Icons.hub_outlined,
+          cardBg: cardBg,
+          border: border,
+          textP: textP,
+          onTap: () => Navigator.pushNamed(context, AppRoutes.hub),
+        ),
+        const SizedBox(width: 12),
         _HeaderIconButton(
           icon: Icons.notifications_none_rounded,
           cardBg: cardBg,

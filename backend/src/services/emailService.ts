@@ -1,46 +1,53 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
-const SMTP_TIMEOUT_MS = 10_000; // 10 seconds max for SMTP operations
+/**
+ * Email service using Resend HTTP API.
+ * Works on Render free tier (uses HTTPS port 443, not SMTP ports).
+ *
+ * Required env vars:
+ *   RESEND_API_KEY  – API key from https://resend.com/api-keys
+ *   RESEND_FROM     – Sender address (e.g. "onboarding@resend.dev" for testing)
+ */
 
-const getTransporter = () => {
-    const host = process.env.SMTP_HOST;
-    const port = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined;
-    const user = process.env.SMTP_USER;
-    const pass = process.env.SMTP_PASS;
-
-    if (!host || !port || !user || !pass) {
-        return null;
-    }
-
-    return nodemailer.createTransport({
-        host,
-        port,
-        secure: port === 465,
-        auth: { user, pass },
-        connectionTimeout: SMTP_TIMEOUT_MS,
-        greetingTimeout: SMTP_TIMEOUT_MS,
-        socketTimeout: SMTP_TIMEOUT_MS,
-    });
+const getResendClient = (): Resend | null => {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) return null;
+    return new Resend(apiKey);
 };
 
 export const sendEmailOtp = async (to: string, code: string) => {
-    const transporter = getTransporter();
-    const from = process.env.SMTP_FROM || 'no-reply@familysphere.app';
+    const resend = getResendClient();
+    const from = process.env.RESEND_FROM || 'FamilySphere <onboarding@resend.dev>';
     const subject = 'FamilySphere verification code';
     const text = `Your FamilySphere verification code is: ${code}. It expires in 10 minutes.`;
+    const html = `
+        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
+            <h2 style="color: #6C63FF; margin-bottom: 24px;">FamilySphere</h2>
+            <p style="font-size: 16px; color: #333;">Your verification code is:</p>
+            <div style="background: #f4f4f8; border-radius: 12px; padding: 20px; text-align: center; margin: 24px 0;">
+                <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #6C63FF;">${code}</span>
+            </div>
+            <p style="font-size: 14px; color: #666;">This code expires in 10 minutes. If you didn't request this, please ignore this email.</p>
+        </div>
+    `;
 
-    if (!transporter) {
-        // Fallback for dev when SMTP isn't configured.
+    if (!resend) {
+        // Fallback for dev when Resend isn't configured
         // eslint-disable-next-line no-console
         console.log(`[Email OTP] ${to} -> ${code}`);
         return;
     }
 
-    // Race against a timeout so we never hang the endpoint
-    const sendPromise = transporter.sendMail({ from, to, subject, text });
-    const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('SMTP send timed out')), SMTP_TIMEOUT_MS),
-    );
+    const { error } = await resend.emails.send({
+        from,
+        to,
+        subject,
+        text,
+        html,
+    });
 
-    await Promise.race([sendPromise, timeoutPromise]);
+    if (error) {
+        console.error('[OTP] Resend API error:', error.message);
+        throw new Error(`Email send failed: ${error.message}`);
+    }
 };

@@ -3,6 +3,7 @@ import 'package:familysphere_app/features/home/presentation/screens/home_screen.
 import 'package:familysphere_app/features/documents/presentation/screens/vault_screen.dart';
 import 'package:familysphere_app/features/home/presentation/screens/tracker_screen.dart';
 import 'package:familysphere_app/features/intelligence/presentation/screens/intelligence_hub_screen.dart';
+import 'package:familysphere_app/features/hub/presentation/screens/family_hub_screen.dart';
 import 'package:familysphere_app/features/lab/presentation/screens/lab_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/profile_screen.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';

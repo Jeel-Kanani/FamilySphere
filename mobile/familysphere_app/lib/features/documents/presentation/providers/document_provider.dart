@@ -173,10 +173,14 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
     _isLoadingDocuments = true;
     _activeDocumentsQueryKey = queryKey;
     
-    // Don't clear documents if it's the same query (refreshing) or if we want to show old results while loading
+    // If query changed, try to use cached docs for the NEW query as initial placeholder
+    final cachedForNewQuery = _documentsByQueryCache[queryKey];
+    
     state = state.copyWith(
       isLoading: true,
-      documents: (isQueryChanged && !forceRefresh) ? const <DocumentEntity>[] : state.documents,
+      documents: isQueryChanged 
+          ? (cachedForNewQuery ?? const <DocumentEntity>[]) 
+          : state.documents,
       error: null,
     );
 
@@ -284,7 +288,7 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
       // Calculate new storage - add uploaded document size
       final newStorageUsed = state.storageUsed + (newDoc.sizeBytes).toInt();
       
-      // Update list locally with new storage calculation
+      // Update current state locally
       state = state.copyWith(
         documents: [newDoc, ...state.documents],
         storageUsed: newStorageUsed,
@@ -292,8 +296,31 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
         lastUploadedDocId: newDoc.id.isNotEmpty ? newDoc.id : null,
         isLoading: false,
       );
-      _documentsByQueryCache.clear();
-      _documentsCacheAt.clear();
+      
+      // SURGICAL CACHE UPDATE:
+      // 1. Update the "Global Recent" cache if it exists
+      final globalKey = '${user.familyId}||||'; // Normalized global key (empty cat/folder/member)
+      // Note: the key format used above was '${user.familyId}|${category ?? ''}|${folder ?? ''}|${memberId ?? ''}'
+      // So global is '${user.familyId}|||'
+      final actualGlobalKey = '${user.familyId}|||';
+      
+      final globalCached = _documentsByQueryCache[actualGlobalKey];
+      if (globalCached != null) {
+        // Prepend and limit to reasonable size (if needed, but usually okay)
+        _documentsByQueryCache[actualGlobalKey] = [newDoc, ...globalCached];
+        _documentsCacheAt[actualGlobalKey] = DateTime.now();
+      }
+
+      // 2. Update the cache for the query used during upload (if different from global)
+      final uploadQueryKey = '${user.familyId}|${category}|${folder ?? ''}|${memberId ?? ''}';
+      final uploadCached = _documentsByQueryCache[uploadQueryKey];
+      if (uploadCached != null) {
+        _documentsByQueryCache[uploadQueryKey] = [newDoc, ...uploadCached];
+        _documentsCacheAt[uploadQueryKey] = DateTime.now();
+      }
+      
+      // 3. Clear other specific caches to ensure they refresh on next hit, 
+      // but keep our primary ones above.
     } catch (e) {
       if (kDebugMode) {
         debugPrint('DocumentNotifier: Upload error: $e');
@@ -322,8 +349,15 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
       await _deleteDocument(
         documentId: document.id,
       );
-      _documentsByQueryCache.clear();
-      _documentsCacheAt.clear();
+      
+      // SURGICAL CACHE UPDATE for Delete:
+      // Remove from all known cache entries to stay consistent
+      for (final key in _documentsByQueryCache.keys.toList()) {
+        final list = _documentsByQueryCache[key];
+        if (list != null) {
+          _documentsByQueryCache[key] = list.where((d) => d.id != document.id).toList();
+        }
+      }
     } catch (e) {
       // Revert if failed
       state = state.copyWith(
@@ -484,8 +518,14 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
           .map((d) => d.id == document.id ? updated : d)
           .toList();
       state = state.copyWith(documents: newDocs);
-      _documentsByQueryCache.clear();
-      _documentsCacheAt.clear();
+      
+      // Surgical cache update for Move
+      for (final key in _documentsByQueryCache.keys.toList()) {
+        final list = _documentsByQueryCache[key];
+        if (list != null) {
+          _documentsByQueryCache[key] = list.map((d) => d.id == document.id ? updated : d).toList();
+        }
+      }
     } catch (e) {
       state = state.copyWith(error: 'Failed to move document: $e');
       rethrow;

@@ -2,6 +2,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import express from 'express';
+import { createServer } from 'http';
+import { initSocket } from './services/socketService';
 import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -15,6 +17,8 @@ import vaultRoutes from './routes/vaultRoutes';
 import eventRoutes from './routes/eventRoutes';
 import adminRoutes from './routes/adminRoutes';
 import intelligenceRoutes from './routes/intelligenceRoutes';
+import hubRoutes from './routes/hubRoutes';
+import chatRoutes from './routes/chatRoutes';
 
 import { initScheduler } from './services/scheduler';
 import { startOcrWorker } from './workers/ocrWorker';
@@ -48,6 +52,10 @@ checkRedisWithRetries().then((available) => {
 */
 
 const app = express();
+const httpServer = createServer(app);
+
+// Initialize Socket.io with the HTTP server
+initSocket(httpServer);
 
 app.use((req, res, next) => {
     console.log(`[GLOBAL LOG] ${req.method} ${req.url}`);
@@ -105,9 +113,11 @@ app.use('/api/vault', vaultRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/intelligence', intelligenceRoutes);
+app.use('/api/hub', hubRoutes);
+app.use('/api/chat', chatRoutes);
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(Number(PORT), '0.0.0.0', () => {
-    console.log(`Server running on all interfaces at port ${PORT}`);
+httpServer.listen(Number(PORT), '0.0.0.0', () => {
+    console.log(`Server running on all interfaces at port ${PORT} (Real-time Hub active)`);
 });
