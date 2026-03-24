@@ -464,7 +464,7 @@ class _ProtectPdfScreenState extends ConsumerState<ProtectPdfScreen> {
         Switch(
           value: value,
           onChanged: onChanged,
-          activeColor: _primaryBlue,
+          activeThumbColor: _primaryBlue,
         ),
       ],
     );

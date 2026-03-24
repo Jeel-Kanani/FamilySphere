@@ -391,7 +391,7 @@ class _ImageResizeScreenState extends ConsumerState<ImageResizeScreen> {
           ),
           Switch(
             value: state.lockAspectRatio,
-            activeColor: _primaryBlue,
+            activeThumbColor: _primaryBlue,
             onChanged: (val) => ref.read(imageResizeProvider.notifier).setLockAspectRatio(val),
           ),
         ],

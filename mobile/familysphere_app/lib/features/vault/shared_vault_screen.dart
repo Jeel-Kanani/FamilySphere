@@ -1,38 +1,38 @@
+import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../auth/presentation/bloc/auth_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class SharedVaultScreen extends StatefulWidget {
+class SharedVaultScreen extends ConsumerStatefulWidget {
+  const SharedVaultScreen({super.key});
+
   @override
-  State<SharedVaultScreen> createState() => _SharedVaultScreenState();
+  ConsumerState<SharedVaultScreen> createState() => _SharedVaultScreenState();
 }
 
-class _SharedVaultScreenState extends State<SharedVaultScreen> {
+class _SharedVaultScreenState extends ConsumerState<SharedVaultScreen> {
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, authState) {
-        final isViewer = authState is Authenticated && authState.user.isViewer;
-        
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Shared Vault'),
-          ),
-          body: Center(
-            child: Text(
-              'No documents in Shared Vault',
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
+    final isViewer = ref.watch(authProvider.select((state) => state.user?.isViewer == true));
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Shared Vault'),
+      ),
+      body: const Center(
+        child: Text(
+          'No documents in Shared Vault',
+          style: TextStyle(fontSize: 16, color: Colors.grey),
+        ),
+      ),
+      floatingActionButton: isViewer
+          ? null
+          : FloatingActionButton(
+              onPressed: () {
+                // TODO: Implement add document functionality
+              },
+              tooltip: 'Add document',
+              child: const Icon(Icons.add),
             ),
-          ),
-          floatingActionButton: isViewer ? null : FloatingActionButton(
-            onPressed: () {
-              // TODO: Implement add document functionality
-            },
-            tooltip: 'Add document',
-            child: const Icon(Icons.add),
-          ),
-        );
-      },
     );
   }
 }

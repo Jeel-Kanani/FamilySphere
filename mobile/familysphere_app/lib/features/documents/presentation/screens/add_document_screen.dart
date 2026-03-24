@@ -286,7 +286,7 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
 
                     // ── Vault category dropdown ─────────────────────────
                     DropdownButtonFormField<String>(
-                      value: _selectedCategory,
+                      initialValue: _selectedCategory,
                       decoration: InputDecoration(
                         labelText: 'Vault Category',
                         prefixIcon: Icon(
@@ -350,7 +350,7 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
                     if (_selectedCategory == 'Shared') ...[
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
-                        value: _selectedMemberId ?? '__family__',
+                        initialValue: _selectedMemberId ?? '__family__',
                         decoration: InputDecoration(
                           labelText: 'Share With',
                           prefixIcon: const Icon(Icons.groups_rounded),
@@ -420,7 +420,7 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
 
                     // ── Folder dropdown ──────────────────────────────────
                     DropdownButtonFormField<String>(
-                      value: _currentFolderSelection(folders),
+                      initialValue: _currentFolderSelection(folders),
                       decoration: InputDecoration(
                         labelText: 'Folder',
                         hintText: 'Select a folder',
@@ -447,7 +447,7 @@ class _AddDocumentScreenState extends ConsumerState<AddDocumentScreen> {
 
                     // ── Document Type dropdown ───────────────────────────
                     DropdownButtonFormField<String>(
-                      value: _typeController.text.isEmpty
+                      initialValue: _typeController.text.isEmpty
                           ? null
                           : _typeController.text,
                       decoration: InputDecoration(

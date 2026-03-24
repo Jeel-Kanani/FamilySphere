@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/features/documents/presentation/providers/document_provider.dart';
-import 'package:familysphere_app/features/documents/presentation/providers/document_intelligence_provider.dart';
 import 'package:familysphere_app/features/intelligence/presentation/providers/intelligence_provider.dart';
 import 'package:familysphere_app/features/documents/domain/entities/document_entity.dart';
 import 'package:familysphere_app/features/documents/presentation/widgets/document_intelligence_card.dart';

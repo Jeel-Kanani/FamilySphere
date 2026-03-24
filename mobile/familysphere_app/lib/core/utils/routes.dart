@@ -10,7 +10,7 @@ import 'package:familysphere_app/features/home/presentation/screens/main_navigat
 import 'package:familysphere_app/features/documents/presentation/screens/document_list_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/add_document_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/document_viewer_screen.dart';
-import 'package:familysphere_app/features/documents/presentation/screens/scanner_screen.dart';
+import 'package:familysphere_app/features/documents/presentation/screens/document_capture_screen.dart';
 import 'package:familysphere_app/features/documents/domain/entities/document_entity.dart';
 import 'package:familysphere_app/features/lab/presentation/screens/lab_screen.dart';
 import 'package:familysphere_app/features/lab/presentation/screens/merge_pdf_screen.dart';
@@ -65,6 +65,7 @@ class AppRoutes {
   static const String otpVerification = '/otp-verification';
   static const String recentDocuments = '/recent-documents';
   static const String scanner = '/scanner';
+  static const String documentCapture = '/document-capture';
   static const String lab = '/lab';
   static const String mergePdf = '/merge-pdf';
   static const String imageProcess = '/image-process';
@@ -183,6 +184,7 @@ class AppRoutes {
             builder: (_) => DocumentViewerScreen(document: document));
 
       case scanner:
+      case documentCapture:
         final args = settings.arguments;
         bool returnOnly = false;
         String? category;
@@ -196,7 +198,7 @@ class AppRoutes {
           memberId = args['memberId'] as String?;
         }
         return MaterialPageRoute(
-          builder: (_) => ScannerScreen(
+          builder: (_) => DocumentCaptureScreen(
             returnOnly: returnOnly,
             initialCategory: category,
             initialFolder: folder,

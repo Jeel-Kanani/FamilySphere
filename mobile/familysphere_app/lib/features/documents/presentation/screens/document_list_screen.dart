@@ -9,7 +9,6 @@ import 'package:familysphere_app/features/documents/presentation/screens/trash_s
 import 'package:familysphere_app/features/family/domain/entities/family_member.dart';
 import 'package:familysphere_app/features/family/presentation/providers/family_provider.dart';
 import 'package:familysphere_app/core/utils/routes.dart';
-import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:intl/intl.dart';
 
 class DocumentListScreen extends ConsumerStatefulWidget {

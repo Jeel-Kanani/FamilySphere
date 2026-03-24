@@ -1,18 +1,20 @@
 import 'dart:convert';
+import 'package:familysphere_app/core/config/api_config.dart';
+import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:familysphere_app/features/vault/document_preview_screen.dart';
+import 'package:familysphere_app/features/vault/widgets/search_bar_widget.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../auth/presentation/bloc/auth_bloc.dart';
-import '../../core/config/api_config.dart';
-import 'widgets/search_bar_widget.dart';
-import 'document_preview_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class PrivateVaultScreen extends StatefulWidget {
+class PrivateVaultScreen extends ConsumerStatefulWidget {
+  const PrivateVaultScreen({super.key});
+
   @override
-  State<PrivateVaultScreen> createState() => _PrivateVaultScreenState();
+  ConsumerState<PrivateVaultScreen> createState() => _PrivateVaultScreenState();
 }
 
-class _PrivateVaultScreenState extends State<PrivateVaultScreen> {
+class _PrivateVaultScreenState extends ConsumerState<PrivateVaultScreen> {
   List<dynamic> documents = [];
   List<dynamic> filteredDocuments = [];
   
@@ -57,9 +59,11 @@ class _PrivateVaultScreenState extends State<PrivateVaultScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isViewer = ref.watch(authProvider.select((state) => state.user?.isViewer == true));
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Private Vault'),
+        title: const Text('Private Vault'),
       ),
       body: Column(
         children: [
@@ -67,7 +71,7 @@ class _PrivateVaultScreenState extends State<PrivateVaultScreen> {
           Expanded(
             child: filteredDocuments.isEmpty
                 ? Center(
-                    child: Text(
+                    child: const Text(
                       'No documents found',
                       style: TextStyle(fontSize: 16, color: Colors.grey),
                     ),
@@ -96,18 +100,15 @@ class _PrivateVaultScreenState extends State<PrivateVaultScreen> {
           ),
         ],
       ),
-      floatingActionButton: BlocBuilder<AuthBloc, AuthState>(
-        builder: (context, authState) {
-          final isViewer = authState is Authenticated && authState.user.isViewer;
-          return isViewer ? null : FloatingActionButton(
-            onPressed: () async {
-              // TODO: Implement upload functionality
-            },
-            tooltip: 'Upload document',
-            child: const Icon(Icons.add),
-          );
-        },
-      ),
+      floatingActionButton: isViewer
+          ? null
+          : FloatingActionButton(
+              onPressed: () async {
+                // TODO: Implement upload functionality
+              },
+              tooltip: 'Upload document',
+              child: const Icon(Icons.add),
+            ),
     );
   }
 }

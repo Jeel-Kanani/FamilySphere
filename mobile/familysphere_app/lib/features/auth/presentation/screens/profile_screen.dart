@@ -344,7 +344,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
                         color: isDark ? AppTheme.accentColor : AppTheme.warningColor,
                       ),
-                      activeColor: AppTheme.primaryColor,
+                      activeThumbColor: AppTheme.primaryColor,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(AppTheme.radiusL),
                       ),
