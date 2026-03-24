@@ -26,7 +26,7 @@ class FamilyMemberModel extends FamilyMember {
     return FamilyMemberModel(
       userId: userId,
       displayName: map['displayName'] ?? '',
-      photoUrl: map['photoUrl'],
+      photoUrl: map['profilePicture'] ?? map['photoUrl'],
       role: FamilyRole.values.firstWhere(
         (e) => e.name == (map['role'] ?? 'member'),
         orElse: () => FamilyRole.member,
@@ -53,7 +53,7 @@ class FamilyMemberModel extends FamilyMember {
     return FamilyMemberModel(
       userId: rawId is String ? rawId : rawId.toString(),
       displayName: rawDisplayName is String ? rawDisplayName : rawDisplayName.toString(),
-      photoUrl: json['photoUrl'],
+      photoUrl: json['profilePicture'] ?? json['photoUrl'],
       role: FamilyRole.values.firstWhere(
         (e) => e.name == rawRole,
         orElse: () => FamilyRole.member,

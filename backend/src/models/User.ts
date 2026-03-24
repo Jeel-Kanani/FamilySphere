@@ -6,8 +6,10 @@ export interface IUser extends Document {
     email: string;
     password: string;
     familyId?: mongoose.Types.ObjectId;
-    role?: 'admin' | 'member';
+    role?: 'admin' | 'member' | 'viewer';
     tokenVersion?: number;
+    profilePicture?: string;
+    phoneNumber?: string;
     matchPassword(enteredPassword: string): Promise<boolean>;
 }
 
@@ -33,11 +35,17 @@ const userSchema = new mongoose.Schema<IUser>({
     },
     role: {
         type: String,
-        enum: ['admin', 'member'],
+        enum: ['admin', 'member', 'viewer'],
     },
     tokenVersion: {
         type: Number,
         default: 0,
+    },
+    profilePicture: {
+        type: String,
+    },
+    phoneNumber: {
+        type: String,
     },
 }, {
     timestamps: true,

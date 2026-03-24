@@ -64,7 +64,10 @@ export const createFamily = async (req: Request, res: Response) => {
             message: `Created the family "${family.name}"`,
         });
 
-        res.status(201).json(family);
+        res.status(201).json({
+            ...family.toObject(),
+            familyId: family._id // Standardized for tests/frontend
+        });
     } catch (error: any) {
         console.error('Create family error:', error);
         res.status(500).json({ message: error.message });
@@ -166,7 +169,7 @@ export const joinFamilyWithInvite = async (req: Request, res: Response) => {
         // Update user
         await User.findByIdAndUpdate(userId, {
             familyId: family._id,
-            role: 'member'
+            role: (invite as any).targetRole || 'member'
         });
 
         // Update invite
@@ -187,7 +190,6 @@ export const joinFamilyWithInvite = async (req: Request, res: Response) => {
     }
 };
 
-// Get family by ID
 export const getFamily = async (req: Request, res: Response) => {
     try {
         const { familyId } = req.params;
@@ -197,14 +199,26 @@ export const getFamily = async (req: Request, res: Response) => {
             return res.status(404).json({ message: 'Family not found' });
         }
 
-        res.json(family);
+        const requesterFamilyId = (req as any).user?.familyId;
+        if (requesterFamilyId?.toString() !== familyId) {
+            return res.status(403).json({ message: 'Access denied: You are not a member of this family' });
+        }
+
+        // Get all member details for testing compatibility
+        const members = await User.find({ _id: { $in: family.memberIds } })
+            .select('_id name email role profilePicture createdAt');
+
+        res.json({
+            ...family.toObject(),
+            familyId: family._id,
+            members: members.map(m => ({ ...m.toObject(), userId: m._id }))
+        });
     } catch (error: any) {
         console.error('Get family error:', error);
         res.status(500).json({ message: error.message });
     }
 };
 
-// Get family members
 export const getFamilyMembers = async (req: Request, res: Response) => {
     try {
         const { familyId } = req.params;
@@ -214,11 +228,19 @@ export const getFamilyMembers = async (req: Request, res: Response) => {
             return res.status(404).json({ message: 'Family not found' });
         }
 
+        const requesterFamilyId = (req as any).user?.familyId;
+        if (requesterFamilyId?.toString() !== familyId) {
+            return res.status(403).json({ message: 'Access denied: You are not a member of this family' });
+        }
+
         // Get all member details
         const members = await User.find({ _id: { $in: family.memberIds } })
-            .select('_id name email role createdAt');
+            .select('_id name email role profilePicture createdAt');
 
-        res.json({ members });
+        res.json({ 
+            members: members.map(m => ({ ...m.toObject(), userId: m._id })),
+            familyId: family._id // Added for consistency
+        });
     } catch (error: any) {
         console.error('Get family members error:', error);
         res.status(500).json({ message: error.message });
@@ -287,7 +309,7 @@ export const updateMemberRole = async (req: Request, res: Response) => {
             return res.status(401).json({ message: 'Unauthorized' });
         }
 
-        if (!role || !['admin', 'member'].includes(role)) {
+        if (!role || !['admin', 'member', 'viewer'].includes(role)) {
             return res.status(400).json({ message: 'Invalid role' });
         }
 

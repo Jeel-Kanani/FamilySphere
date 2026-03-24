@@ -63,7 +63,8 @@ enum PrivacyLevel {
 // User Roles
 enum UserRole {
   admin,
-  member
+  member,
+  viewer
 }
 
 // Task Categories

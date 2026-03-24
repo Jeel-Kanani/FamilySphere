@@ -17,6 +17,7 @@ class InviteMemberScreen extends ConsumerStatefulWidget {
 class _InviteMemberScreenState extends ConsumerState<InviteMemberScreen> {
   FamilyInvite? _activeInvite;
   bool _isLoadingInvite = false;
+  String _selectedRole = 'member';
 
   @override
   void initState() {
@@ -27,7 +28,7 @@ class _InviteMemberScreenState extends ConsumerState<InviteMemberScreen> {
   Future<void> _generateInitialInvite() async {
     setState(() => _isLoadingInvite = true);
     try {
-      final invite = await ref.read(familyProvider.notifier).createFamilyInvite('qr');
+      final invite = await ref.read(familyProvider.notifier).createFamilyInvite('qr', targetRole: _selectedRole);
       setState(() {
         _activeInvite = invite;
         _isLoadingInvite = false;
@@ -64,6 +65,8 @@ class _InviteMemberScreenState extends ConsumerState<InviteMemberScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         child: Column(
           children: [
+            _buildRoleSelection(isDark),
+            const SizedBox(height: 32),
             _buildQrSection(isDark),
             const SizedBox(height: 48),
             _buildCodeSection(isDark),
@@ -140,9 +143,91 @@ class _InviteMemberScreenState extends ConsumerState<InviteMemberScreen> {
         TextButton.icon(
           onPressed: _isLoadingInvite ? null : _generateInitialInvite,
           icon: const Icon(Icons.refresh_rounded),
-          label: const Text('Regenerate QR'),
+          label: const Text('Refresh / Regenerate'),
         ),
       ],
+    );
+  }
+
+  Widget _buildRoleSelection(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Invite as',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            _roleOption(
+              'Member',
+              'member',
+              Icons.person_rounded,
+              'Can upload and edit documents',
+              isDark,
+            ),
+            const SizedBox(width: 12),
+            _roleOption(
+              'Viewer',
+              'viewer',
+              Icons.visibility_rounded,
+              'Read-only access to documents',
+              isDark,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _roleOption(String title, String role, IconData icon, String subtitle, bool isDark) {
+    final isSelected = _selectedRole == role;
+    final color = isSelected ? AppTheme.primaryColor : (isDark ? Colors.white70 : Colors.grey[600]);
+
+    return Expanded(
+      child: InkWell(
+        onTap: () {
+          setState(() => _selectedRole = role);
+          _generateInitialInvite();
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isSelected 
+                ? AppTheme.primaryColor.withOpacity(0.1) 
+                : (isDark ? Colors.white.withOpacity(0.05) : Colors.grey[100]),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+              width: 2,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: color, size: 28),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -230,7 +315,7 @@ class _InviteMemberScreenState extends ConsumerState<InviteMemberScreen> {
           const SizedBox(width: 16),
           Expanded(
             child: Text(
-              'This invite will expire in 10 minutes for security purposes.',
+              'This invite will expire in 48 hours for security purposes.',
               style: TextStyle(
                 fontSize: 14,
                 color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,

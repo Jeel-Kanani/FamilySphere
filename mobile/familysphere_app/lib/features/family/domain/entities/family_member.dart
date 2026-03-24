@@ -42,7 +42,8 @@ class FamilyMember {
 /// Defines the role of a family member
 enum FamilyRole {
   admin,
-  member;
+  member,
+  viewer;
 
   String get displayName {
     switch (this) {
@@ -50,6 +51,10 @@ enum FamilyRole {
         return 'Admin';
       case FamilyRole.member:
         return 'Member';
+      case FamilyRole.viewer:
+        return 'Viewer';
     }
   }
+
+  bool get canUpload => this != FamilyRole.viewer;
 }

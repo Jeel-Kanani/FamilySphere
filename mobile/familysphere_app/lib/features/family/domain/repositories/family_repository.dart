@@ -116,7 +116,7 @@ abstract class FamilyRepository {
 
   /// Create a new invite
   /// [type] - qr, code, or link
-  Future<FamilyInvite> createInvite(String familyId, String type);
+  Future<FamilyInvite> createInvite(String familyId, String type, {String targetRole = 'member'});
 
   /// Validate an invite
   /// Returns family details if valid

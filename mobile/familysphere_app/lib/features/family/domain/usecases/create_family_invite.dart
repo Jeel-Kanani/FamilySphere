@@ -6,7 +6,7 @@ class CreateFamilyInvite {
 
   CreateFamilyInvite(this.repository);
 
-  Future<FamilyInvite> call(String familyId, String type) async {
-    return await repository.createInvite(familyId, type);
+  Future<FamilyInvite> call(String familyId, String type, {String targetRole = 'member'}) async {
+    return await repository.createInvite(familyId, type, targetRole: targetRole);
   }
 }

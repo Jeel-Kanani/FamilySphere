@@ -148,7 +148,16 @@ const runOcrDirectly = (docId: any, fileUrl: string, familyId: string) => {
 
 export const uploadDocument = async (req: Request, res: Response) => {
     try {
-        const { title, category, familyId, folder, memberId } = req.body;
+        let body = req.body;
+        if (req.body.metadata && typeof req.body.metadata === 'string') {
+            try {
+                body = { ...body, ...JSON.parse(req.body.metadata) };
+            } catch (e) {
+                console.warn('Failed to parse metadata JSON:', e);
+            }
+        }
+
+        const { title, category, familyId, folder, memberId } = body;
         const file = req.file as any;
         const userId = ensureFamilyAccess(req, String(familyId));
 
@@ -192,7 +201,6 @@ export const uploadDocument = async (req: Request, res: Response) => {
         await Family.findByIdAndUpdate(familyId, {
             $inc: { storageUsed: file.size || 0 }
         });
-
         // 🔥 Phase 4: Dispatch OCR + event generation to BullMQ background worker.
         // If Redis was not available at startup, skip the queue entirely and run
         // OCR directly in the background so the upload never fails.
@@ -219,9 +227,18 @@ export const uploadDocument = async (req: Request, res: Response) => {
             runOcrDirectly(newDocument._id, file.path, familyId);
         }
 
-        res.status(201).json({ ...newDocument.toObject(), ocrJobId });
+        res.status(201).json({ 
+            ...newDocument.toObject(), 
+            documentId: newDocument._id, // Standardized for tests/frontend
+            processingStatus: newDocument.ocrStatus, // Alias for tests
+            ocrJobId 
+        });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        console.error('[Upload] ERROR:', error);
+        res.status(500).json({ 
+            message: error.message || 'Server error uploading document',
+            error: error.stack || error
+        });
     }
 };
 
@@ -305,7 +322,10 @@ export const getDocuments = async (req: Request, res: Response) => {
         }
 
         res.status(200).json({
-            documents,
+            documents: documents.map(doc => ({
+                ...doc.toObject(),
+                documentId: doc._id // Standardized for tests/frontend
+            })),
             storageUsed,
             storageLimit,
         });
@@ -321,6 +341,12 @@ export const deleteDocument = async (req: Request, res: Response) => {
 
         if (!document) {
             return res.status(404).json({ message: 'Document not found' });
+        }
+
+        // Ownership check: Only admin or the person who uploaded can delete
+        const userId = getAuthenticatedUser(req)?._id;
+        if (!isFamilyAdmin(req) && document.uploadedBy?.toString() !== String(userId)) {
+            return res.status(403).json({ message: 'Not authorized: You can only delete your own documents' });
         }
 
         // Update family storage

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/core/utils/routes.dart';
 import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -15,6 +17,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _emailController;
+  late final TextEditingController _phoneController;
 
   @override
   void initState() {
@@ -22,12 +25,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final user = ref.read(authProvider).user;
     _nameController = TextEditingController(text: user?.displayName ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
+    _phoneController = TextEditingController(text: user?.phoneNumber ?? '');
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -37,6 +42,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     await ref.read(authProvider.notifier).updateProfile(
           displayName: _nameController.text.trim(),
           email: _emailController.text.trim(),
+          phoneNumber: _phoneController.text.trim(),
         );
 
     if (!mounted) return;
@@ -47,6 +53,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       return;
     }
     _showSnackBar('Profile updated successfully');
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 75,
+    );
+
+    if (image == null) return;
+
+    await ref.read(authProvider.notifier).uploadProfilePicture(image.path);
+
+    if (!mounted) return;
+    final error = ref.read(authProvider).error;
+    if (error != null) {
+      _showSnackBar(error, isError: true);
+      ref.read(authProvider.notifier).clearError();
+      return;
+    }
+    _showSnackBar('Profile picture updated');
   }
 
   Future<void> _confirmSignOut() async {
@@ -113,18 +142,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 32,
-                      backgroundColor: Colors.white24,
-                      backgroundImage: user?.photoUrl != null ? NetworkImage(user!.photoUrl!) : null,
-                      child: user?.photoUrl == null
-                          ? Text(
-                              user?.displayName?.isNotEmpty == true
-                                  ? user!.displayName![0].toUpperCase()
-                                  : 'U',
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
-                            )
-                          : null,
+                    GestureDetector(
+                      onTap: authState.isLoading ? null : _pickImage,
+                      child: Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 32,
+                            backgroundColor: Colors.white24,
+                            backgroundImage: user?.photoUrl != null ? NetworkImage(user!.photoUrl!) : null,
+                            child: user?.photoUrl == null
+                                ? Text(
+                                    user?.displayName?.isNotEmpty == true
+                                        ? user!.displayName![0].toUpperCase()
+                                        : 'U',
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
+                                  )
+                                : null,
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.camera_alt,
+                                size: 14,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -193,6 +245,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         if (!isValid) return 'Please enter a valid email';
                         return null;
                       },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        labelText: 'Phone Number',
+                        hintText: '+1 234 567 8900',
+                        prefixIcon: Icon(Icons.phone_outlined),
+                      ),
                     ),
                     const SizedBox(height: 24),
                     ElevatedButton(

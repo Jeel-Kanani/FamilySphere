@@ -1,19 +1,21 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../auth/presentation/bloc/auth_bloc.dart';
 import '../../core/config/api_config.dart';
 import 'widgets/search_bar_widget.dart';
 import 'document_preview_screen.dart';
 
 class PrivateVaultScreen extends StatefulWidget {
   @override
-  _PrivateVaultScreenState createState() => _PrivateVaultScreenState();
+  State<PrivateVaultScreen> createState() => _PrivateVaultScreenState();
 }
 
 class _PrivateVaultScreenState extends State<PrivateVaultScreen> {
   List<dynamic> documents = [];
   List<dynamic> filteredDocuments = [];
-
+  
   @override
   void initState() {
     super.initState();
@@ -94,11 +96,17 @@ class _PrivateVaultScreenState extends State<PrivateVaultScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          // TODO: Implement upload functionality
+      floatingActionButton: BlocBuilder<AuthBloc, AuthState>(
+        builder: (context, authState) {
+          final isViewer = authState is Authenticated && authState.user.isViewer;
+          return isViewer ? null : FloatingActionButton(
+            onPressed: () async {
+              // TODO: Implement upload functionality
+            },
+            tooltip: 'Upload document',
+            child: const Icon(Icons.add),
+          );
         },
-        child: Icon(Icons.add),
       ),
     );
   }

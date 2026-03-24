@@ -197,22 +197,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         .length;
     return Row(
       children: [
-        // Gradient avatar
+        // Gradient avatar or Profile Picture
         Container(
           height: 52,
           width: 52,
           decoration: BoxDecoration(
-            gradient: AppTheme.primaryGradient,
+            gradient: ref.watch(authProvider).user?.photoUrl == null ? AppTheme.primaryGradient : null,
+            color: ref.watch(authProvider).user?.photoUrl != null ? Colors.transparent : null,
             borderRadius: BorderRadius.circular(16),
+            image: ref.watch(authProvider).user?.photoUrl != null
+                ? DecorationImage(
+                    image: NetworkImage(ref.watch(authProvider).user!.photoUrl!),
+                    fit: BoxFit.cover,
+                  )
+                : null,
             boxShadow: [
               BoxShadow(
-                color: AppTheme.primaryColor.withOpacity(0.3),
+                color: AppTheme.primaryColor.withValues(alpha: 0.3),
                 blurRadius: 16,
                 offset: const Offset(0, 6),
               ),
             ],
           ),
-          child: const Icon(Icons.home_rounded, color: Colors.white, size: 26),
+          child: ref.watch(authProvider).user?.photoUrl == null
+              ? const Icon(Icons.home_rounded, color: Colors.white, size: 26)
+              : null,
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -427,15 +436,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                 width: 2.5,
                               ),
                             ),
-                            child: Center(
-                              child: Text(
-                                initials,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: m.photoUrl != null && m.photoUrl!.isNotEmpty
+                                  ? Image.network(
+                                      m.photoUrl!,
+                                      width: 40,
+                                      height: 40,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Center(
+                                        child: Text(
+                                          initials,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : Center(
+                                      child: Text(
+                                        initials,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
                             ),
                           ),
                         );

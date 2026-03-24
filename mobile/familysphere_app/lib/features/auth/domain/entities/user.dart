@@ -36,6 +36,9 @@ class User {
   /// Check if user is a family admin
   bool get isAdmin => role == UserRole.admin;
 
+  /// Check if user is a viewer (read-only)
+  bool get isViewer => role == UserRole.viewer;
+
   /// Copy user with updated fields
   User copyWith({
     String? id,
@@ -98,4 +101,5 @@ class User {
 enum UserRole {
   admin,   // Can manage family, invite members, etc.
   member,  // Regular family member
+  viewer,  // Read-only member
 }

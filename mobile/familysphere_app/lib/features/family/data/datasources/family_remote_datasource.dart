@@ -136,10 +136,13 @@ class FamilyRemoteDataSource {
   }
 
   /// Create a new secure invite
-  Future<FamilyInvite> createInvite(String familyId, String type) async {
+  Future<FamilyInvite> createInvite(String familyId, String type, {String targetRole = 'member'}) async {
     final response = await _apiClient.post(
       '/api/families/$familyId/invites',
-      data: {'type': type},
+      data: {
+        'type': type,
+        'targetRole': targetRole,
+      },
     );
     return FamilyInvite.fromJson(response.data);
   }

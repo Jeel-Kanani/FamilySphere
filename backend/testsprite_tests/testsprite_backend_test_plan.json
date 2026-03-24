@@ -1,0 +1,37 @@
+[
+  {
+    "id": "TC001",
+    "title": "post api auth register new user",
+    "description": "Test user registration with valid email, password, and name to receive 201 Created and userId."
+  },
+  {
+    "id": "TC002",
+    "title": "post api auth login user",
+    "description": "Test user login with valid credentials to receive 200 OK and JWT token."
+  },
+  {
+    "id": "TC003",
+    "title": "get api auth me user profile",
+    "description": "Test retrieval of current user profile with valid JWT token to receive 200 OK with user details and roles."
+  },
+  {
+    "id": "TC004",
+    "title": "post api families create family",
+    "description": "Test creation of a new family group with valid JWT token and payload to receive 201 Created with familyId."
+  },
+  {
+    "id": "TC005",
+    "title": "get api families familyid details",
+    "description": "Test retrieval of family details and member list with valid JWT token and existing familyId to receive 200 OK."
+  },
+  {
+    "id": "TC006",
+    "title": "post api documents upload document",
+    "description": "Test uploading a document with valid JWT token, multipart file, and metadata to receive 201 Created with documentId and processing status."
+  },
+  {
+    "id": "TC007",
+    "title": "get api documents family familyid list",
+    "description": "Test retrieval of all documents for a family with valid JWT token and family membership to receive 200 OK with document list and OCR text."
+  }
+]

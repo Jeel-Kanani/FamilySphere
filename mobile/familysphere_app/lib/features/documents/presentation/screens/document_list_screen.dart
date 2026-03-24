@@ -9,6 +9,7 @@ import 'package:familysphere_app/features/documents/presentation/screens/trash_s
 import 'package:familysphere_app/features/family/domain/entities/family_member.dart';
 import 'package:familysphere_app/features/family/presentation/providers/family_provider.dart';
 import 'package:familysphere_app/core/utils/routes.dart';
+import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:intl/intl.dart';
 
 class DocumentListScreen extends ConsumerStatefulWidget {
@@ -247,6 +248,9 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     final documents = ref.watch(documentProvider.select((s) => s.documents));
     final customFolders = ref.watch(documentProvider.select((s) => s.folders));
     final members = ref.watch(familyProvider.select((s) => s.members));
+    final user = ref.watch(authProvider).user;
+    final isViewer = user?.isViewer == true;
+    final isAdmin = user?.isAdmin == true;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final docs = documents.where((doc) {
@@ -303,7 +307,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
               itemBuilder: (context) => [
                 const PopupMenuItem(value: 'import', child: Text('Import from Files')),
                 const PopupMenuItem(value: 'sort', child: Text('Sort by')),
-                const PopupMenuItem(value: 'trash', child: Text('Trash')),
+                if (!isViewer) const PopupMenuItem(value: 'trash', child: Text('Trash')),
               ],
             ),
           ] else ...[
@@ -321,37 +325,39 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
           ],
         ],
       ),
-      body: _buildBody(isLoading, docs, members, customFolders),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {}, // Handled by separate buttons in row
-        label: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.camera_alt_rounded, color: Colors.white),
-              onPressed: () => Navigator.pushNamed(
-                context,
-                AppRoutes.scanner,
-                arguments: {
-                  'category': _selectedCategory,
-                  'folder': [..._currentPath, _selectedFolder].join('/'),
-                  'memberId': _categoryScopedMemberId(),
-                },
+      body: _buildBody(isLoading, docs, members, customFolders, isViewer, isAdmin),
+      floatingActionButton: isViewer
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () {}, // Handled by separate buttons in row
+              label: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.camera_alt_rounded, color: Colors.white),
+                    onPressed: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.scanner,
+                      arguments: {
+                        'category': _selectedCategory,
+                        'folder': [..._currentPath, _selectedFolder].join('/'),
+                        'memberId': _categoryScopedMemberId(),
+                      },
+                    ),
+                  ),
+                  Container(width: 1, height: 24, color: Colors.white30),
+                  IconButton(
+                    icon: const Icon(Icons.add_rounded, color: Colors.white),
+                    onPressed: () => _showAddMenu(),
+                  ),
+                ],
               ),
+              backgroundColor: AppTheme.secondaryColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
             ),
-            Container(width: 1, height: 24, color: Colors.white30),
-            IconButton(
-              icon: const Icon(Icons.add_rounded, color: Colors.white),
-              onPressed: () => _showAddMenu(),
-            ),
-          ],
-        ),
-        backgroundColor: AppTheme.secondaryColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-      ),
     );
   }
 
-  Widget _buildBody(bool isLoading, List<DocumentEntity> docs, List<FamilyMember> members, List<String> customFolders) {
+  Widget _buildBody(bool isLoading, List<DocumentEntity> docs, List<FamilyMember> members, List<String> customFolders, bool isViewer, bool isAdmin) {
     if (_isSearching) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,7 +369,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
               children: [
                 if (docs.isEmpty && !isLoading)
                   const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('No results found', style: TextStyle(color: AppTheme.textTertiary)))),
-                ...docs.map((doc) => _buildDocumentItem(doc, members)),
+                ...docs.map((doc) => _buildDocumentItem(doc, members, isViewer)),
                 if (isLoading) const Center(child: CircularProgressIndicator()),
               ],
             ),
@@ -377,7 +383,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildPathHeader(members),
-          Expanded(child: _buildSharedRoot(members, _rootFolders(customFolders))),
+          Expanded(child: _buildSharedRoot(members, _rootFolders(customFolders), isViewer)),
         ],
       );
     }
@@ -405,15 +411,16 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                         'Folders (${currentFolders.length})',
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.create_new_folder_outlined, size: 20),
-                        onPressed: _createFolderDialog,
-                        visualDensity: VisualDensity.compact,
-                      ),
+                      if (!isViewer)
+                        IconButton(
+                          icon: const Icon(Icons.create_new_folder_outlined, size: 20),
+                          onPressed: _createFolderDialog,
+                          visualDensity: VisualDensity.compact,
+                        ),
                     ],
                   ),
                 ),
-                ...currentFolders.map((f) => _folderTile(f)),
+                ...currentFolders.map((f) => _folderTile(f, isViewer)),
                 const SizedBox(height: 16),
               ],
               if (docs.isNotEmpty) ...[
@@ -424,7 +431,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                   ),
                 ),
-                ...docs.map((doc) => _buildDocumentItem(doc, members)),
+                ...docs.map((doc) => _buildDocumentItem(doc, members, isViewer)),
               ] else if (currentFolders.isEmpty && !isLoading)
                 _emptyState(),
               if (isLoading) const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator())),
@@ -435,7 +442,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     );
   }
 
-  Widget _folderTile(String title) {
+  Widget _folderTile(String title, bool isViewer) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: () {
@@ -476,10 +483,11 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                 ],
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.more_horiz, color: AppTheme.textTertiary),
-              onPressed: () => _showFolderOptions(title),
-            ),
+            if (!isViewer)
+              IconButton(
+                icon: const Icon(Icons.more_horiz, color: AppTheme.textTertiary),
+                onPressed: () => _showFolderOptions(title),
+              ),
           ],
         ),
       ),
@@ -619,7 +627,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     );
   }
 
-  Widget _buildDocumentItem(DocumentEntity doc, List<FamilyMember> members) {
+  Widget _buildDocumentItem(DocumentEntity doc, List<FamilyMember> members, bool isViewer) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isPdf = doc.fileType.toLowerCase().contains('pdf') || doc.fileUrl.toLowerCase().endsWith('.pdf');
     final isSelected = _selectedDocIds.contains(doc.id);
@@ -712,10 +720,11 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                 ],
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.more_horiz, color: AppTheme.textTertiary),
-              onPressed: () {},
-            ),
+            if (!isViewer)
+              IconButton(
+                icon: const Icon(Icons.more_horiz, color: AppTheme.textTertiary),
+                onPressed: () {}, // TODO: Implement document actions menu
+              ),
           ],
         ),
       ),
@@ -872,6 +881,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     required IconData icon,
     required String title,
     String? subtitle,
+    String? imageUrl,
     required VoidCallback onTap,
     VoidCallback? onLongPress,
     VoidCallback? onMenuTap,
@@ -912,7 +922,16 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                   color: effectiveIconColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: effectiveIconColor, size: 24),
+                child: imageUrl != null && imageUrl.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Icon(icon, color: effectiveIconColor, size: 24),
+                        ),
+                      )
+                    : Icon(icon, color: effectiveIconColor, size: 24),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1065,7 +1084,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     }
   }
 
-  Widget _buildSharedRoot(List<FamilyMember> members, List<String> folders) {
+  Widget _buildSharedRoot(List<FamilyMember> members, List<String> folders, bool isViewer) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 90),
       children: [
@@ -1079,6 +1098,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
         if (_expandMembers)
           ...members.map((m) => _nodeTile(
                 icon: Icons.person_outline_rounded,
+                imageUrl: m.photoUrl,
                 title: m.displayName,
                 subtitle: 'View specific documents',
                 leftPad: 14,
@@ -1098,17 +1118,18 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
             style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
         ),
-        ...folders.map((f) => _folderTile(f)),
+        ...folders.map((f) => _folderTile(f, isViewer)),
         const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: _createFolderDialog,
-          icon: const Icon(Icons.create_new_folder_outlined, size: 20),
-          label: const Text('Create Shared Folder'),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        if (!isViewer)
+          OutlinedButton.icon(
+            onPressed: _createFolderDialog,
+            icon: const Icon(Icons.create_new_folder_outlined, size: 20),
+            label: const Text('Create Shared Folder'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
           ),
-        ),
       ],
     );
   }

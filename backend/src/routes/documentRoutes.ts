@@ -18,59 +18,58 @@ import {
     reprocessOcr,
 } from '../controllers/documentController';
 import { upload } from '../config/cloudinary';
-import { protect } from '../middleware/authMiddleware';
+import { protect, authorize } from '../middleware/authMiddleware';
 
 const router = Router();
 
 router.use(protect);
 
-// POST /api/documents/upload - Upload a new document
-router.post('/upload', upload.single('file'), uploadDocument);
+// All routes require authentication (already handled by router.use(protect))
 
-// GET /api/documents/family/:familyId - Get all documents for a family
-router.get('/family/:familyId', getDocuments);
+// POST /api/documents/upload - Upload a new document (Admin & Member)
+router.post('/upload', authorize('admin', 'member'), upload.single('file'), uploadDocument);
 
-// GET /api/documents/folders/:familyId?category=Shared - Get built-in + custom folders
-router.get('/folders/:familyId', getFolders);
+// GET /api/documents/family/:familyId - Get all documents for a family (All roles)
+router.get('/family/:familyId', authorize('admin', 'member', 'viewer'), getDocuments);
 
-// POST /api/documents/folders - Create custom folder
-router.post('/folders', createFolder);
+// GET /api/documents/folders/:familyId - Get folders (All roles)
+router.get('/folders/:familyId', authorize('admin', 'member', 'viewer'), getFolders);
 
-// DELETE /api/documents/folders/:folderId - Delete custom folder
-router.delete('/folders/:folderId', deleteFolder);
+// POST /api/documents/folders - Create custom folder (Admin & Member)
+router.post('/folders', authorize('admin', 'member'), createFolder);
 
-// DELETE /api/documents/:id - Delete a document (move to trash)
-router.delete('/:id', deleteDocument);
+// DELETE /api/documents/folders/:folderId - Delete custom folder (Admin & Member)
+router.delete('/folders/:folderId', authorize('admin', 'member'), deleteFolder);
 
-// GET /api/documents/trash/:familyId - Get trashed documents
-router.get('/trash/:familyId', getTrashedDocuments);
+// DELETE /api/documents/:id - Delete a document (Admin & Member)
+router.delete('/:id', authorize('admin', 'member'), deleteDocument);
 
-// PATCH /api/documents/:id/restore - Restore document from trash
-router.patch('/:id/restore', restoreDocument);
+// GET /api/documents/trash/:familyId - Get trashed documents (All roles)
+router.get('/trash/:familyId', authorize('admin', 'member', 'viewer'), getTrashedDocuments);
 
-// DELETE /api/documents/:id/permanent - Permanently delete document
-router.delete('/:id/permanent', permanentlyDeleteDocument);
+// PATCH /api/documents/:id/restore - Restore document from trash (Admin & Member)
+router.patch('/:id/restore', authorize('admin', 'member'), restoreDocument);
 
-// PATCH /api/documents/:id/folder - Move document to folder
-router.patch('/:id/folder', moveDocumentToFolder);
+// DELETE /api/documents/:id/permanent - Permanently delete document (Admin Only)
+router.delete('/:id/permanent', authorize('admin'), permanentlyDeleteDocument);
 
-// GET /api/documents/:id/ocr-status - Poll OCR job progress (Phase 4)
-router.get('/:id/ocr-status', getOcrStatus);
+// PATCH /api/documents/:id/folder - Move document to folder (Admin & Member)
+router.patch('/:id/folder', authorize('admin', 'member'), moveDocumentToFolder);
 
-// GET /api/documents/:id/intelligence - Get full DocumentIntelligence (tags, entities, importance)
-router.get('/:id/intelligence', getDocumentIntelligence);
+// GET /api/documents/:id/ocr-status - Poll OCR status (All roles)
+router.get('/:id/ocr-status', authorize('admin', 'member', 'viewer'), getOcrStatus);
 
-// PATCH /api/documents/:id/confirm-type - User confirms or corrects AI-detected doc type
-router.patch('/:id/confirm-type', confirmDocumentType);
+// GET /api/documents/:id/intelligence - Get full DocumentIntelligence (All roles)
+router.get('/:id/intelligence', authorize('admin', 'member', 'viewer'), getDocumentIntelligence);
 
-// PATCH /api/documents/:id/confirm-intelligence - User reviews Tier 2/3 suggested events
-// Body: { doc_type?, confirmed_events: [{index, accepted, edited_title?, edited_date?}], manual_entities? }
-router.patch('/:id/confirm-intelligence', confirmIntelligence);
+// PATCH /api/documents/:id/confirm-type - User confirms metadata (Admin & Member)
+router.patch('/:id/confirm-type', authorize('admin', 'member'), confirmDocumentType);
 
-// POST /api/documents/requeue-stuck - Re-queue all pending/processing stuck docs
-router.post('/requeue-stuck', requeueStuckDocuments);
+// PATCH /api/documents/:id/confirm-intelligence (Admin & Member)
+router.patch('/:id/confirm-intelligence', authorize('admin', 'member'), confirmIntelligence);
 
-// POST /api/documents/:id/reprocess - Trigger OCR reprocessing for a single doc
-router.post('/:id/reprocess', reprocessOcr);
+// System/Admin only management
+router.post('/requeue-stuck', authorize('admin'), requeueStuckDocuments);
+router.post('/:id/reprocess', authorize('admin'), reprocessOcr);
 
 export default router;

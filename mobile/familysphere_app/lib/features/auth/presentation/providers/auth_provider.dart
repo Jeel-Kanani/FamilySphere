@@ -209,6 +209,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String? displayName,
     String? email,
     String? photoUrl,
+    String? phoneNumber,
   }) async {
     try {
       state = state.copyWith(isLoading: true, error: null);
@@ -216,7 +217,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
         name: displayName ?? state.user?.displayName ?? '',
         email: email ?? state.user?.email,
         photoUrl: photoUrl,
+        phoneNumber: phoneNumber ?? state.user?.phoneNumber,
       );
+      state = state.copyWith(user: user, isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  /// Upload profile picture from file
+  Future<void> uploadProfilePicture(String filePath) async {
+    try {
+      state = state.copyWith(isLoading: true, error: null);
+      final user = await _authRepository.uploadProfilePicture(filePath);
       state = state.copyWith(user: user, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());

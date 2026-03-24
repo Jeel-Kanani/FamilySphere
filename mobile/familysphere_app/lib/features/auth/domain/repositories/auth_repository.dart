@@ -53,5 +53,9 @@ abstract class AuthRepository {
     required String name,
     String? email,
     String? photoUrl,
+    String? phoneNumber,
   });
+  
+  /// Upload profile picture
+  Future<User> uploadProfilePicture(String filePath);
 }

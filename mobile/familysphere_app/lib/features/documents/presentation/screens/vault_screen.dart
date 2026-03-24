@@ -6,6 +6,7 @@ import 'package:familysphere_app/core/utils/routes.dart';
 import 'package:familysphere_app/features/documents/presentation/providers/document_provider.dart';
 import 'package:familysphere_app/features/family/presentation/providers/family_provider.dart';
 import 'package:familysphere_app/features/documents/presentation/widgets/processing_indicator.dart';
+import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:intl/intl.dart';
 
 class VaultScreen extends ConsumerStatefulWidget {
@@ -51,6 +52,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
     final storageUsed = ref.watch(documentProvider.select((s) => s.storageUsed));
     final storageLimit = ref.watch(documentProvider.select((s) => s.storageLimit));
     final lastStorageSync = ref.watch(documentProvider.select((s) => s.lastStorageSync));
+    final user = ref.watch(authProvider).user;
+    final isAdmin = user?.isAdmin == true;
+    final isViewer = user?.isViewer == true;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surface = isDark ? AppTheme.darkSurface : Colors.white;
     final border = isDark ? AppTheme.darkBorder : AppTheme.borderColor;
@@ -69,7 +73,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
             children: [
-              _buildHeader(context, isLoading),
+              _buildHeader(context, isLoading, isAdmin),
               
               // Phase 6 – Background Processing Indicator
               if (documents.any((doc) => doc.ocrStatus == 'pending' || doc.ocrStatus == 'processing'))
@@ -90,8 +94,10 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
               const SizedBox(height: 20),
               
               // Quick Actions
-              _buildQuickActions(context),
-              const SizedBox(height: 20),
+              if (!isViewer) ...[
+                _buildQuickActions(context),
+                const SizedBox(height: 20),
+              ],
               
               _buildSectionTitle(context, 'Vault Spaces'),
               const SizedBox(height: 10),
@@ -129,11 +135,11 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomBar(context, surface, border),
+      bottomNavigationBar: isViewer ? null : _buildBottomBar(context, surface, border),
     );
   }
 
-  Widget _buildHeader(BuildContext context, bool isLoading) {
+  Widget _buildHeader(BuildContext context, bool isLoading, bool isAdmin) {
     return Row(
       children: [
         Expanded(
@@ -193,14 +199,16 @@ class _VaultScreenState extends ConsumerState<VaultScreen> with SingleTickerProv
             child: Icon(isLoading ? Icons.sync : Icons.refresh_rounded),
           ),
         ),
-        IconButton(
-          onPressed: () => Navigator.pushNamed(context, AppRoutes.adminEngineDashboard),
-          icon: const Icon(Icons.psychology_rounded, color: Color(0xFF6366F1)),
-          tooltip: 'Engine Dashboard',
-        ),
+        if (isAdmin)
+          IconButton(
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.adminEngineDashboard),
+            icon: const Icon(Icons.psychology_rounded, color: Color(0xFF6366F1)),
+            tooltip: 'Engine Dashboard',
+          ),
       ],
     );
   }
+
 
   Widget _buildStatsRow(BuildContext context, List documents) {
     final isDark = Theme.of(context).brightness == Brightness.dark;

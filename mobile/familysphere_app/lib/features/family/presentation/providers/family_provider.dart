@@ -462,12 +462,12 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
     }
   }
 
-  Future<FamilyInvite> createFamilyInvite(String type) async {
+  Future<FamilyInvite> createFamilyInvite(String type, {String targetRole = 'member'}) async {
     final familyId = state.family?.id;
     if (familyId == null) throw Exception('No family found');
 
     try {
-      return await _createFamilyInvite(familyId, type);
+      return await _createFamilyInvite(familyId, type, targetRole: targetRole);
     } catch (e) {
       state = state.copyWith(error: e.toString());
       rethrow;

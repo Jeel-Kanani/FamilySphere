@@ -43,4 +43,15 @@ const protect = async (req: AuthRequest, res: Response, next: NextFunction) => {
     }
 };
 
-export { protect };
+const authorize = (...roles: string[]) => {
+    return (req: AuthRequest, res: Response, next: NextFunction) => {
+        if (!req.user || !roles.includes(req.user.role || '')) {
+            return res.status(403).json({ 
+                message: `Role (${req.user?.role || 'none'}) is not authorized to access this resource` 
+            });
+        }
+        next();
+    };
+};
+
+export { protect, authorize };

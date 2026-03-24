@@ -155,8 +155,8 @@ class FamilyRepositoryImpl implements FamilyRepository {
   }
 
   @override
-  Future<FamilyInvite> createInvite(String familyId, String type) async {
-    return await remoteDataSource.createInvite(familyId, type);
+  Future<FamilyInvite> createInvite(String familyId, String type, {String targetRole = 'member'}) async {
+    return await remoteDataSource.createInvite(familyId, type, targetRole: targetRole);
   }
 
   @override

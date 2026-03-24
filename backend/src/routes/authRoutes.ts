@@ -8,8 +8,10 @@ import {
     googleAuth,
     sendEmailOtpController,
     verifyEmailOtpController,
+    uploadProfilePicture,
 } from '../controllers/authController';
 import { protect } from '../middleware/authMiddleware';
+import { upload } from '../config/cloudinary';
 
 const router = express.Router();
 
@@ -21,5 +23,6 @@ router.post('/google', googleAuth);
 router.post('/logout', protect, logoutUser);
 router.get('/me', protect, getCurrentUser);
 router.put('/profile', protect, updateProfile);
+router.put('/profile/picture', protect, upload.single('picture'), uploadProfilePicture);
 
 export default router;

@@ -43,7 +43,8 @@ class UserModel extends User {
       '_id': id, // Backend uses _id
       'email': email,
       'name': displayName, // Backend uses name
-      'photoUrl': photoUrl,
+      'profilePicture': photoUrl,
+      'phoneNumber': phoneNumber,
       'familyId': familyId,
       'role': role.name,
       'token': token,
@@ -55,14 +56,14 @@ class UserModel extends User {
   /// Create from JSON (from API)
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['_id'] as String,
+      id: (json['_id'] ?? json['userId']) as String,
       email: json['email'] as String,
       displayName: json['name'] as String?, // Map 'name' to 'displayName'
       phoneNumber: json['phoneNumber'] as String?,
-      photoUrl: json['photoUrl'] as String?,
+      photoUrl: json['profilePicture'] as String? ?? json['photoUrl'] as String?,
       familyId: json['familyId'] as String?,
       role: UserRole.values.firstWhere(
-        (e) => e.name == json['role'],
+        (e) => e.name == (json['role'] ?? 'member'),
         orElse: () => UserRole.member,
       ),
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),

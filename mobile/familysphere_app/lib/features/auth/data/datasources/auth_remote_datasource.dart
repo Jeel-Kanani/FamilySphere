@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:familysphere_app/features/auth/domain/entities/user.dart';
 import 'package:familysphere_app/core/config/api_config.dart';
 import 'package:familysphere_app/core/network/api_client.dart';
@@ -253,11 +254,12 @@ class AuthRemoteDataSource {
   }
 
   /// Update user profile
-  Future<UserModel> updateProfile(String name, String? email, String? photoUrl) async {
+  Future<UserModel> updateProfile(String name, String? email, String? photoUrl, String? phoneNumber) async {
     try {
       final data = <String, dynamic>{'name': name};
       if (email != null) data['email'] = email;
-      if (photoUrl != null) data['photoUrl'] = photoUrl;
+      if (photoUrl != null) data['profilePicture'] = photoUrl;
+      if (phoneNumber != null) data['phoneNumber'] = phoneNumber;
 
       final response = await _apiClient.put(
         ApiConfig.updateProfileEndpoint,
@@ -375,6 +377,34 @@ class AuthRemoteDataSource {
       return userModel;
     } catch (e) {
       throw Exception('Google sign in failed: ${e.toString()}');
+    }
+  }
+
+  /// Upload profile picture
+  Future<UserModel> uploadProfilePicture(String filePath) async {
+    try {
+      final formData = FormData.fromMap({
+        'picture': await MultipartFile.fromFile(filePath),
+      });
+
+      final response = await _apiClient.put(
+        '/api/auth/profile/picture',
+        data: formData,
+      );
+
+      final userModel = UserModel.fromJson(response.data);
+
+      // Update local storage
+      await _tokenService.saveUserData(
+        userId: userModel.id,
+        email: userModel.email,
+        name: userModel.displayName ?? '',
+        userJson: userModel.toJsonString(),
+      );
+
+      return userModel;
+    } catch (e) {
+      throw Exception('Profile picture upload failed: ${e.toString()}');
     }
   }
 }

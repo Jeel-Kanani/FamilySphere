@@ -57,7 +57,7 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
                   const SizedBox(height: 24),
                   _buildSectionHeader(context, 'Family Members', '${familyState.members.length} total'),
                   const SizedBox(height: 16),
-                  _buildMembersList(familyState.members, family, user?.id, isDark),
+                   _buildMembersList(familyState.members, family, user?.id, isDark, isAdmin),
                   const SizedBox(height: 32),
                   _buildSectionHeader(context, 'Recent Activity', 'View all'),
                   const SizedBox(height: 16),
@@ -69,15 +69,15 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
           ),
         ],
       ),
-      floatingActionButton: isAdmin
-          ? FloatingActionButton.extended(
+      floatingActionButton: user?.isViewer == true
+          ? null
+          : FloatingActionButton.extended(
               onPressed: () => Navigator.pushNamed(context, '/invite-member'),
               icon: const Icon(Icons.person_add_rounded),
               label: const Text('Invite'),
               backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
-            )
-          : null,
+            ),
     );
   }
 
@@ -184,11 +184,12 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
     );
   }
 
-  Widget _buildMembersList(List<FamilyMember> members, family_entity.Family family, String? currentUserId, bool isDark) {
+  Widget _buildMembersList(List<FamilyMember> members, family_entity.Family family, String? currentUserId, bool isDark, bool isAdmin) {
     return Column(
       children: members.map((member) {
         final isMe = member.userId == currentUserId;
-        final isAdmin = member.role == 'admin';
+        final isMemberAdmin = member.role == FamilyRole.admin;
+        final isMemberViewer = member.role == FamilyRole.viewer;
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -208,7 +209,7 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
           ),
           child: Row(
             children: [
-              _buildAvatar(member.displayName, isDark),
+              _buildAvatar(member.displayName, member.photoUrl, isDark),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -220,20 +221,26 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
                           isMe ? '${member.displayName} (You)' : member.displayName,
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        if (isAdmin) ...[
+                        if (isMemberAdmin) ...[
                           const SizedBox(width: 6),
                           const Icon(Icons.verified_user_rounded, color: AppTheme.primaryColor, size: 14),
+                        ],
+                        if (isMemberViewer) ...[
+                          const SizedBox(width: 6),
+                          const Icon(Icons.visibility_rounded, color: AppTheme.textTertiary, size: 14),
                         ],
                       ],
                     ),
                     Text(
-                      isAdmin ? 'Family Admin' : 'Family Member',
+                      isMemberAdmin
+                          ? 'Family Admin'
+                          : (isMemberViewer ? 'Family Viewer' : 'Family Member'),
                       style: const TextStyle(fontSize: 12, color: AppTheme.textTertiary),
                     ),
                   ],
                 ),
               ),
-              if (!isMe && family.isAdmin(currentUserId ?? ''))
+              if (!isMe && isAdmin) // Using the outer isAdmin which checks if the current user is admin
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert_rounded),
                   onSelected: (value) => _handleMemberAction(value, member),
@@ -252,25 +259,33 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
     );
   }
 
-  Widget _buildAvatar(String name, bool isDark) {
+  Widget _buildAvatar(String name, String? photoUrl, bool isDark) {
     final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
     return Container(
       width: 48,
       height: 48,
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withValues(alpha: 1),
+        color: AppTheme.primaryColor,
         shape: BoxShape.circle,
+        image: photoUrl != null && photoUrl.isNotEmpty
+            ? DecorationImage(
+                image: NetworkImage(photoUrl),
+                fit: BoxFit.cover,
+              )
+            : null,
       ),
-      child: Center(
-        child: Text(
-          initials,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-      ),
+      child: photoUrl == null || photoUrl.isEmpty
+          ? Center(
+              child: Text(
+                initials,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            )
+          : null,
     );
   }
 
@@ -409,8 +424,8 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
         }
       }
     } else if (action == 'role') {
-      final isNowAdmin = member.role == 'admin';
-      final newRole = isNowAdmin ? 'member' : 'admin';
+      final isNowAdmin = member.role == FamilyRole.admin;
+      final newRole = isNowAdmin ? FamilyRole.member.name : FamilyRole.admin.name;
       
       final confirm = await showDialog<bool>(
         context: context,

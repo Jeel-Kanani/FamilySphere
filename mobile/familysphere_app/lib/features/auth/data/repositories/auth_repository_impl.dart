@@ -74,7 +74,13 @@ class AuthRepositoryImpl implements AuthRepository {
     required String name,
     String? email,
     String? photoUrl,
+    String? phoneNumber,
   }) async {
-    return await remoteDataSource.updateProfile(name, email, photoUrl);
+    return await remoteDataSource.updateProfile(name, email, photoUrl, phoneNumber);
+  }
+
+  @override
+  Future<User> uploadProfilePicture(String filePath) async {
+    return await remoteDataSource.uploadProfilePicture(filePath);
   }
 }

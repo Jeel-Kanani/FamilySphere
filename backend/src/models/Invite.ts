@@ -39,6 +39,21 @@ const inviteSchema = new Schema({
     usedCount: {
         type: Number,
         default: 0
+    },
+    recipientEmail: {
+        type: String,
+        trim: true,
+        lowercase: true
+    },
+    status: {
+        type: String,
+        enum: ['pending', 'accepted', 'revoked'],
+        default: 'pending'
+    },
+    targetRole: {
+        type: String,
+        enum: ['member', 'viewer'],
+        default: 'member'
     }
 }, {
     timestamps: true
