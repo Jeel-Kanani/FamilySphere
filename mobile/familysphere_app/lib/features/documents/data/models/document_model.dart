@@ -1,4 +1,3 @@
-
 import 'package:familysphere_app/features/documents/domain/entities/document_entity.dart';
 
 class DocumentModel extends DocumentEntity {
@@ -22,6 +21,7 @@ class DocumentModel extends DocumentEntity {
     super.ocrStatus,
     super.ocrJobId,
     super.docType,
+    super.syncStatus,
   });
 
   /// Create from Domain Entity
@@ -46,11 +46,11 @@ class DocumentModel extends DocumentEntity {
       ocrStatus: entity.ocrStatus,
       ocrJobId: entity.ocrJobId,
       docType: entity.docType,
+      syncStatus: entity.syncStatus,
     );
   }
 
   // Firestore methods removed as we are migrating to custom backend
-
 
   /// Create from JSON (from API)
   factory DocumentModel.fromJson(Map<String, dynamic> json) {
@@ -63,7 +63,8 @@ class DocumentModel extends DocumentEntity {
     }
 
     final fileUrl = (json['fileUrl'] ?? '').toString();
-    final storagePath = (json['cloudinaryId'] ?? json['storagePath'] ?? '').toString();
+    final storagePath =
+        (json['cloudinaryId'] ?? json['storagePath'] ?? '').toString();
     final rawType = (json['fileType'] ?? '').toString();
     final lowerRawType = rawType.toLowerCase();
     final isPdfHint = lowerRawType.contains('pdf') ||
@@ -78,24 +79,26 @@ class DocumentModel extends DocumentEntity {
       folder: (json['folder'] ?? 'General').toString(),
       memberId: json['memberId']?.toString(),
       fileUrl: fileUrl,
-      fileType: rawType.isNotEmpty ? rawType : (isPdfHint ? 'application/pdf' : 'application/octet-stream'),
+      fileType: rawType.isNotEmpty
+          ? rawType
+          : (isPdfHint ? 'application/pdf' : 'application/octet-stream'),
       sizeBytes: (json['fileSize'] ?? json['size'] ?? 0) is num
           ? ((json['fileSize'] ?? json['size'] ?? 0) as num).toInt()
           : 0,
       uploadedBy: uploaderId,
       ocrStatus: json['ocrStatus'] as String?,
-      ocrJobId:  json['ocrJobId']  as String?,
-      docType:   json['docType']   as String?,
-      uploadedAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt']) 
+      ocrJobId: json['ocrJobId'] as String?,
+      docType: json['docType'] as String?,
+      syncStatus: json['syncStatus'] as String?,
+      uploadedAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'])
           : DateTime.now(),
       storagePath: storagePath,
       isOfflineAvailable: json['isOfflineAvailable'] ?? false,
       localPath: json['localPath'],
       deleted: json['deleted'] ?? false,
-      deletedAt: json['deletedAt'] != null 
-          ? DateTime.parse(json['deletedAt']) 
-          : null,
+      deletedAt:
+          json['deletedAt'] != null ? DateTime.parse(json['deletedAt']) : null,
     );
   }
 
@@ -114,6 +117,14 @@ class DocumentModel extends DocumentEntity {
       'uploadedBy': uploadedBy,
       'cloudinaryId': storagePath,
       'createdAt': uploadedAt.toIso8601String(),
+      'isOfflineAvailable': isOfflineAvailable,
+      'localPath': localPath,
+      'deleted': deleted,
+      'deletedAt': deletedAt?.toIso8601String(),
+      'ocrStatus': ocrStatus,
+      'ocrJobId': ocrJobId,
+      'docType': docType,
+      'syncStatus': syncStatus,
     };
   }
 }

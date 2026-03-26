@@ -54,8 +54,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     _staggerController.forward();
 
-    // Load global documents for the "Recent" section
+    // Load cached/remote family and document data for the dashboard.
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(familyProvider.notifier).loadFamily();
       ref.read(documentProvider.notifier).loadDocuments();
     });
   }

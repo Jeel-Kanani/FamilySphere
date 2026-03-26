@@ -8,11 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:familysphere_app/features/documents/presentation/widgets/document_intelligence_card.dart';
 import 'package:familysphere_app/features/documents/presentation/widgets/ocr_status_banner.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -22,7 +20,8 @@ class DocumentViewerScreen extends ConsumerStatefulWidget {
   const DocumentViewerScreen({super.key, required this.document});
 
   @override
-  ConsumerState<DocumentViewerScreen> createState() => _DocumentViewerScreenState();
+  ConsumerState<DocumentViewerScreen> createState() =>
+      _DocumentViewerScreenState();
 }
 
 class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
@@ -34,22 +33,11 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
   int _currentPdfPage = 0;
   int _totalPdfPages = 0;
 
-  bool get _isPdfByMetadata {
-    final type = widget.document.fileType.toLowerCase();
-    final fileUrl = widget.document.fileUrl.toLowerCase();
-    final storage = widget.document.storagePath.toLowerCase();
-    final title = widget.document.title.toLowerCase();
-
-    return type.contains('pdf') ||
-        fileUrl.endsWith('.pdf') ||
-        storage.endsWith('.pdf') ||
-        title.endsWith('.pdf');
-  }
-
   bool get _isImage {
     final fileUrl = widget.document.fileUrl.toLowerCase();
     return widget.document.fileType.toLowerCase().startsWith('image') ||
-        ['jpg', 'jpeg', 'png', 'gif', 'webp'].any((ext) => fileUrl.endsWith('.$ext'));
+        ['jpg', 'jpeg', 'png', 'gif', 'webp']
+            .any((ext) => fileUrl.endsWith('.$ext'));
   }
 
   @override
@@ -60,20 +48,30 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
 
   Future<void> _prepareDocument() async {
     try {
-      if (_isImage) {
+      final currentDoc = ref.read(documentProvider).documents.firstWhere(
+            (d) => d.id == widget.document.id,
+            orElse: () => widget.document,
+          );
+
+      if (_isImage &&
+          !(currentDoc.localPath != null &&
+              currentDoc.localPath!.isNotEmpty &&
+              await File(currentDoc.localPath!).exists())) {
         if (!mounted) return;
         setState(() => _isLoading = false);
         return;
       }
 
-      final result = await _downloadFile(widget.document.fileUrl, widget.document.title);
-      final shouldRenderPdf = _isPdfByMetadata || _isPdfBytes(result.bytes);
+      final localPath = await ref
+          .read(documentProvider.notifier)
+          .prepareForViewing(currentDoc);
+      final shouldRenderPdf = _isPdfDocument(currentDoc);
 
       if (!mounted) return;
-      if (shouldRenderPdf) {
+      if (localPath != null) {
         setState(() {
-          _localPath = result.file.path;
-          _renderAsPdf = true;
+          _localPath = localPath;
+          _renderAsPdf = shouldRenderPdf;
           _isLoading = false;
         });
       } else {
@@ -91,40 +89,16 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
     }
   }
 
-  Future<_DownloadResult> _downloadFile(String url, String fileName) async {
-    final encodedUrl = Uri.encodeFull(url);
-    var uri = Uri.parse(encodedUrl);
-    if (uri.scheme == 'http') {
-      uri = uri.replace(scheme: 'https');
-    }
+  bool _isPdfDocument(DocumentEntity document) {
+    final type = document.fileType.toLowerCase();
+    final fileUrl = document.fileUrl.toLowerCase();
+    final storage = document.storagePath.toLowerCase();
+    final title = document.title.toLowerCase();
 
-    final response = await http.get(uri);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Download failed (${response.statusCode})');
-    }
-
-    final bytes = response.bodyBytes;
-    if (bytes.isEmpty) {
-      throw Exception('Downloaded file is empty');
-    }
-
-    final isPdfContent = _isPdfBytes(bytes) || _isPdfByMetadata;
-    final dir = await getTemporaryDirectory();
-    final ext = isPdfContent ? 'pdf' : 'bin';
-    final safeName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '_');
-    final file = File('${dir.path}/$safeName.$ext');
-    await file.writeAsBytes(bytes, flush: true);
-
-    return _DownloadResult(file: file, bytes: bytes);
-  }
-
-  bool _isPdfBytes(List<int> bytes) {
-    if (bytes.length < 5) return false;
-    return bytes[0] == 0x25 &&
-        bytes[1] == 0x50 &&
-        bytes[2] == 0x44 &&
-        bytes[3] == 0x46 &&
-        bytes[4] == 0x2D;
+    return type.contains('pdf') ||
+        fileUrl.endsWith('.pdf') ||
+        storage.endsWith('.pdf') ||
+        title.endsWith('.pdf');
   }
 
   @override
@@ -133,6 +107,14 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
 
     // Watch the live document list to get real-time status updates (like OCR completion)
     final documents = ref.watch(documentProvider).documents;
+    final syncError = ref.watch(
+      documentProvider
+          .select((s) => s.syncErrorsByDocumentId[widget.document.id]),
+    );
+    final syncJobType = ref.watch(
+      documentProvider
+          .select((s) => s.syncJobTypesByDocumentId[widget.document.id]),
+    );
     final currentDoc = documents.firstWhere(
       (d) => d.id == widget.document.id,
       orElse: () => widget.document,
@@ -141,68 +123,81 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkBackground : Colors.black,
       extendBodyBehindAppBar: true,
-      appBar: _showControls ? AppBar(
-        backgroundColor: Colors.black.withOpacity(0.7),
-        title: Text(
-          currentDoc.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share_rounded),
-            onPressed: () => _shareDocument(currentDoc),
-            tooltip: 'Share',
-          ),
-          IconButton(
-            icon: const Icon(Icons.download_rounded),
-            onPressed: () => _downloadDocument(currentDoc),
-            tooltip: 'Download',
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded),
-            onSelected: (action) => _handleMenuAction(action, currentDoc),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'info',
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline_rounded, size: 20),
-                    SizedBox(width: 12),
-                    Text('Document Info'),
+      appBar: _showControls
+          ? AppBar(
+              backgroundColor: Colors.black.withValues(alpha: 0.7),
+              title: Text(
+                currentDoc.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.share_rounded),
+                  onPressed: () => _shareDocument(currentDoc),
+                  tooltip: 'Share',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.download_rounded),
+                  onPressed: () => _downloadDocument(currentDoc),
+                  tooltip: 'Download',
+                ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert_rounded),
+                  onSelected: (action) => _handleMenuAction(action, currentDoc),
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'offline_toggle',
+                      child: Row(
+                        children: [
+                          Icon(Icons.offline_pin_rounded, size: 20),
+                          SizedBox(width: 12),
+                          Text('Toggle Offline Copy'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'info',
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline_rounded, size: 20),
+                          SizedBox(width: 12),
+                          Text('Document Info'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'rename',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 20),
+                          SizedBox(width: 12),
+                          Text('Rename'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline_rounded,
+                              size: 20, color: Colors.red),
+                          SizedBox(width: 12),
+                          Text('Delete', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-              ),
-              const PopupMenuItem(
-                value: 'rename',
-                child: Row(
-                  children: [
-                    Icon(Icons.edit_outlined, size: 20),
-                    SizedBox(width: 12),
-                    Text('Rename'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete_outline_rounded, size: 20, color: Colors.red),
-                    SizedBox(width: 12),
-                    Text('Delete', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ) : null,
+              ],
+            )
+          : null,
       body: GestureDetector(
         onTap: () => setState(() => _showControls = !_showControls),
         child: Stack(
           children: [
             Positioned.fill(child: _buildDocumentView(currentDoc)),
-            if (_isLoading) 
+            if (_isLoading)
               Container(
                 color: Colors.black54,
                 child: const Center(
@@ -216,8 +211,19 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
                 right: 0,
                 child: _buildPdfControls(),
               ),
+            if (currentDoc.syncStatus == 'pending_upload' ||
+                currentDoc.syncStatus == 'pending_move' ||
+                currentDoc.syncStatus == 'sync_failed')
+              Positioned(
+                top: kToolbarHeight + MediaQuery.of(context).padding.top + 8,
+                left: 12,
+                right: 12,
+                child:
+                    _buildSyncStatusBanner(currentDoc, syncError, syncJobType),
+              ),
             // Confirmation overlay when AI is uncertain or has analyzed the document
-            if (currentDoc.ocrStatus == 'needs_confirmation' || currentDoc.ocrStatus == 'analyzed')
+            if (currentDoc.ocrStatus == 'needs_confirmation' ||
+                currentDoc.ocrStatus == 'analyzed')
               Positioned(
                 top: kToolbarHeight + MediaQuery.of(context).padding.top + 8,
                 left: 12,
@@ -231,9 +237,10 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
                   onReviewInsights: () => _showInfoSheet(currentDoc),
                 ),
               ),
-            
+
             // Phase 6 – Real-time OCR status banner (only for pending/processing)
-            if (currentDoc.ocrStatus == 'pending' || currentDoc.ocrStatus == 'processing')
+            if (currentDoc.ocrStatus == 'pending' ||
+                currentDoc.ocrStatus == 'processing')
               Positioned(
                 top: kToolbarHeight + MediaQuery.of(context).padding.top + 8,
                 left: 12,
@@ -258,7 +265,8 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline_rounded, size: 64, color: Colors.white70),
+            const Icon(Icons.error_outline_rounded,
+                size: 64, color: Colors.white70),
             const SizedBox(height: 16),
             Text(
               _error!,
@@ -271,8 +279,11 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
     }
 
     if (_isImage) {
+      final imageProvider = _localPath != null && File(_localPath!).existsSync()
+          ? FileImage(File(_localPath!))
+          : NetworkImage(currentDoc.fileUrl) as ImageProvider;
       return PhotoView(
-        imageProvider: NetworkImage(currentDoc.fileUrl),
+        imageProvider: imageProvider,
         backgroundDecoration: const BoxDecoration(color: Colors.black),
         minScale: PhotoViewComputedScale.contained,
         maxScale: PhotoViewComputedScale.covered * 3,
@@ -315,7 +326,7 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.7),
+          color: Colors.black.withValues(alpha: 0.7),
           borderRadius: BorderRadius.circular(24),
         ),
         child: Text(
@@ -326,6 +337,124 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
+      ),
+    );
+  }
+
+  String _syncJobTypeLabel(String? syncJobType) {
+    switch (syncJobType) {
+      case 'upload':
+        return 'Upload sync';
+      case 'move':
+        return 'Move sync';
+      case 'delete':
+        return 'Delete sync';
+      default:
+        return 'Sync';
+    }
+  }
+
+  Widget _buildSyncStatusBanner(
+      DocumentEntity currentDoc, String? syncError, String? syncJobType) {
+    final syncStatus = currentDoc.syncStatus;
+    final isFailed = syncStatus == 'sync_failed';
+    final isMove = syncStatus == 'pending_move';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: (isFailed ? const Color(0xFF7F1D1D) : const Color(0xFF082F49))
+            .withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: (isFailed ? const Color(0xFFEF4444) : const Color(0xFF0EA5E9))
+              .withValues(alpha: 0.28),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isFailed
+                    ? Icons.error_outline_rounded
+                    : isMove
+                        ? Icons.drive_file_move_rounded
+                        : Icons.cloud_upload_rounded,
+                color: isFailed
+                    ? const Color(0xFFFCA5A5)
+                    : const Color(0xFF38BDF8),
+                size: 18,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  isFailed
+                      ? 'Sync failed after several retries.'
+                      : isMove
+                          ? 'This folder change is saved locally and waiting to sync.'
+                          : 'This document is saved locally and waiting to sync.',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (isFailed && syncError != null && syncError.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              _syncJobTypeLabel(syncJobType),
+              style: const TextStyle(
+                color: Color(0xFFFECACA),
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              syncError,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFFFECACA),
+                fontSize: 11,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => _retryFailedSync(currentDoc),
+                    icon: const Icon(Icons.refresh_rounded, size: 16),
+                    label: const Text('Retry This Document'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Color(0xFFFCA5A5)),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => _clearFailedSync(currentDoc),
+                    icon: const Icon(Icons.delete_sweep_rounded, size: 16),
+                    label: const Text('Clear Failed Sync'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFFECACA),
+                      side: const BorderSide(color: Color(0xFFFCA5A5)),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -353,24 +482,24 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
 
   Future<void> _downloadDocument(DocumentEntity currentDoc) async {
     try {
+      final encryptedPath =
+          await ref.read(documentProvider.notifier).download(currentDoc);
+      if (encryptedPath == null || !mounted) return;
+      final readablePath =
+          await ref.read(documentProvider.notifier).prepareForViewing(
+                currentDoc.copyWith(
+                  localPath: encryptedPath,
+                  isOfflineAvailable: true,
+                ),
+              );
+      if (readablePath == null || !mounted) return;
+      setState(() {
+        _localPath = readablePath;
+        _renderAsPdf = _isPdfDocument(currentDoc);
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Download started...')),
+        const SnackBar(content: Text('Saved for offline access')),
       );
-      
-      // Document is already downloaded locally during view preparation
-      if (_localPath != null) {
-        // Copy to downloads directory
-        final downloadsDir = await getApplicationDocumentsDirectory();
-        final fileName = currentDoc.title;
-        final newPath = '${downloadsDir.path}/$fileName';
-        final file = File(_localPath!);
-        await file.copy(newPath);
-        
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Downloaded to: $newPath')),
-        );
-      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -381,6 +510,9 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
 
   void _handleMenuAction(String action, DocumentEntity currentDoc) {
     switch (action) {
+      case 'offline_toggle':
+        _toggleOfflineCopy(currentDoc);
+        break;
       case 'info':
         _showInfoSheet(currentDoc);
         break;
@@ -393,9 +525,46 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
     }
   }
 
+  Future<void> _toggleOfflineCopy(DocumentEntity currentDoc) async {
+    try {
+      if (currentDoc.isOfflineAvailable) {
+        await ref.read(documentProvider.notifier).removeOfflineCopy(currentDoc);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Offline copy removed')),
+        );
+        return;
+      }
+
+      final encryptedPath =
+          await ref.read(documentProvider.notifier).download(currentDoc);
+      if (encryptedPath == null || !mounted) return;
+      final readablePath =
+          await ref.read(documentProvider.notifier).prepareForViewing(
+                currentDoc.copyWith(
+                  localPath: encryptedPath,
+                  isOfflineAvailable: true,
+                ),
+              );
+      if (readablePath == null || !mounted) return;
+      setState(() {
+        _localPath = readablePath;
+        _renderAsPdf = _isPdfDocument(currentDoc);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Saved for offline access')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Offline copy update failed: $e')),
+      );
+    }
+  }
+
   Future<void> _renameDocument(DocumentEntity currentDoc) async {
     final controller = TextEditingController(text: currentDoc.title);
-    
+
     final newName = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -434,7 +603,8 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Document'),
-        content: const Text('Are you sure you want to delete this document? This action cannot be undone.'),
+        content: const Text(
+            'Are you sure you want to delete this document? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -455,7 +625,7 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
 
     try {
       await ref.read(documentProvider.notifier).delete(currentDoc);
-      
+
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -469,6 +639,65 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
     }
   }
 
+  Future<void> _retryFailedSync(DocumentEntity currentDoc) async {
+    try {
+      await ref
+          .read(documentProvider.notifier)
+          .retryFailedSyncForDocument(currentDoc.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Retrying sync for this document')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to retry document sync: $e')),
+      );
+    }
+  }
+
+  Future<void> _clearFailedSync(DocumentEntity currentDoc) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear Failed Sync'),
+        content: Text(
+          currentDoc.id.startsWith('local-doc-')
+              ? 'This will remove the failed local upload from the sync queue and delete its pending offline copy.'
+              : 'This will remove the failed sync job for this document from the queue on this device.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await ref
+          .read(documentProvider.notifier)
+          .clearFailedSyncForDocument(currentDoc.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed sync cleared for this document')),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to clear document sync: $e')),
+      );
+    }
+  }
+
   void _showInfoSheet(DocumentEntity currentDoc) {
     showModalBottomSheet<void>(
       context: context,
@@ -476,6 +705,10 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
+        final syncError =
+            ref.read(documentProvider).syncErrorsByDocumentId[currentDoc.id];
+        final syncJobType =
+            ref.read(documentProvider).syncJobTypesByDocumentId[currentDoc.id];
         return SafeArea(
           child: Container(
             margin: const EdgeInsets.all(12),
@@ -506,8 +739,8 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            AppTheme.primaryColor.withOpacity(0.2),
-                            AppTheme.primaryColor.withOpacity(0.1),
+                            AppTheme.primaryColor.withValues(alpha: 0.2),
+                            AppTheme.primaryColor.withValues(alpha: 0.1),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(12),
@@ -525,15 +758,19 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
                         children: [
                           Text(
                             'Document Info',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
                           ),
                           Text(
                             'Details and properties',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppTheme.textSecondary,
-                            ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: AppTheme.textSecondary,
+                                    ),
                           ),
                         ],
                       ),
@@ -543,28 +780,68 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
                 const SizedBox(height: 24),
                 _infoRow(Icons.title_rounded, 'Title', currentDoc.title),
                 _infoRow(Icons.folder_outlined, 'Folder', currentDoc.folder),
-                _infoRow(Icons.category_outlined, 'Category', currentDoc.category),
+                _infoRow(
+                    Icons.category_outlined, 'Category', currentDoc.category),
                 _infoRow(
                   Icons.calendar_today_outlined,
                   'Uploaded',
-                  DateFormat('MMM d, yyyy • hh:mm a').format(currentDoc.uploadedAt),
+                  DateFormat('MMM d, yyyy • hh:mm a')
+                      .format(currentDoc.uploadedAt),
                 ),
-                _infoRow(Icons.storage_rounded, 'Size', currentDoc.fileSizeString),
-                _infoRow(Icons.insert_drive_file_outlined, 'Type', currentDoc.fileType),
+                _infoRow(
+                    Icons.storage_rounded, 'Size', currentDoc.fileSizeString),
+                _infoRow(Icons.insert_drive_file_outlined, 'Type',
+                    currentDoc.fileType),
+                _infoRow(
+                  Icons.offline_pin_rounded,
+                  'Offline',
+                  currentDoc.isOfflineAvailable
+                      ? 'Available on device'
+                      : 'Not saved offline',
+                ),
+                _infoRow(
+                  Icons.cloud_sync_rounded,
+                  'Sync',
+                  currentDoc.syncStatus == 'pending_upload'
+                      ? 'Pending upload'
+                      : currentDoc.syncStatus == 'pending_move'
+                          ? 'Pending move'
+                          : currentDoc.syncStatus == 'sync_failed'
+                              ? 'Failed, retry needed'
+                              : 'Synced',
+                ),
+                if (currentDoc.syncStatus == 'sync_failed' &&
+                    syncJobType != null &&
+                    syncJobType.isNotEmpty)
+                  _infoRow(
+                    Icons.sync_problem_rounded,
+                    'Failed Job Type',
+                    _syncJobTypeLabel(syncJobType),
+                  ),
+                if (currentDoc.syncStatus == 'sync_failed' &&
+                    syncError != null &&
+                    syncError.isNotEmpty)
+                  _infoRow(
+                    Icons.error_outline_rounded,
+                    'Last Sync Error',
+                    syncError,
+                  ),
                 const SizedBox(height: 24),
-                
+
                 // Smart Intelligence Card
                 DocumentIntelligenceCard(docId: currentDoc.id),
-                
+
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () {
                       Navigator.pop(context);
-                      Clipboard.setData(ClipboardData(text: currentDoc.fileUrl));
+                      Clipboard.setData(
+                          ClipboardData(text: currentDoc.fileUrl));
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('URL copied to clipboard')),
+                        const SnackBar(
+                            content: Text('URL copied to clipboard')),
                       );
                     },
                     icon: const Icon(Icons.copy_rounded, size: 20),
@@ -591,7 +868,7 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.1),
+              color: AppTheme.primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, size: 18, color: AppTheme.primaryColor),
@@ -624,14 +901,4 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
       ),
     );
   }
-}
-
-class _DownloadResult {
-  final File file;
-  final List<int> bytes;
-
-  const _DownloadResult({
-    required this.file,
-    required this.bytes,
-  });
 }

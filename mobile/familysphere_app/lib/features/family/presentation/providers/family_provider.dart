@@ -17,6 +17,7 @@ import 'package:familysphere_app/features/family/domain/usecases/join_family_wit
 import 'package:familysphere_app/features/family/domain/usecases/create_family_invite.dart';
 import 'package:familysphere_app/features/family/domain/usecases/validate_family_invite.dart';
 import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:familysphere_app/core/providers/network_status_provider.dart';
 import 'package:familysphere_app/features/family/data/repositories/family_repository_impl.dart';
 import 'package:familysphere_app/features/family/data/datasources/family_remote_datasource.dart';
 import 'package:familysphere_app/features/family/data/datasources/family_local_datasource.dart';
@@ -191,12 +192,38 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
       return;
     }
 
+    final localDataSource = _ref.read(familyLocalDataSourceProvider);
+    final cachedFamily = await localDataSource.getCachedFamily();
+    final cachedMembers =
+        await localDataSource.getCachedFamilyMembers(user.familyId!);
+
     _isLoadingFamily = true;
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(
+      family: cachedFamily ?? state.family,
+      members: cachedMembers.isNotEmpty ? cachedMembers : state.members,
+      isLoading: cachedFamily == null && cachedMembers.isEmpty,
+      error: null,
+    );
+
+    final isOnline = _ref.read(isOnlineProvider);
+    if (!isOnline) {
+      _isLoadingFamily = false;
+      _lastFamilyLoadAt = DateTime.now();
+      return;
+    }
+
     try {
       final family = await _getFamily(user.familyId!);
       final members = await _getFamilyMembers(user.familyId!);
-      final activities = await _ref.read(familyRepositoryProvider).getFamilyActivity(user.familyId!);
+      List<FamilyActivity> activities = state.activities;
+      try {
+        activities = await _ref
+            .read(familyRepositoryProvider)
+            .getFamilyActivity(user.familyId!);
+      } catch (_) {
+        // Keep cached family + members visible offline even when
+        // the activity feed is unavailable.
+      }
       state = state.copyWith(
         family: family,
         members: members,
@@ -214,6 +241,7 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
   Future<void> refreshActivity() async {
     final familyId = state.family?.id;
     if (familyId == null) return;
+    if (!_ref.read(isOnlineProvider)) return;
     try {
       final activities = await _ref.read(familyRepositoryProvider).getFamilyActivity(familyId);
       state = state.copyWith(activities: activities);

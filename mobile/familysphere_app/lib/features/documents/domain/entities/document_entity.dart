@@ -1,5 +1,5 @@
 /// Document Entity
-/// 
+///
 /// Represents a file stored in the system (PDF, Image, etc.)
 class DocumentEntity {
   final String id;
@@ -20,9 +20,12 @@ class DocumentEntity {
   final DateTime? deletedAt;
 
   // Phase 6 – OCR queue tracking
-  final String? ocrStatus;  // 'pending' | 'processing' | 'done' | 'failed' | 'needs_confirmation'
+  final String?
+      ocrStatus; // 'pending' | 'processing' | 'done' | 'failed' | 'needs_confirmation'
   final String? ocrJobId;
-  final String? docType;    // AI-detected document type (e.g. 'passport', 'electricity_bill')
+  final String?
+      docType; // AI-detected document type (e.g. 'passport', 'electricity_bill')
+  final String? syncStatus; // 'pending_upload' | 'pending_move' | 'sync_failed' | null
 
   const DocumentEntity({
     required this.id,
@@ -44,12 +47,14 @@ class DocumentEntity {
     this.ocrStatus,
     this.ocrJobId,
     this.docType,
+    this.syncStatus,
   });
 
   /// Readable file size
   String get fileSizeString {
     if (sizeBytes < 1024) return '$sizeBytes B';
-    if (sizeBytes < 1024 * 1024) return '${(sizeBytes / 1024).toStringAsFixed(1)} KB';
+    if (sizeBytes < 1024 * 1024)
+      return '${(sizeBytes / 1024).toStringAsFixed(1)} KB';
     return '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
@@ -74,6 +79,7 @@ class DocumentEntity {
     String? ocrStatus,
     String? ocrJobId,
     String? docType,
+    String? syncStatus,
   }) {
     return DocumentEntity(
       id: id ?? this.id,
@@ -95,6 +101,7 @@ class DocumentEntity {
       ocrJobId: ocrJobId ?? this.ocrJobId,
       deletedAt: deletedAt ?? this.deletedAt,
       docType: docType ?? this.docType,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 }

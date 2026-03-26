@@ -3,17 +3,17 @@ import 'package:familysphere_app/features/documents/domain/entities/document_ent
 import 'package:familysphere_app/features/documents/domain/entities/folder_entity.dart';
 
 /// Document Repository Interface
-/// 
+///
 /// Defines operations for managing family documents.
 abstract class DocumentRepository {
   /// Upload a new document
-  /// 
+  ///
   /// [file] - The local file to upload
   /// [familyId] - ID of the family owning the document
   /// [title] - User-friendly title
   /// [category] - Category tag (e.g., 'Insurance', 'Medical')
   /// [uploadedBy] - ID of user uploading
-  /// 
+  ///
   /// Returns the created DocumentEntity
   Future<DocumentEntity> uploadDocument({
     required File file,
@@ -26,13 +26,14 @@ abstract class DocumentRepository {
   });
 
   /// Get list of documents and storage info for a family
-  /// 
+  ///
   /// [familyId] - ID of the family
   /// [category] - Optional filter by category
-  Future<Map<String, dynamic>> getDocuments(String familyId, {String? category, String? folder, String? memberId});
+  Future<Map<String, dynamic>> getDocuments(String familyId,
+      {String? category, String? folder, String? memberId});
 
   /// Delete a document
-  /// 
+  ///
   /// [documentId] - ID of document to delete
   Future<void> deleteDocument({
     required String documentId,
@@ -61,7 +62,7 @@ abstract class DocumentRepository {
   });
 
   /// Delete a custom folder
-  /// 
+  ///
   /// [folderId] - ID of the folder to delete
   /// Additional parameters for built-in folder handling
   Future<void> deleteFolder({
@@ -80,28 +81,34 @@ abstract class DocumentRepository {
   });
 
   /// Download a document for offline access
-  /// 
+  ///
   /// [document] - The document to download
-  /// 
+  ///
   /// Returns path to local file
   Future<String> downloadDocument(DocumentEntity document);
 
+  /// Remove a document's locally stored offline copy.
+  Future<void> removeOfflineCopy(DocumentEntity document);
+
+  /// Prepare a readable temporary file path for viewing or sharing.
+  Future<String> prepareDocumentForViewing(DocumentEntity document);
+
   /// Get trashed documents for a family
-  /// 
+  ///
   /// [familyId] - ID of the family
   Future<List<DocumentEntity>> getTrashedDocuments({
     required String familyId,
   });
 
   /// Restore a document from trash
-  /// 
+  ///
   /// [documentId] - ID of document to restore
   Future<DocumentEntity> restoreDocument({
     required String documentId,
   });
 
   /// Permanently delete a document
-  /// 
+  ///
   /// [documentId] - ID of document to permanently delete
   Future<void> permanentlyDeleteDocument({
     required String documentId,

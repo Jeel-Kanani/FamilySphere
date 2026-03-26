@@ -1,10 +1,13 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:familysphere_app/core/providers/network_status_provider.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/core/utils/routes.dart';
+import 'package:familysphere_app/core/widgets/network_status_badge.dart';
 import 'package:familysphere_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:familysphere_app/features/documents/presentation/providers/document_provider.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import 'package:intl/intl.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -104,7 +107,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     await ref.read(authProvider.notifier).signOut();
     if (!mounted) return;
 
-    Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.root, (route) => false);
+    Navigator.of(context)
+        .pushNamedAndRemoveUntil(AppRoutes.root, (route) => false);
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
@@ -112,10 +116,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: isError ? AppTheme.errorColor : AppTheme.successColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusM)),
+        backgroundColor:
+            isError ? AppTheme.errorColor : AppTheme.successColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusM),
+        ),
       ),
     );
+  }
+
+  String _formatSyncTime(DateTime? value) {
+    if (value == null) return 'Not yet';
+    return DateFormat('MMM d, h:mm a').format(value.toLocal());
+  }
+
+  Future<void> _refreshConnectionAndSync() async {
+    await ref.read(networkStatusProvider.notifier).refresh();
+    if (ref.read(isOnlineProvider)) {
+      await ref.read(documentProvider.notifier).syncPendingJobs();
+    }
+
+    if (!mounted) return;
+    _showSnackBar('Connection status refreshed');
+  }
+
+  Future<void> _retryFailedSync() async {
+    try {
+      await ref.read(documentProvider.notifier).retryFailedSyncJobs();
+      if (!mounted) return;
+      _showSnackBar('Retrying failed sync jobs');
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar('Retry failed: $e', isError: true);
+    }
   }
 
   @override
@@ -123,6 +156,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final authState = ref.watch(authProvider);
     final user = authState.user;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final networkStatus = ref.watch(networkStatusProvider);
+    final documentState = ref.watch(documentProvider);
+    final hasFailedSync = documentState.failedSyncJobs > 0;
+    final hasPendingSync = documentState.pendingSyncJobs > 0;
+    final failedEntries = documentState.syncErrorsByDocumentId.entries.toList();
+    final failedPreview = failedEntries.take(2).toList();
+    final syncStatusText = switch (networkStatus) {
+      NetworkStatus.online => 'Connected to server',
+      NetworkStatus.offline => 'Using local data',
+      NetworkStatus.unknown => 'Checking connection',
+    };
 
     return Scaffold(
       appBar: AppBar(
@@ -149,13 +193,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           CircleAvatar(
                             radius: 32,
                             backgroundColor: Colors.white24,
-                            backgroundImage: user?.photoUrl != null ? NetworkImage(user!.photoUrl!) : null,
+                            backgroundImage: user?.photoUrl != null
+                                ? NetworkImage(user!.photoUrl!)
+                                : null,
                             child: user?.photoUrl == null
                                 ? Text(
                                     user?.displayName?.isNotEmpty == true
                                         ? user!.displayName![0].toUpperCase()
                                         : 'U',
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 22,
+                                    ),
                                   )
                                 : null,
                           ),
@@ -168,7 +218,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 color: Colors.white,
                                 shape: BoxShape.circle,
                               ),
-                              child: Icon(
+                              child: const Icon(
                                 Icons.camera_alt,
                                 size: 14,
                                 color: AppTheme.primaryColor,
@@ -185,7 +235,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         children: [
                           Text(
                             user?.displayName ?? 'Your Profile',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -193,7 +246,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           const SizedBox(height: 4),
                           Text(
                             user?.email ?? '',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
                                   color: Colors.white70,
                                 ),
                           ),
@@ -203,15 +259,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 28),
-
               Text(
                 'Account Details',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-
               Form(
                 key: _formKey,
                 child: Column(
@@ -224,8 +280,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         prefixIcon: Icon(Icons.badge_outlined),
                       ),
                       validator: (value) {
-                        if (value == null || value.trim().isEmpty) return 'Please enter your name';
-                        if (value.trim().length < 2) return 'Name must be at least 2 characters';
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter your name';
+                        }
+                        if (value.trim().length < 2) {
+                          return 'Name must be at least 2 characters';
+                        }
                         return null;
                       },
                     ),
@@ -239,10 +299,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         prefixIcon: Icon(Icons.email_outlined),
                       ),
                       validator: (value) {
-                        if (value == null || value.trim().isEmpty) return 'Please enter your email';
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter your email';
+                        }
                         final email = value.trim();
-                        final isValid = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email);
-                        if (!isValid) return 'Please enter a valid email';
+                        final isValid = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+                            .hasMatch(email);
+                        if (!isValid) {
+                          return 'Please enter a valid email';
+                        }
                         return null;
                       },
                     ),
@@ -265,7 +330,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               width: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
                           : const Text('Save Changes'),
@@ -273,9 +339,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 32),
-
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -287,34 +351,53 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.verified_user_rounded, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+                    Icon(
+                      Icons.verified_user_rounded,
+                      color: isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.textSecondary,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         user?.role.name.toUpperCase() ?? 'MEMBER',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
                       ),
                     ),
                     Text(
-                      user?.familyId?.isNotEmpty == true ? 'Family Linked' : 'No Family',
+                      user?.familyId?.isNotEmpty == true
+                          ? 'Family Linked'
+                          : 'No Family',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                            color: isDark
+                                ? AppTheme.darkTextSecondary
+                                : AppTheme.textSecondary,
                           ),
                     ),
                   ],
                 ),
               ),
-
               const SizedBox(height: 32),
-
-              Text(
-                'Preferences',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Preferences',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const NetworkStatusBadge(compact: true),
+                ],
               ),
               const SizedBox(height: 12),
-
               Container(
                 decoration: BoxDecoration(
                   color: isDark ? AppTheme.darkSurface : Colors.white,
@@ -332,7 +415,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       },
                       title: Text(
                         'Dark Theme',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyLarge
+                            ?.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
                       ),
@@ -341,8 +427,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       secondary: Icon(
-                        isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-                        color: isDark ? AppTheme.accentColor : AppTheme.warningColor,
+                        isDark
+                            ? Icons.dark_mode_rounded
+                            : Icons.light_mode_rounded,
+                        color: isDark
+                            ? AppTheme.accentColor
+                            : AppTheme.warningColor,
                       ),
                       activeThumbColor: AppTheme.primaryColor,
                       shape: RoundedRectangleBorder(
@@ -352,13 +442,157 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ],
                 ),
               ),
-
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkSurface : Colors.white,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusL),
+                  border: Border.all(
+                    color: isDark ? AppTheme.darkBorder : AppTheme.borderColor,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Sync & Connection',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      syncStatusText,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: isDark
+                                ? AppTheme.darkTextSecondary
+                                : AppTheme.textSecondary,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _statusMetric(
+                            context,
+                            label: 'Pending',
+                            value: '${documentState.pendingSyncJobs}',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _statusMetric(
+                            context,
+                            label: 'Failed',
+                            value: '${documentState.failedSyncJobs}',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Last sync: ${_formatSyncTime(documentState.lastStorageSync)}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: isDark
+                                ? AppTheme.darkTextSecondary
+                                : AppTheme.textSecondary,
+                          ),
+                    ),
+                    if (failedPreview.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppTheme.darkSurfaceVariant
+                              : const Color(0xFFF8FAFC),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusM),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Recent sync issues',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 8),
+                            ...failedPreview.map(
+                              (entry) => Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Text(
+                                  entry.value,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: isDark
+                                            ? AppTheme.darkTextSecondary
+                                            : AppTheme.textSecondary,
+                                      ),
+                                ),
+                              ),
+                            ),
+                            if (failedEntries.length > failedPreview.length)
+                              Text(
+                                '+${failedEntries.length - failedPreview.length} more',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: isDark
+                                          ? AppTheme.darkTextSecondary
+                                          : AppTheme.textSecondary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _refreshConnectionAndSync,
+                            child: Text(
+                              hasPendingSync ? 'Refresh & Sync' : 'Refresh',
+                            ),
+                          ),
+                        ),
+                        if (hasFailedSync) ...[
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _retryFailedSync,
+                              child: const Text('Retry Failed'),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 32),
-
               OutlinedButton.icon(
                 onPressed: _confirmSignOut,
-                icon: const Icon(Icons.logout_rounded, color: AppTheme.errorColor),
-                label: const Text('Sign Out', style: TextStyle(color: AppTheme.errorColor)),
+                icon: const Icon(
+                  Icons.logout_rounded,
+                  color: AppTheme.errorColor,
+                ),
+                label: const Text(
+                  'Sign Out',
+                  style: TextStyle(color: AppTheme.errorColor),
+                ),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: AppTheme.errorColor),
                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -370,6 +604,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _statusMetric(
+    BuildContext context, {
+    required String label,
+    required String value,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurfaceVariant : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textSecondary,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
       ),
     );
   }

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
@@ -91,8 +93,8 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
   void initState() {
     super.initState();
     // If initialCategory is null, it means "All" (from Home's See All)
-    _selectedCategory = widget.initialCategory != null 
-        ? _normalizeVaultCategory(widget.initialCategory) 
+    _selectedCategory = widget.initialCategory != null
+        ? _normalizeVaultCategory(widget.initialCategory)
         : null;
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -153,7 +155,8 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
   void _openDocument(DocumentEntity document) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => DocumentViewerScreen(document: document)),
+      MaterialPageRoute(
+          builder: (_) => DocumentViewerScreen(document: document)),
     );
   }
 
@@ -173,8 +176,12 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('Create')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(context, controller.text.trim()),
+              child: const Text('Create')),
         ],
       ),
     );
@@ -254,16 +261,21 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
 
     final docs = documents.where((doc) {
       if (_searchController.text.isEmpty) return true;
-      return doc.title.toLowerCase().contains(_searchController.text.toLowerCase());
+      return doc.title
+          .toLowerCase()
+          .contains(_searchController.text.toLowerCase());
     }).toList();
 
     // Sort documents
     _sortDocuments(docs);
 
     return Scaffold(
-      backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.backgroundColor,
+      backgroundColor:
+          isDark ? AppTheme.darkBackground : AppTheme.backgroundColor,
       appBar: AppBar(
-        backgroundColor: isDark ? AppTheme.darkBackground : const Color(0xFF0F364E), // Darker teal/navy for CamScanner look
+        backgroundColor: isDark
+            ? AppTheme.darkBackground
+            : const Color(0xFF0F364E), // Darker teal/navy for CamScanner look
         foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.menu_rounded, color: Colors.white),
@@ -283,12 +295,14 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
               )
             : Text(
                 _selectedFolder == 'All' ? 'Doc Scanner' : _selectedFolder,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold),
               ),
         actions: [
           if (!_selectionMode) ...[
             IconButton(
-              icon: const Icon(Icons.workspace_premium_rounded, color: Color(0xFFFFD700)), // Gold premium icon
+              icon: const Icon(Icons.workspace_premium_rounded,
+                  color: Color(0xFFFFD700)), // Gold premium icon
               onPressed: () {},
               tooltip: 'Premium',
             ),
@@ -300,13 +314,16 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
               icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
               onSelected: (val) {
                 if (val == 'trash') {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const TrashScreen()));
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const TrashScreen()));
                 }
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(value: 'import', child: Text('Import from Files')),
+                const PopupMenuItem(
+                    value: 'import', child: Text('Import from Files')),
                 const PopupMenuItem(value: 'sort', child: Text('Sort by')),
-                if (!isViewer) const PopupMenuItem(value: 'trash', child: Text('Trash')),
+                if (!isViewer)
+                  const PopupMenuItem(value: 'trash', child: Text('Trash')),
               ],
             ),
           ] else ...[
@@ -324,7 +341,8 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
           ],
         ],
       ),
-      body: _buildBody(isLoading, docs, members, customFolders, isViewer, isAdmin),
+      body: _buildBody(
+          isLoading, docs, members, customFolders, isViewer, isAdmin),
       floatingActionButton: isViewer
           ? null
           : FloatingActionButton.extended(
@@ -332,7 +350,8 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
               label: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.camera_alt_rounded, color: Colors.white),
+                    icon: const Icon(Icons.camera_alt_rounded,
+                        color: Colors.white),
                     onPressed: () => Navigator.pushNamed(
                       context,
                       AppRoutes.scanner,
@@ -351,12 +370,19 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                 ],
               ),
               backgroundColor: AppTheme.secondaryColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30)),
             ),
     );
   }
 
-  Widget _buildBody(bool isLoading, List<DocumentEntity> docs, List<FamilyMember> members, List<String> customFolders, bool isViewer, bool isAdmin) {
+  Widget _buildBody(
+      bool isLoading,
+      List<DocumentEntity> docs,
+      List<FamilyMember> members,
+      List<String> customFolders,
+      bool isViewer,
+      bool isAdmin) {
     if (_isSearching) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,8 +393,13 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 90),
               children: [
                 if (docs.isEmpty && !isLoading)
-                  const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('No results found', style: TextStyle(color: AppTheme.textTertiary)))),
-                ...docs.map((doc) => _buildDocumentItem(doc, members, isViewer)),
+                  const Center(
+                      child: Padding(
+                          padding: EdgeInsets.all(40),
+                          child: Text('No results found',
+                              style: TextStyle(color: AppTheme.textTertiary)))),
+                ...docs
+                    .map((doc) => _buildDocumentItem(doc, members, isViewer)),
                 if (isLoading) const Center(child: CircularProgressIndicator()),
               ],
             ),
@@ -377,24 +408,31 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
       );
     }
 
-    if (_isShared && _selectedMemberId == null && _currentPath.isEmpty && _selectedFolder == 'All') {
+    if (_isShared &&
+        _selectedMemberId == null &&
+        _currentPath.isEmpty &&
+        _selectedFolder == 'All') {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildPathHeader(members),
-          Expanded(child: _buildSharedRoot(members, _rootFolders(customFolders), isViewer)),
+          Expanded(
+              child: _buildSharedRoot(
+                  members, _rootFolders(customFolders), isViewer)),
         ],
       );
     }
 
-    final currentFolders = (_isShared && _selectedMemberId != null) 
+    final currentFolders = (_isShared && _selectedMemberId != null)
         ? _memberFolders(customFolders)
         : _rootFolders(customFolders);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (_currentPath.isNotEmpty || _selectedFolder != 'All' || (_isShared && _selectedMemberId != null))
+        if (_currentPath.isNotEmpty ||
+            _selectedFolder != 'All' ||
+            (_isShared && _selectedMemberId != null))
           _buildPathHeader(members),
         Expanded(
           child: ListView(
@@ -402,17 +440,22 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
             children: [
               if (currentFolders.isNotEmpty) ...[
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         'Folders (${currentFolders.length})',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                       if (!isViewer)
                         IconButton(
-                          icon: const Icon(Icons.create_new_folder_outlined, size: 20),
+                          icon: const Icon(Icons.create_new_folder_outlined,
+                              size: 20),
                           onPressed: _createFolderDialog,
                           visualDensity: VisualDensity.compact,
                         ),
@@ -424,16 +467,25 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
               ],
               if (docs.isNotEmpty) ...[
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                   child: Text(
                     'Documents (${docs.length})',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                 ),
-                ...docs.map((doc) => _buildDocumentItem(doc, members, isViewer)),
+                ...docs
+                    .map((doc) => _buildDocumentItem(doc, members, isViewer)),
               ] else if (currentFolders.isEmpty && !isLoading)
                 _emptyState(),
-              if (isLoading) const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator())),
+              if (isLoading)
+                const Center(
+                    child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: CircularProgressIndicator())),
             ],
           ),
         ),
@@ -459,32 +511,39 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
         decoration: BoxDecoration(
           color: isDark ? AppTheme.darkSurface : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1)),
+          border:
+              Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.1)),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
+                color: AppTheme.primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.folder_rounded, color: AppTheme.primaryColor, size: 30),
+              child: const Icon(Icons.folder_rounded,
+                  color: AppTheme.primaryColor, size: 30),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(title,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 2),
-                  Text('Updated Recently', style: TextStyle(color: AppTheme.textTertiary, fontSize: 12)),
+                  Text('Updated Recently',
+                      style: TextStyle(
+                          color: AppTheme.textTertiary, fontSize: 12)),
                 ],
               ),
             ),
             if (!isViewer)
               IconButton(
-                icon: const Icon(Icons.more_horiz, color: AppTheme.textTertiary),
+                icon:
+                    const Icon(Icons.more_horiz, color: AppTheme.textTertiary),
                 onPressed: () => _showFolderOptions(title),
               ),
           ],
@@ -498,20 +557,22 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     if (_selectedFolder != 'All') {
       pathParts.add(_selectedFolder);
     }
-    final fullPath = pathParts.isEmpty ? folderName : '${pathParts.join('/')}/$folderName';
+    final fullPath =
+        pathParts.isEmpty ? folderName : '${pathParts.join('/')}/$folderName';
 
     final folderDetails = ref.read(documentProvider.notifier).getFolderDetails(
-      category: _selectedCategory!,
-      memberId: _categoryScopedMemberId(),
-    );
-    
+          category: _selectedCategory!,
+          memberId: _categoryScopedMemberId(),
+        );
+
     final detail = folderDetails?.where((d) => d.name == fullPath).firstOrNull;
     final folderId = detail?.folderId;
     final canDelete = detail?.canDelete ?? true;
 
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -519,14 +580,18 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                const Icon(Icons.folder_rounded, color: Color(0xFF133E59), size: 40),
+                const Icon(Icons.folder_rounded,
+                    color: Color(0xFF133E59), size: 40),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(folderName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                      const Text('Recently Modified', style: TextStyle(color: AppTheme.textSecondary)),
+                      Text(folderName,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 18)),
+                      const Text('Recently Modified',
+                          style: TextStyle(color: AppTheme.textSecondary)),
                     ],
                   ),
                 ),
@@ -539,14 +604,16 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
               Navigator.pop(context);
               if (folderId != null) _renameFolderDialog(folderName, folderId);
             }),
-            _actionListTile(Icons.delete_outline_rounded, 'Delete', color: Colors.red, onTap: () {
+            _actionListTile(Icons.delete_outline_rounded, 'Delete',
+                color: Colors.red, onTap: () {
               Navigator.pop(context);
               _deleteFolder(folderName, folderId);
             }),
           ] else
             const Padding(
               padding: EdgeInsets.all(20),
-              child: Text('Built-in folders cannot be modified', style: TextStyle(color: AppTheme.textTertiary)),
+              child: Text('Built-in folders cannot be modified',
+                  style: TextStyle(color: AppTheme.textTertiary)),
             ),
           const SizedBox(height: 20),
         ],
@@ -554,23 +621,27 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     );
   }
 
-
-
   Widget _emptyState() {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 40),
         child: Column(
           children: [
-            const Icon(Icons.folder_open_outlined, size: 100, color: Colors.grey),
+            const Icon(Icons.folder_open_outlined,
+                size: 100, color: Colors.grey),
             const SizedBox(height: 20),
-            const Text('No Documents', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+            const Text('No Documents',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey)),
             const SizedBox(height: 30),
             ElevatedButton(
               onPressed: () {},
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0F364E),
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               ),
               child: const Text('TRY A DEMO DOCUMENT'),
             ),
@@ -580,21 +651,22 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     );
   }
 
-
-
   void _showAddMenu() {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Padding(
             padding: EdgeInsets.all(16),
-            child: Text('Create New', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            child: Text('Create New',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ),
           const Divider(),
-          _actionListTile(Icons.create_new_folder_rounded, 'New Folder', onTap: () {
+          _actionListTile(Icons.create_new_folder_rounded, 'New Folder',
+              onTap: () {
             Navigator.pop(context);
             _createFolderDialog();
           }),
@@ -618,7 +690,8 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     );
   }
 
-  Widget _actionListTile(IconData icon, String label, {Color? color, VoidCallback? onTap}) {
+  Widget _actionListTile(IconData icon, String label,
+      {Color? color, VoidCallback? onTap}) {
     return ListTile(
       leading: Icon(icon, color: color ?? Colors.grey[700]),
       title: Text(label, style: TextStyle(color: color)),
@@ -626,14 +699,230 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     );
   }
 
-  Widget _buildDocumentItem(DocumentEntity doc, List<FamilyMember> members, bool isViewer) {
+  String _syncJobTypeLabel(String? syncJobType) {
+    switch (syncJobType) {
+      case 'upload':
+        return 'Upload sync';
+      case 'move':
+        return 'Move sync';
+      case 'delete':
+        return 'Delete sync';
+      default:
+        return 'Sync';
+    }
+  }
+
+  void _showDocumentOptions(DocumentEntity doc) {
+    final syncError = ref.read(documentProvider).syncErrorsByDocumentId[doc.id];
+    final syncJobType =
+        ref.read(documentProvider).syncJobTypesByDocumentId[doc.id];
+    final isFailedSync = doc.syncStatus == 'sync_failed';
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Icon(Icons.description_rounded,
+                    color: AppTheme.primaryColor, size: 40),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        doc.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        isFailedSync && syncJobType != null
+                            ? '${_syncJobTypeLabel(syncJobType)} failed'
+                            : doc.folder,
+                        style: const TextStyle(color: AppTheme.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(),
+          _actionListTile(Icons.open_in_new_rounded, 'Open', onTap: () {
+            Navigator.pop(context);
+            _openDocument(doc);
+          }),
+          _actionListTile(Icons.info_outline_rounded, 'View Details',
+              onTap: () {
+            Navigator.pop(context);
+            _openDocument(doc);
+          }),
+          if (isFailedSync) ...[
+            _actionListTile(Icons.refresh_rounded, 'Retry Failed Sync',
+                onTap: () {
+              Navigator.pop(context);
+              _retryFailedDocumentFromList(doc);
+            }),
+            _actionListTile(
+              Icons.delete_sweep_rounded,
+              'Clear Failed Sync',
+              color: Colors.red,
+              onTap: () {
+                Navigator.pop(context);
+                _clearFailedDocumentFromList(doc);
+              },
+            ),
+            if (syncError != null && syncError.isNotEmpty)
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    syncError,
+                    style: const TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+          _actionListTile(Icons.delete_outline_rounded, 'Delete',
+              color: Colors.red, onTap: () {
+            Navigator.pop(context);
+            _deleteSingleDocumentFromList(doc);
+          }),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _retryFailedDocumentFromList(DocumentEntity doc) async {
+    try {
+      await ref
+          .read(documentProvider.notifier)
+          .retryFailedSyncForDocument(doc.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Retrying ${doc.title}')),
+      );
+      await _reloadData(reloadFolders: false);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to retry sync: $e')),
+      );
+    }
+  }
+
+  Future<void> _clearFailedDocumentFromList(DocumentEntity doc) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear Failed Sync'),
+        content: Text(
+          doc.id.startsWith('local-doc-')
+              ? 'This will remove the failed local upload and delete its pending offline copy from this device.'
+              : 'This will remove the failed sync job for this document from this device.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await ref
+          .read(documentProvider.notifier)
+          .clearFailedSyncForDocument(doc.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Cleared failed sync for ${doc.title}')),
+      );
+      await _reloadData(reloadFolders: false);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to clear sync: $e')),
+      );
+    }
+  }
+
+  Future<void> _deleteSingleDocumentFromList(DocumentEntity doc) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Document'),
+        content: Text('Delete "${doc.title}"? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.errorColor,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await ref.read(documentProvider.notifier).delete(doc);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${doc.title} deleted')),
+      );
+      await _reloadData(reloadFolders: false);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete document: $e')),
+      );
+    }
+  }
+
+  Widget _buildDocumentItem(
+      DocumentEntity doc, List<FamilyMember> members, bool isViewer) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isPdf = doc.fileType.toLowerCase().contains('pdf') || doc.fileUrl.toLowerCase().endsWith('.pdf');
+    final isPdf = doc.fileType.toLowerCase().contains('pdf') ||
+        doc.fileUrl.toLowerCase().endsWith('.pdf');
     final isSelected = _selectedDocIds.contains(doc.id);
 
     return InkWell(
-      onTap: () => _selectionMode ? _toggleSelection(doc.id) : _openDocument(doc),
-      onLongPress: () => setState(() { _selectionMode = true; _selectedDocIds.add(doc.id); }),
+      onTap: () =>
+          _selectionMode ? _toggleSelection(doc.id) : _openDocument(doc),
+      onLongPress: () => setState(() {
+        _selectionMode = true;
+        _selectedDocIds.add(doc.id);
+      }),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -642,7 +931,9 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
           color: isDark ? AppTheme.darkSurface : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? AppTheme.secondaryColor : AppTheme.primaryColor.withOpacity(0.1),
+            color: isSelected
+                ? AppTheme.secondaryColor
+                : AppTheme.primaryColor.withValues(alpha: 0.1),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -652,25 +943,38 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
               alignment: Alignment.center,
               children: [
                 Container(
-                  width: 60, height: 75,
+                  width: 60,
+                  height: 75,
                   decoration: BoxDecoration(
                     color: Colors.grey[200],
                     borderRadius: BorderRadius.circular(4),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2))
+                    ],
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: isPdf 
-                      ? const Center(child: Icon(Icons.picture_as_pdf_outlined, color: Colors.red, size: 30))
-                      : Image.network(doc.fileUrl, fit: BoxFit.cover, 
-                          errorBuilder: (_, __, ___) => const Icon(Icons.description_outlined, color: Colors.grey, size: 30)),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: isPdf
+                          ? const Center(
+                              child: Icon(Icons.picture_as_pdf_outlined,
+                                  color: Colors.red, size: 30))
+                          : _DocumentThumbnail(doc: doc),
+                    ),
                   ),
-                ),
-                if (_selectionMode)
-                  Positioned(
-                    top: 4, left: 4,
-                    child: Icon(isSelected ? Icons.check_circle_rounded : Icons.circle_outlined,
-                        color: isSelected ? AppTheme.secondaryColor : Colors.white, size: 20),
+                  if (_selectionMode)
+                    Positioned(
+                    top: 4,
+                    left: 4,
+                    child: Icon(
+                        isSelected
+                            ? Icons.check_circle_rounded
+                            : Icons.circle_outlined,
+                        color:
+                            isSelected ? AppTheme.secondaryColor : Colors.white,
+                        size: 20),
                   ),
               ],
             ),
@@ -679,39 +983,109 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(doc.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  Text(doc.title,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 15),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 4),
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.05),
+                          color: AppTheme.primaryColor.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(2),
                         ),
-                        child: Text(isPdf ? 'PDF' : 'JPG', 
-                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                        child: Text(isPdf ? 'PDF' : 'JPG',
+                            style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor)),
                       ),
                       const SizedBox(width: 8),
-                      Text('${doc.fileSizeString}  ${_rowDateFormat.format(doc.uploadedAt)}',
-                          style: TextStyle(color: AppTheme.textTertiary, fontSize: 12)),
+                      Text(
+                          '${doc.fileSizeString}  ${_rowDateFormat.format(doc.uploadedAt)}',
+                          style: TextStyle(
+                              color: AppTheme.textTertiary, fontSize: 12)),
                     ],
                   ),
-                  if (doc.ocrStatus == 'needs_confirmation') ...[  
+                  if (doc.ocrStatus == 'needs_confirmation') ...[
                     const SizedBox(height: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFFBEB),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.5)),
+                        border: Border.all(
+                            color:
+                                const Color(0xFFF59E0B).withValues(alpha: 0.5)),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.help_outline_rounded, size: 11, color: Color(0xFFD97706)),
+                          Icon(Icons.help_outline_rounded,
+                              size: 11, color: Color(0xFFD97706)),
                           SizedBox(width: 4),
-                          Text('Needs Confirmation', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFFB45309))),
+                          Text('Needs Confirmation',
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFFB45309))),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (doc.syncStatus == 'pending_upload' ||
+                      doc.syncStatus == 'pending_move' ||
+                      doc.syncStatus == 'sync_failed') ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: doc.syncStatus == 'sync_failed'
+                            ? const Color(0xFFFEE2E2)
+                            : const Color(0xFFE0F2FE),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: (doc.syncStatus == 'sync_failed'
+                                  ? const Color(0xFFEF4444)
+                                  : const Color(0xFF0EA5E9))
+                              .withValues(alpha: 0.45),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            doc.syncStatus == 'sync_failed'
+                                ? Icons.error_outline_rounded
+                                : doc.syncStatus == 'pending_move'
+                                    ? Icons.drive_file_move_rounded
+                                    : Icons.cloud_upload_rounded,
+                            size: 11,
+                            color: doc.syncStatus == 'sync_failed'
+                                ? const Color(0xFFB91C1C)
+                                : const Color(0xFF0284C7),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            doc.syncStatus == 'sync_failed'
+                                ? 'Sync Failed'
+                                : doc.syncStatus == 'pending_move'
+                                    ? 'Pending Move'
+                                    : 'Pending Sync',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: doc.syncStatus == 'sync_failed'
+                                  ? const Color(0xFFB91C1C)
+                                  : const Color(0xFF0369A1),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -721,15 +1095,15 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
             ),
             if (!isViewer)
               IconButton(
-                icon: const Icon(Icons.more_horiz, color: AppTheme.textTertiary),
-                onPressed: () {}, // TODO: Implement document actions menu
+                icon:
+                    const Icon(Icons.more_horiz, color: AppTheme.textTertiary),
+                onPressed: () => _showDocumentOptions(doc),
               ),
           ],
         ),
       ),
     );
   }
-
 
   Widget _buildPathHeader(List<FamilyMember> members) {
     String categoryName = _selectedCategory ?? 'Vault';
@@ -759,7 +1133,11 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
       }
       breadcrumbs.add(const Padding(
         padding: EdgeInsets.symmetric(horizontal: 4),
-        child: Text('>', style: TextStyle(color: AppTheme.textTertiary, fontSize: 13, fontWeight: FontWeight.bold)),
+        child: Text('>',
+            style: TextStyle(
+                color: AppTheme.textTertiary,
+                fontSize: 13,
+                fontWeight: FontWeight.bold)),
       ));
       breadcrumbs.add(
         _breadcrumbItem(name, false, () {
@@ -777,7 +1155,11 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
       final part = _currentPath[i];
       breadcrumbs.add(const Padding(
         padding: EdgeInsets.symmetric(horizontal: 4),
-        child: Text('>', style: TextStyle(color: AppTheme.textTertiary, fontSize: 13, fontWeight: FontWeight.bold)),
+        child: Text('>',
+            style: TextStyle(
+                color: AppTheme.textTertiary,
+                fontSize: 13,
+                fontWeight: FontWeight.bold)),
       ));
       breadcrumbs.add(
         _breadcrumbItem(part, false, () {
@@ -794,7 +1176,11 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     if (_selectedFolder != 'All') {
       breadcrumbs.add(const Padding(
         padding: EdgeInsets.symmetric(horizontal: 4),
-        child: Text('>', style: TextStyle(color: AppTheme.textTertiary, fontSize: 13, fontWeight: FontWeight.bold)),
+        child: Text('>',
+            style: TextStyle(
+                color: AppTheme.textTertiary,
+                fontSize: 13,
+                fontWeight: FontWeight.bold)),
       ));
       breadcrumbs.add(
         Text(
@@ -816,7 +1202,9 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            if (_selectedFolder != 'All' || _currentPath.isNotEmpty || (_isShared && _selectedMemberId != null))
+            if (_selectedFolder != 'All' ||
+                _currentPath.isNotEmpty ||
+                (_isShared && _selectedMemberId != null))
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: Material(
@@ -859,7 +1247,8 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (isRoot) ...[
-              const Icon(Icons.grid_view_rounded, size: 14, color: AppTheme.primaryColor),
+              const Icon(Icons.grid_view_rounded,
+                  size: 14, color: AppTheme.primaryColor),
               const SizedBox(width: 4),
             ],
             Text(
@@ -902,11 +1291,13 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
             color: isDark ? AppTheme.darkSurface : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isDark ? AppTheme.darkBorder : AppTheme.primaryColor.withOpacity(0.1),
+              color: isDark
+                  ? AppTheme.darkBorder
+                  : AppTheme.primaryColor.withValues(alpha: 0.1),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: Colors.black.withValues(alpha: 0.03),
                 blurRadius: 10,
                 offset: const Offset(0, 2),
               ),
@@ -918,7 +1309,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: effectiveIconColor.withOpacity(0.1),
+                  color: effectiveIconColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: imageUrl != null && imageUrl.isNotEmpty
@@ -927,7 +1318,8 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                         child: Image.network(
                           imageUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Icon(icon, color: effectiveIconColor, size: 24),
+                          errorBuilder: (_, __, ___) =>
+                              Icon(icon, color: effectiveIconColor, size: 24),
                         ),
                       )
                     : Icon(icon, color: effectiveIconColor, size: 24),
@@ -942,16 +1334,16 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                            fontWeight: FontWeight.w600,
+                          ),
                     ),
                     if (subtitle != null) ...[
                       const SizedBox(height: 4),
                       Text(
                         subtitle,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
+                              color: AppTheme.textSecondary,
+                            ),
                       ),
                     ],
                   ],
@@ -984,7 +1376,6 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
       ),
     );
   }
-
 
   Future<void> _renameFolderDialog(String currentName, String folderId) async {
     final controller = TextEditingController(text: currentName);
@@ -1045,27 +1436,28 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
   Future<void> _deleteFolder(String folderName, String? folderId) async {
     final familyState = ref.read(familyProvider);
     final familyId = familyState.family?.id;
-    
+
     if (familyId == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Unable to delete folder: Family information not available'),
+            content: Text(
+                'Unable to delete folder: Family information not available'),
             backgroundColor: Colors.red,
           ),
         );
       }
       return;
     }
-    
+
     try {
       await ref.read(documentProvider.notifier).deleteFolder(
-        folderId: folderId ?? 'builtin',
-        folderName: folderName,
-        familyId: familyId,
-        category: _selectedCategory!,
-        memberId: _categoryScopedMemberId(),
-      );
+            folderId: folderId ?? 'builtin',
+            folderName: folderName,
+            familyId: familyId,
+            category: _selectedCategory!,
+            memberId: _categoryScopedMemberId(),
+          );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Folder "$folderName" deleted')),
@@ -1083,14 +1475,16 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     }
   }
 
-  Widget _buildSharedRoot(List<FamilyMember> members, List<String> folders, bool isViewer) {
+  Widget _buildSharedRoot(
+      List<FamilyMember> members, List<String> folders, bool isViewer) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 90),
       children: [
         _nodeTile(
           icon: Icons.groups_rounded,
           title: 'Individual Folders',
-          subtitle: _expandMembers ? 'Tap to collapse' : 'Tap to expand member list',
+          subtitle:
+              _expandMembers ? 'Tap to collapse' : 'Tap to expand member list',
           onTap: () => setState(() => _expandMembers = !_expandMembers),
           iconColor: const Color(0xFF0EA5E9),
         ),
@@ -1114,7 +1508,10 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           child: Text(
             'General Shared Folders (${folders.length})',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(context)
+                .textTheme
+                .titleSmall
+                ?.copyWith(fontWeight: FontWeight.w700),
           ),
         ),
         ...folders.map((f) => _folderTile(f, isViewer)),
@@ -1126,7 +1523,8 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
             label: const Text('Create Shared Folder'),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
       ],
@@ -1136,7 +1534,6 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
   // Legacy document list logic removed in favor of mapping inside _buildBody
 
   // Legacy methods removed in favor of unified view
-
 
   void _toggleSelection(String docId) {
     setState(() {
@@ -1171,7 +1568,8 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Documents'),
-        content: Text('Are you sure you want to delete ${_selectedDocIds.length} document(s)?'),
+        content: Text(
+            'Are you sure you want to delete ${_selectedDocIds.length} document(s)?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -1192,12 +1590,13 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
 
     try {
       final allDocs = ref.read(documentProvider).documents;
-      final docsToDelete = allDocs.where((doc) => _selectedDocIds.contains(doc.id)).toList();
-      
+      final docsToDelete =
+          allDocs.where((doc) => _selectedDocIds.contains(doc.id)).toList();
+
       for (final doc in docsToDelete) {
         await ref.read(documentProvider.notifier).delete(doc);
       }
-      
+
       setState(() {
         _selectedDocIds.clear();
         _selectionMode = false;
@@ -1205,9 +1604,11 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${docsToDelete.length} document(s) deleted successfully')),
+        SnackBar(
+            content: Text(
+                '${docsToDelete.length} document(s) deleted successfully')),
       );
-      
+
       await _reloadData();
     } catch (e) {
       if (!mounted) return;
@@ -1219,9 +1620,13 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
 
   String _canonicalCategory(String value) {
     final normalized = value.trim().toLowerCase();
-    if (normalized == 'individual' || normalized == 'shared' || normalized == 'family' || normalized == 'family vault') return 'shared';
+    if (normalized == 'individual' ||
+        normalized == 'shared' ||
+        normalized == 'family' ||
+        normalized == 'family vault') return 'shared';
     if (normalized == 'personal') return 'personal';
-    if (normalized == 'private' || normalized == 'private vault') return 'private';
+    if (normalized == 'private' || normalized == 'private vault')
+      return 'private';
     return normalized;
   }
 
@@ -1232,5 +1637,84 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     if (canonical == 'personal') return 'Personal';
     if (canonical == 'private') return 'Private';
     return value.trim().isEmpty ? null : value.trim();
+  }
+}
+
+class _DocumentThumbnail extends ConsumerStatefulWidget {
+  final DocumentEntity doc;
+
+  const _DocumentThumbnail({required this.doc});
+
+  @override
+  ConsumerState<_DocumentThumbnail> createState() => _DocumentThumbnailState();
+}
+
+class _DocumentThumbnailState extends ConsumerState<_DocumentThumbnail> {
+  String? _previewPath;
+
+  bool get _hasOfflineCopy =>
+      widget.doc.localPath != null && widget.doc.localPath!.isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _prepareOfflinePreview();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DocumentThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.doc.id != widget.doc.id ||
+        oldWidget.doc.localPath != widget.doc.localPath) {
+      _previewPath = null;
+      _prepareOfflinePreview();
+    }
+  }
+
+  Future<void> _prepareOfflinePreview() async {
+    if (!_hasOfflineCopy) return;
+    try {
+      final previewPath =
+          await ref.read(documentProvider.notifier).prepareForViewing(widget.doc);
+      if (!mounted) return;
+      setState(() {
+        _previewPath = previewPath;
+      });
+    } catch (_) {
+      // Fall back to network/placeholder below.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_previewPath != null && File(_previewPath!).existsSync()) {
+      return Image.file(
+        File(_previewPath!),
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.description_outlined,
+          color: Colors.grey,
+          size: 30,
+        ),
+      );
+    }
+
+    if (widget.doc.fileUrl.isNotEmpty) {
+      return Image.network(
+        widget.doc.fileUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.description_outlined,
+          color: Colors.grey,
+          size: 30,
+        ),
+      );
+    }
+
+    return const Icon(
+      Icons.description_outlined,
+      color: Colors.grey,
+      size: 30,
+    );
   }
 }
