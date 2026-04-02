@@ -15,8 +15,17 @@ import 'package:intl/intl.dart';
 
 class DocumentListScreen extends ConsumerStatefulWidget {
   final String? initialCategory;
+  final String? initialFolder;
+  final List<String> initialPath;
+  final String? initialMemberId;
 
-  const DocumentListScreen({super.key, this.initialCategory});
+  const DocumentListScreen({
+    super.key,
+    this.initialCategory,
+    this.initialFolder,
+    this.initialPath = const [],
+    this.initialMemberId,
+  });
 
   @override
   ConsumerState<DocumentListScreen> createState() => _DocumentListScreenState();
@@ -96,6 +105,11 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     _selectedCategory = widget.initialCategory != null
         ? _normalizeVaultCategory(widget.initialCategory)
         : null;
+    _selectedMemberId = widget.initialMemberId;
+    _currentPath = List<String>.from(widget.initialPath);
+    if ((widget.initialFolder ?? '').trim().isNotEmpty) {
+      _selectedFolder = widget.initialFolder!.trim();
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (_isShared) {
@@ -145,7 +159,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     );
 
     if (reloadFolders && _selectedCategory != null) {
-      notifier.loadFolders(
+      await notifier.loadFolders(
         category: _selectedCategory!,
         memberId: memberId,
       );
@@ -250,14 +264,20 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = ref.watch(documentProvider.select((s) => s.isLoading));
-    final documents = ref.watch(documentProvider.select((s) => s.documents));
-    final customFolders = ref.watch(documentProvider.select((s) => s.folders));
+    final documentState = ref.watch(documentProvider);
+    final isLoading = documentState.isLoading;
+    final documents = documentState.documents;
     final members = ref.watch(familyProvider.select((s) => s.members));
     final user = ref.watch(authProvider).user;
     final isViewer = user?.isViewer == true;
     final isAdmin = user?.isAdmin == true;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final customFolders = _selectedCategory == null
+        ? const <String>[]
+        : ref.read(documentProvider.notifier).getFoldersForQuery(
+              category: _selectedCategory!,
+              memberId: _categoryScopedMemberId(),
+            );
 
     final docs = documents.where((doc) {
       if (_searchController.text.isEmpty) return true;
@@ -316,6 +336,8 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                 if (val == 'trash') {
                   Navigator.push(context,
                       MaterialPageRoute(builder: (_) => const TrashScreen()));
+                } else if (val == 'sort') {
+                  _showSortOptions();
                 }
               },
               itemBuilder: (context) => [
@@ -388,6 +410,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildPathHeader(members),
+          if (isLoading) _buildLoadingStrip(),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 90),
@@ -416,6 +439,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildPathHeader(members),
+          if (isLoading) _buildLoadingStrip(),
           Expanded(
               child: _buildSharedRoot(
                   members, _rootFolders(customFolders), isViewer)),
@@ -434,6 +458,12 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
             _selectedFolder != 'All' ||
             (_isShared && _selectedMemberId != null))
           _buildPathHeader(members),
+        _buildScopeSummary(
+          docsCount: docs.length,
+          folderCount: currentFolders.length,
+          members: members,
+        ),
+        if (isLoading) _buildLoadingStrip(),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 90),
@@ -503,7 +533,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
           }
           _selectedFolder = title;
         });
-        _reloadData();
+        _reloadData(reloadFolders: false);
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
@@ -637,7 +667,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                     color: Colors.grey)),
             const SizedBox(height: 30),
             ElevatedButton(
-              onPressed: () {},
+              onPressed: () => _showAddMenu(),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0F364E),
                 padding:
@@ -699,6 +729,83 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     );
   }
 
+  void _showSortOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Sort Documents',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ),
+            _sortOptionTile(
+              label: 'Newest first',
+              selected: _sortBy == 'date' && !_sortAscending,
+              onTap: () => _applySort('date', ascending: false),
+            ),
+            _sortOptionTile(
+              label: 'Oldest first',
+              selected: _sortBy == 'date' && _sortAscending,
+              onTap: () => _applySort('date', ascending: true),
+            ),
+            _sortOptionTile(
+              label: 'Name A-Z',
+              selected: _sortBy == 'name' && _sortAscending,
+              onTap: () => _applySort('name', ascending: true),
+            ),
+            _sortOptionTile(
+              label: 'Name Z-A',
+              selected: _sortBy == 'name' && !_sortAscending,
+              onTap: () => _applySort('name', ascending: false),
+            ),
+            _sortOptionTile(
+              label: 'Size smallest',
+              selected: _sortBy == 'size' && _sortAscending,
+              onTap: () => _applySort('size', ascending: true),
+            ),
+            _sortOptionTile(
+              label: 'Size largest',
+              selected: _sortBy == 'size' && !_sortAscending,
+              onTap: () => _applySort('size', ascending: false),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sortOptionTile({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Icon(
+        selected ? Icons.radio_button_checked : Icons.radio_button_off,
+        color: selected ? AppTheme.primaryColor : AppTheme.textTertiary,
+      ),
+      title: Text(label),
+      onTap: onTap,
+    );
+  }
+
+  void _applySort(String sortBy, {required bool ascending}) {
+    Navigator.pop(context);
+    setState(() {
+      _sortBy = sortBy;
+      _sortAscending = ascending;
+    });
+  }
+
   String _syncJobTypeLabel(String? syncJobType) {
     switch (syncJobType) {
       case 'upload':
@@ -717,6 +824,8 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     final syncJobType =
         ref.read(documentProvider).syncJobTypesByDocumentId[doc.id];
     final isFailedSync = doc.syncStatus == 'sync_failed';
+    final hasConflict =
+        ref.read(documentProvider.notifier).hasConflictForDocument(doc.id);
 
     showModalBottomSheet(
       context: context,
@@ -768,15 +877,21 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
             Navigator.pop(context);
             _openDocument(doc);
           }),
-          if (isFailedSync) ...[
-            _actionListTile(Icons.refresh_rounded, 'Retry Failed Sync',
-                onTap: () {
-              Navigator.pop(context);
-              _retryFailedDocumentFromList(doc);
-            }),
-            _actionListTile(
-              Icons.delete_sweep_rounded,
-              'Clear Failed Sync',
+            if (isFailedSync) ...[
+              _actionListTile(Icons.refresh_rounded, 'Retry Failed Sync',
+                  onTap: () {
+                Navigator.pop(context);
+                _retryFailedDocumentFromList(doc);
+              }),
+              if (hasConflict)
+                _actionListTile(Icons.build_circle_outlined, 'Resolve Conflict',
+                    onTap: () {
+                  Navigator.pop(context);
+                  _resolveFailedDocumentConflict(doc);
+                }),
+              _actionListTile(
+                Icons.delete_sweep_rounded,
+                'Clear Failed Sync',
               color: Colors.red,
               onTap: () {
                 Navigator.pop(context);
@@ -910,11 +1025,14 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
   }
 
   Widget _buildDocumentItem(
-      DocumentEntity doc, List<FamilyMember> members, bool isViewer) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isPdf = doc.fileType.toLowerCase().contains('pdf') ||
-        doc.fileUrl.toLowerCase().endsWith('.pdf');
-    final isSelected = _selectedDocIds.contains(doc.id);
+        DocumentEntity doc, List<FamilyMember> members, bool isViewer) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      final isPdf = doc.fileType.toLowerCase().contains('pdf') ||
+          doc.fileUrl.toLowerCase().endsWith('.pdf');
+      final isSelected = _selectedDocIds.contains(doc.id);
+      final syncError = ref.watch(
+        documentProvider.select((s) => s.syncErrorsByDocumentId[doc.id]),
+      );
 
     return InkWell(
       onTap: () =>
@@ -983,12 +1101,27 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(doc.title,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 15),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 4),
+                    Text(doc.title,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 15),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
+                    if (doc.syncStatus == 'sync_failed' &&
+                        syncError != null &&
+                        syncError.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        syncError,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFFB91C1C),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 4),
                   Row(
                     children: [
                       Container(
@@ -1112,13 +1245,13 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
 
     // Category
     breadcrumbs.add(
-      _breadcrumbItem(categoryName, true, () {
+          _breadcrumbItem(categoryName, true, () {
         setState(() {
           _currentPath = [];
           _selectedFolder = 'All';
           _selectedMemberId = null;
         });
-        _reloadData();
+        _reloadData(reloadFolders: _isShared);
       }),
     );
 
@@ -1145,7 +1278,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
             _currentPath = [];
             _selectedFolder = 'All';
           });
-          _reloadData();
+          _reloadData(reloadFolders: false);
         }),
       );
     }
@@ -1167,7 +1300,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
             _currentPath = _currentPath.sublist(0, i);
             _selectedFolder = part;
           });
-          _reloadData();
+          _reloadData(reloadFolders: false);
         }),
       );
     }
@@ -1223,7 +1356,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                           _selectedMemberId = null;
                         }
                       });
-                      _reloadData();
+                      _reloadData(reloadFolders: _selectedMemberId != null);
                     },
                     child: const Icon(Icons.arrow_back_ios_new_rounded,
                         size: 16, color: AppTheme.primaryColor),
@@ -1408,19 +1541,18 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     if (newName.isEmpty || newName == currentName || !mounted) return;
 
     try {
-      // TODO: Implement rename folder in provider
-      // await ref.read(documentProvider.notifier).renameFolder(
-      //   folderId: folderId,
-      //   newName: newName,
-      //   category: _selectedCategory!,
-      //   memberId: _selectedMemberId,
-      // );
+      await ref.read(documentProvider.notifier).renameFolder(
+            folderId: folderId,
+            newName: newName,
+            category: _selectedCategory!,
+            memberId: _categoryScopedMemberId(),
+          );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Folder renamed to "$newName"')),
         );
       }
-      await _reloadData();
+      await _reloadData(reloadFolders: true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1480,29 +1612,89 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 90),
       children: [
-        _nodeTile(
-          icon: Icons.groups_rounded,
-          title: 'Individual Folders',
-          subtitle:
-              _expandMembers ? 'Tap to collapse' : 'Tap to expand member list',
-          onTap: () => setState(() => _expandMembers = !_expandMembers),
-          iconColor: const Color(0xFF0EA5E9),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0EA5E9).withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: const Color(0xFF0EA5E9).withValues(alpha: 0.18),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0EA5E9).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.groups_rounded,
+                  color: Color(0xFF0EA5E9),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Shared Family Space',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${members.length} members | ${folders.length} shared folders',
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => setState(() => _expandMembers = !_expandMembers),
+                icon: Icon(
+                  _expandMembers
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                ),
+                label: Text(_expandMembers ? 'Hide' : 'Show'),
+              ),
+            ],
+          ),
         ),
-        if (_expandMembers)
+        if (_expandMembers) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+            child: Text(
+              'Family Members (${members.length})',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
           ...members.map((m) => _nodeTile(
                 icon: Icons.person_outline_rounded,
                 imageUrl: m.photoUrl,
                 title: m.displayName,
                 subtitle: 'View specific documents',
-                leftPad: 14,
                 onTap: () async {
                   setState(() {
                     _selectedMemberId = m.userId;
+                    _currentPath = [];
                     _selectedFolder = 'All';
                   });
                   await _reloadData(reloadFolders: true);
                 },
               )),
+        ],
         const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
@@ -1637,6 +1829,112 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     if (canonical == 'personal') return 'Personal';
     if (canonical == 'private') return 'Private';
     return value.trim().isEmpty ? null : value.trim();
+  }
+
+  Widget _buildScopeSummary({
+    required int docsCount,
+    required int folderCount,
+    required List<FamilyMember> members,
+  }) {
+    String scopeLabel = _selectedCategory ?? 'Vault';
+    if (_isShared && _selectedMemberId != null) {
+      final selectedMember = members.where((m) => m.userId == _selectedMemberId);
+      if (selectedMember.isNotEmpty) {
+        scopeLabel = '${selectedMember.first.displayName} records';
+      }
+    } else if (_selectedFolder != 'All') {
+      scopeLabel = _selectedFolder;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          _summaryChip(
+            icon: Icons.inventory_2_outlined,
+            label: scopeLabel,
+            emphasized: true,
+          ),
+          _summaryChip(
+            icon: Icons.folder_open_rounded,
+            label: '$folderCount folder${folderCount == 1 ? '' : 's'}',
+          ),
+          _summaryChip(
+            icon: Icons.description_outlined,
+            label: '$docsCount doc${docsCount == 1 ? '' : 's'}',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryChip({
+    required IconData icon,
+    required String label,
+    bool emphasized = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: emphasized
+            ? AppTheme.primaryColor.withValues(alpha: 0.1)
+            : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: emphasized
+              ? AppTheme.primaryColor.withValues(alpha: 0.18)
+              : AppTheme.borderColor,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 15,
+            color: emphasized ? AppTheme.primaryColor : AppTheme.textSecondary,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color:
+                  emphasized ? AppTheme.primaryColor : AppTheme.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingStrip() {
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.all(Radius.circular(999)),
+        child: LinearProgressIndicator(minHeight: 3),
+      ),
+    );
+  }
+
+  Future<void> _resolveFailedDocumentConflict(DocumentEntity doc) async {
+    try {
+      await ref.read(documentProvider.notifier).resolveFailedSyncConflict(doc.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Conflict resolution applied')),
+      );
+      await _reloadData(reloadFolders: false);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to resolve conflict: $e')),
+      );
+    }
   }
 }
 

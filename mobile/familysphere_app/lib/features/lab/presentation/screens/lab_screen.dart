@@ -1,11 +1,13 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:familysphere_app/core/services/notification_service.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:familysphere_app/core/utils/routes.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
-import 'package:familysphere_app/core/services/notification_service.dart';
 import 'package:familysphere_app/features/lab/presentation/providers/lab_recent_files_provider.dart';
 import 'package:familysphere_app/features/lab/domain/services/lab_file_manager.dart';
 import 'package:familysphere_app/features/vault/document_preview_screen.dart';
@@ -22,6 +24,8 @@ class _LabScreenState extends ConsumerState<LabScreen> {
   static const Color _primaryBlue = Color(0xFF2563EB);
   static const Color _pageBackground = Color(0xFFF6F7F8);
   static const Color _cardColor = Colors.white;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -32,9 +36,178 @@ class _LabScreenState extends ConsumerState<LabScreen> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<_LabToolData> get _pdfTools => const [
+        _LabToolData(
+          id: 'merge_pdf',
+          icon: Icons.call_merge_rounded,
+          label: 'Merge PDF',
+          subtitle: 'Combine many PDFs into one file',
+          route: AppRoutes.mergePdf,
+        ),
+        _LabToolData(
+          id: 'split_pdf',
+          icon: Icons.call_split_rounded,
+          label: 'Split PDF',
+          subtitle: 'Extract page ranges into smaller files',
+          route: AppRoutes.splitPdf,
+        ),
+        _LabToolData(
+          id: 'compress_pdf',
+          icon: Icons.compress_rounded,
+          label: 'Compress PDF',
+          subtitle: 'Reduce size for easy sharing',
+          route: AppRoutes.compressPdf,
+        ),
+        _LabToolData(
+          id: 'pdf_to_text',
+          icon: Icons.text_snippet_rounded,
+          label: 'PDF to Text',
+          subtitle: 'Extract readable text quickly',
+          route: AppRoutes.pdfToText,
+        ),
+        _LabToolData(
+          id: 'protect_pdf',
+          icon: Icons.lock_rounded,
+          label: 'Protect PDF',
+          subtitle: 'Add password security',
+          route: AppRoutes.protectPdf,
+        ),
+        _LabToolData(
+          id: 'rotate_pdf',
+          icon: Icons.rotate_right_rounded,
+          label: 'Rotate PDF',
+          subtitle: 'Fix page orientation',
+          route: AppRoutes.rotatePdf,
+        ),
+        _LabToolData(
+          id: 'unlock_pdf',
+          icon: Icons.lock_open_rounded,
+          label: 'Unlock PDF',
+          subtitle: 'Remove password protection',
+          route: AppRoutes.unlockPdf,
+        ),
+      ];
+
+  List<_LabToolData> get _imageTools => const [
+        _LabToolData(
+          id: 'image_compress',
+          icon: Icons.photo_size_select_small_rounded,
+          label: 'Compress Image',
+          subtitle: 'Shrink large photos',
+          route: AppRoutes.imageCompress,
+        ),
+        _LabToolData(
+          id: 'image_resize',
+          icon: Icons.aspect_ratio_rounded,
+          label: 'Resize Image',
+          subtitle: 'Change image dimensions',
+          route: AppRoutes.imageResize,
+        ),
+        _LabToolData(
+          id: 'crop_image',
+          icon: Icons.crop_rounded,
+          label: 'Crop Image',
+          subtitle: 'Trim edges and focus content',
+          route: AppRoutes.cropImage,
+        ),
+        _LabToolData(
+          id: 'image_convert',
+          icon: Icons.transform_rounded,
+          label: 'Convert Image',
+          subtitle: 'JPG, PNG and more',
+          route: AppRoutes.imageConvert,
+        ),
+        _LabToolData(
+          id: 'image_to_pdf',
+          icon: Icons.picture_as_pdf_rounded,
+          label: 'Image to PDF',
+          subtitle: 'Create PDFs from photos',
+          route: AppRoutes.imageProcess,
+        ),
+        _LabToolData(
+          id: 'bg_remover',
+          icon: Icons.auto_fix_high_rounded,
+          label: 'BG Remover',
+          subtitle: 'Cut out subjects fast',
+          route: AppRoutes.bgRemover,
+        ),
+      ];
+
+  List<_LabToolData> get _documentTools => const [
+        _LabToolData(
+          id: 'file_converter',
+          icon: Icons.swap_horiz_rounded,
+          label: 'File Converter',
+          subtitle: 'Jump into the right conversion tool',
+          route: AppRoutes.fileConverter,
+        ),
+        _LabToolData(
+          id: 'zip_unzip',
+          icon: Icons.folder_zip_rounded,
+          label: 'Zip / Unzip',
+          subtitle: 'Bundle or unpack files',
+          route: AppRoutes.zipUnzip,
+        ),
+        _LabToolData(
+          id: 'batch_rename',
+          icon: Icons.edit_square,
+          label: 'Rename Files',
+          subtitle: 'Rename many files in one step',
+          route: AppRoutes.batchRename,
+        ),
+        _LabToolData(
+          id: 'preview_share',
+          icon: Icons.visibility_rounded,
+          label: 'Preview & Share',
+          subtitle: 'Inspect output before sending',
+          route: AppRoutes.previewShare,
+        ),
+        _LabToolData(
+          id: 'scan_document',
+          icon: Icons.document_scanner_rounded,
+          label: 'Scan Document',
+          subtitle: 'Capture paper files into PDF',
+          route: AppRoutes.documentCapture,
+        ),
+      ];
+
+  List<_LabToolData> _filterTools(List<_LabToolData> tools) {
+    if (_searchQuery.trim().isEmpty) return tools;
+    final needle = _searchQuery.trim().toLowerCase();
+    return tools
+        .where(
+          (tool) =>
+              tool.label.toLowerCase().contains(needle) ||
+              tool.subtitle.toLowerCase().contains(needle),
+        )
+        .toList();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final labRecentFiles = ref.watch(labRecentFilesProvider);
+    final filteredPdfTools = _filterTools(_pdfTools);
+    final filteredImageTools = _filterTools(_imageTools);
+    final filteredDocumentTools = _filterTools(_documentTools);
+    final filteredRecentFiles = _searchQuery.trim().isEmpty
+        ? labRecentFiles
+        : labRecentFiles
+            .where(
+              (file) =>
+                  file.fileName
+                      .toLowerCase()
+                      .contains(_searchQuery.toLowerCase()) ||
+                  file.toolLabel
+                      .toLowerCase()
+                      .contains(_searchQuery.toLowerCase()),
+            )
+            .toList();
 
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkBackground : _pageBackground,
@@ -55,16 +228,23 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                     _buildSearchBar(context, isDark),
 
                     // Recent Files (from Lab tool outputs)
-                    _buildRecentFilesSection(context, isDark, labRecentFiles),
+                    _buildRecentFilesSection(
+                        context, isDark, filteredRecentFiles),
 
                     // PDF Lab
-                    _buildPdfLabSection(context, isDark),
+                    _buildPdfLabSection(context, isDark, filteredPdfTools),
 
                     // Image Lab
-                    _buildImageLabSection(context, isDark),
+                    _buildImageLabSection(context, isDark, filteredImageTools),
 
                     // Document Tools
-                    _buildDocumentToolsSection(context, isDark),
+                    _buildDocumentToolsSection(
+                      context,
+                      isDark,
+                      filteredDocumentTools,
+                    ),
+
+                    _buildUtilitiesSection(context, isDark, labRecentFiles),
 
                     const SizedBox(height: 32),
                   ],
@@ -102,9 +282,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
               context,
               icon: Icons.info_outline_rounded,
               isDark: isDark,
-              onTap: () {
-                // Show lab info
-              },
+              onTap: () => _showLabInfo(context, isDark),
             ),
           ),
           Text(
@@ -121,7 +299,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
               context,
               icon: Icons.settings_rounded,
               isDark: isDark,
-              onTap: () {},
+              onTap: () => _showLabSettings(context, isDark),
             ),
           ),
         ],
@@ -180,19 +358,38 @@ class _LabScreenState extends ConsumerState<LabScreen> {
           ],
         ),
         child: TextField(
+          controller: _searchController,
+          onChanged: (value) {
+            setState(() {
+              _searchQuery = value;
+            });
+          },
           decoration: InputDecoration(
-            hintText: 'Search tools or files',
+            hintText: 'Search tools, workflows, or outputs',
             hintStyle: TextStyle(
-              color: isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary,
+              color:
+                  isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary,
               fontSize: 15,
             ),
             prefixIcon: Icon(
               Icons.search_rounded,
-              color: isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary,
+              color:
+                  isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary,
             ),
             border: InputBorder.none,
             enabledBorder: InputBorder.none,
             focusedBorder: InputBorder.none,
+            suffixIcon: _searchQuery.isEmpty
+                ? null
+                : IconButton(
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() {
+                        _searchQuery = '';
+                      });
+                    },
+                    icon: const Icon(Icons.close_rounded),
+                  ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 14,
@@ -219,12 +416,36 @@ class _LabScreenState extends ConsumerState<LabScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'Recent Files',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Recent Files',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? AppTheme.darkTextPrimary
+                              : AppTheme.textPrimary,
+                        ),
                   ),
+                ),
+                Text(
+                  '${displayFiles.length} shown',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: isDark
+                            ? AppTheme.darkTextSecondary
+                            : AppTheme.textSecondary,
+                      ),
+                ),
+                if (displayFiles.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () =>
+                        ref.read(labRecentFilesProvider.notifier).refresh(),
+                    child: const Text('Refresh'),
+                  ),
+                ],
+              ],
             ),
           ),
           const SizedBox(height: 12),
@@ -243,7 +464,8 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                 itemCount: displayFiles.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 14),
                 itemBuilder: (context, index) {
-                  return _buildLabRecentFileCard(context, displayFiles[index], isDark);
+                  return _buildLabRecentFileCard(
+                      context, displayFiles[index], isDark);
                 },
               ),
             ),
@@ -271,21 +493,26 @@ class _LabScreenState extends ConsumerState<LabScreen> {
             Icon(
               Icons.folder_open_rounded,
               size: 40,
-              color: isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary,
+              color:
+                  isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary,
             ),
             const SizedBox(height: 10),
             Text(
               'No recent files',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                    color: isDark
+                        ? AppTheme.darkTextSecondary
+                        : AppTheme.textSecondary,
                   ),
             ),
             const SizedBox(height: 4),
             Text(
               'Files from Lab tools will appear here',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary,
+                    color: isDark
+                        ? AppTheme.darkTextSecondary
+                        : AppTheme.textTertiary,
                   ),
             ),
           ],
@@ -306,9 +533,8 @@ class _LabScreenState extends ConsumerState<LabScreen> {
         : ext == 'jpg' || ext == 'jpeg' || ext == 'png' || ext == 'webp'
             ? Icons.image_rounded
             : Icons.insert_drive_file_rounded;
-    final iconColor = ext == 'pdf'
-        ? const Color(0xFFEF4444)
-        : const Color(0xFF2563EB);
+    final iconColor =
+        ext == 'pdf' ? const Color(0xFFEF4444) : const Color(0xFF2563EB);
 
     // Time ago label
     final diff = DateTime.now().difference(file.createdAt);
@@ -325,8 +551,9 @@ class _LabScreenState extends ConsumerState<LabScreen> {
     return GestureDetector(
       onTap: () {
         // Determine if file is image or PDF
-        final isImage = ext == 'jpg' || ext == 'jpeg' || ext == 'png' || ext == 'webp';
-        
+        final isImage =
+            ext == 'jpg' || ext == 'jpeg' || ext == 'png' || ext == 'webp';
+
         if (isImage) {
           // Open image in image viewer
           Navigator.push(
@@ -402,7 +629,8 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                         icon: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: (isDark ? Colors.black : Colors.white).withOpacity(0.7),
+                            color: (isDark ? Colors.black : Colors.white)
+                                .withOpacity(0.7),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -411,13 +639,18 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                             color: isDark ? Colors.white : Colors.black87,
                           ),
                         ),
-                        onSelected: (value) => _handleFileMenuAction(context, value, file, isDark),
+                        onSelected: (value) =>
+                            _handleFileMenuAction(context, value, file, isDark),
                         itemBuilder: (context) => [
                           PopupMenuItem(
                             value: 'download',
                             child: Row(
                               children: [
-                                Icon(Icons.download_rounded, size: 18, color: isDark ? Colors.white70 : Colors.black87),
+                                Icon(Icons.download_rounded,
+                                    size: 18,
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black87),
                                 const SizedBox(width: 12),
                                 const Text('Download'),
                               ],
@@ -427,7 +660,11 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                             value: 'share',
                             child: Row(
                               children: [
-                                Icon(Icons.share_rounded, size: 18, color: isDark ? Colors.white70 : Colors.black87),
+                                Icon(Icons.share_rounded,
+                                    size: 18,
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black87),
                                 const SizedBox(width: 12),
                                 const Text('Share'),
                               ],
@@ -437,7 +674,11 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                             value: 'rename',
                             child: Row(
                               children: [
-                                Icon(Icons.edit_rounded, size: 18, color: isDark ? Colors.white70 : Colors.black87),
+                                Icon(Icons.edit_rounded,
+                                    size: 18,
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black87),
                                 const SizedBox(width: 12),
                                 const Text('Rename'),
                               ],
@@ -447,7 +688,11 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                             value: 'details',
                             child: Row(
                               children: [
-                                Icon(Icons.info_outline_rounded, size: 18, color: isDark ? Colors.white70 : Colors.black87),
+                                Icon(Icons.info_outline_rounded,
+                                    size: 18,
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black87),
                                 const SizedBox(width: 12),
                                 const Text('Details'),
                               ],
@@ -457,7 +702,11 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                             value: 'copy_path',
                             child: Row(
                               children: [
-                                Icon(Icons.copy_rounded, size: 18, color: isDark ? Colors.white70 : Colors.black87),
+                                Icon(Icons.copy_rounded,
+                                    size: 18,
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black87),
                                 const SizedBox(width: 12),
                                 const Text('Copy Path'),
                               ],
@@ -468,9 +717,11 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                             value: 'delete',
                             child: Row(
                               children: [
-                                const Icon(Icons.delete_rounded, size: 18, color: Colors.red),
+                                const Icon(Icons.delete_rounded,
+                                    size: 18, color: Colors.red),
                                 const SizedBox(width: 12),
-                                Text('Delete', style: TextStyle(color: Colors.red)),
+                                Text('Delete',
+                                    style: TextStyle(color: Colors.red)),
                               ],
                             ),
                           ),
@@ -489,7 +740,9 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                 file.fileName,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                      color: isDark
+                          ? AppTheme.darkTextPrimary
+                          : AppTheme.textPrimary,
                     ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -502,7 +755,9 @@ class _LabScreenState extends ConsumerState<LabScreen> {
               child: Text(
                 '${LabFileManager.formatFileSize(file.sizeBytes)} • $timeLabel',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary,
+                      color: isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.textTertiary,
                       fontSize: 10,
                     ),
                 maxLines: 1,
@@ -516,7 +771,8 @@ class _LabScreenState extends ConsumerState<LabScreen> {
   }
 
   /// Handles file menu actions (download, share, rename, delete, etc.)
-  void _handleFileMenuAction(BuildContext context, String action, LabRecentFile file, bool isDark) async {
+  void _handleFileMenuAction(BuildContext context, String action,
+      LabRecentFile file, bool isDark) async {
     switch (action) {
       case 'download':
         await _downloadFile(context, file);
@@ -552,7 +808,8 @@ class _LabScreenState extends ConsumerState<LabScreen> {
               SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
               ),
               SizedBox(width: 16),
               Text('Downloading...'),
@@ -569,16 +826,17 @@ class _LabScreenState extends ConsumerState<LabScreen> {
 
       // Use LabFileManager to save to public Downloads
       final fileManager = LabFileManager();
-      final downloadedPath = await fileManager.saveToDownloads(file.filePath, file.toolLabel);
-      
+      final downloadedPath =
+          await fileManager.saveToDownloads(file.filePath, file.toolLabel);
+
       final finalFileName = downloadedPath.split(Platform.pathSeparator).last;
-      
+
       // Show system notification
       await NotificationService().showDownloadNotification(
         fileName: finalFileName,
         filePath: downloadedPath,
       );
-      
+
       if (!context.mounted) return;
       // Hide loading and show success
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -595,7 +853,8 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                   Expanded(
                     child: Text(
                       'Downloaded Successfully!',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                   ),
                 ],
@@ -612,7 +871,8 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                   children: [
                     Text(
                       finalFileName,
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      style:
+                          TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -655,7 +915,8 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                 children: [
                   Icon(Icons.error_outline, color: Colors.white, size: 20),
                   const SizedBox(width: 8),
-                  Text('Download Failed', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text('Download Failed',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                 ],
               ),
               const SizedBox(height: 4),
@@ -693,21 +954,29 @@ class _LabScreenState extends ConsumerState<LabScreen> {
   }
 
   /// Renames the file
-  Future<void> _renameFile(BuildContext context, LabRecentFile file, bool isDark) async {
+  Future<void> _renameFile(
+      BuildContext context, LabRecentFile file, bool isDark) async {
     final controller = TextEditingController(text: file.fileName);
-    
+
     final newName = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
-        title: Text('Rename File', style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)),
+        title: Text('Rename File',
+            style: TextStyle(
+                color:
+                    isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
+          style: TextStyle(
+              color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
           decoration: InputDecoration(
             labelText: 'New file name',
-            labelStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+            labelStyle: TextStyle(
+                color: isDark
+                    ? AppTheme.darkTextSecondary
+                    : AppTheme.textSecondary),
             border: OutlineInputBorder(),
           ),
         ),
@@ -730,7 +999,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
       final oldFile = File(file.filePath);
       final directory = oldFile.parent;
       final newPath = '${directory.path}${Platform.pathSeparator}$newName';
-      
+
       // Check if new file name already exists
       if (await File(newPath).exists()) {
         if (!context.mounted) return;
@@ -743,15 +1012,15 @@ class _LabScreenState extends ConsumerState<LabScreen> {
         );
         return;
       }
-      
+
       // Rename the file
       await oldFile.rename(newPath);
 
       // Update the recent files entry with new path (keeps it in the list!)
       await ref.read(labRecentFilesProvider.notifier).updateFilePath(
-        file.filePath,
-        newPath,
-      );
+            file.filePath,
+            newPath,
+          );
 
       // Show system notification
       await NotificationService().showRenameNotification(
@@ -824,7 +1093,8 @@ class _LabScreenState extends ConsumerState<LabScreen> {
               const Divider(height: 24),
               _buildDetailRow('Type', ext, isDark),
               const Divider(height: 24),
-              _buildDetailRow('Size', LabFileManager.formatFileSize(file.sizeBytes), isDark),
+              _buildDetailRow('Size',
+                  LabFileManager.formatFileSize(file.sizeBytes), isDark),
               const Divider(height: 24),
               _buildDetailRow('Tool', file.toolLabel, isDark),
               const Divider(height: 24),
@@ -855,7 +1125,8 @@ class _LabScreenState extends ConsumerState<LabScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value, bool isDark, {bool isPath = false}) {
+  Widget _buildDetailRow(String label, String value, bool isDark,
+      {bool isPath = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -886,7 +1157,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
   /// Copies file path to clipboard
   Future<void> _copyFilePath(BuildContext context, LabRecentFile file) async {
     await Clipboard.setData(ClipboardData(text: file.filePath));
-    
+
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -899,7 +1170,8 @@ class _LabScreenState extends ConsumerState<LabScreen> {
 
   /// Deletes the file with confirmation dialog
   /// IMPORTANT: Shows confirmation dialog FIRST, only deletes if user confirms
-  Future<void> _deleteFile(BuildContext context, LabRecentFile file, bool isDark) async {
+  Future<void> _deleteFile(
+      BuildContext context, LabRecentFile file, bool isDark) async {
     // Step 1: Show confirmation dialog BEFORE deleting anything
     final confirm = await showDialog<bool>(
       context: context,
@@ -910,12 +1182,17 @@ class _LabScreenState extends ConsumerState<LabScreen> {
           children: [
             Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
             const SizedBox(width: 8),
-            Text('Delete File', style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)),
+            Text('Delete File',
+                style: TextStyle(
+                    color: isDark
+                        ? AppTheme.darkTextPrimary
+                        : AppTheme.textPrimary)),
           ],
         ),
         content: Text(
           'Are you sure you want to delete "${file.fileName}"?\n\nThis action cannot be undone.',
-          style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
+          style: TextStyle(
+              color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
         ),
         actions: [
           TextButton(
@@ -981,17 +1258,12 @@ class _LabScreenState extends ConsumerState<LabScreen> {
 
   // ─── PDF LAB ──────────────────────────────────────────────────────────────────
 
-  Widget _buildPdfLabSection(BuildContext context, bool isDark) {
-    final pdfTools = [
-      _LabToolData(icon: Icons.call_merge_rounded, label: 'Merge PDF', route: '/merge-pdf'),
-      _LabToolData(icon: Icons.call_split_rounded, label: 'Split PDF', route: '/split-pdf'),
-      _LabToolData(icon: Icons.compress_rounded, label: 'Compress', route: '/compress-pdf'),
-      _LabToolData(icon: Icons.text_snippet_rounded, label: 'To Text', route: '/pdf-to-text'),
-      _LabToolData(icon: Icons.lock_rounded, label: 'Protect', route: '/protect-pdf'),
-      _LabToolData(icon: Icons.rotate_right_rounded, label: 'Rotate', route: '/rotate-pdf'),
-      _LabToolData(icon: Icons.lock_open_rounded, label: 'Unlock PDF', route: '/unlock-pdf'),
-    ];
-
+  Widget _buildPdfLabSection(
+    BuildContext context,
+    bool isDark,
+    List<_LabToolData> pdfTools,
+  ) {
+    if (pdfTools.isEmpty) return const SizedBox.shrink();
     return _buildToolGridSection(
       context,
       title: 'PDF LAB',
@@ -1003,16 +1275,12 @@ class _LabScreenState extends ConsumerState<LabScreen> {
 
   // ─── IMAGE LAB ────────────────────────────────────────────────────────────────
 
-  Widget _buildImageLabSection(BuildContext context, bool isDark) {
-    final imageTools = [
-      _LabToolData(icon: Icons.photo_size_select_small_rounded, label: 'Compress', route: '/image-compress'),
-      _LabToolData(icon: Icons.aspect_ratio_rounded, label: 'Resize', route: '/image-resize'),
-      _LabToolData(icon: Icons.crop_rounded, label: 'Crop Image', route: '/crop-image'),
-      _LabToolData(icon: Icons.transform_rounded, label: 'Convert', route: '/image-convert'),
-      _LabToolData(icon: Icons.picture_as_pdf_rounded, label: 'Image to PDF', route: '/image-process'),
-      _LabToolData(icon: Icons.auto_fix_high_rounded, label: 'BG Remover', route: '/bg-remover'),
-    ];
-
+  Widget _buildImageLabSection(
+    BuildContext context,
+    bool isDark,
+    List<_LabToolData> imageTools,
+  ) {
+    if (imageTools.isEmpty) return const SizedBox.shrink();
     return _buildToolGridSection(
       context,
       title: 'IMAGE LAB',
@@ -1045,7 +1313,9 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                 title,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                      color: isDark
+                          ? AppTheme.darkTextPrimary
+                          : AppTheme.textPrimary,
                     ),
               ),
             ],
@@ -1061,7 +1331,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
               crossAxisCount: 2,
               mainAxisSpacing: 10,
               crossAxisSpacing: 10,
-              childAspectRatio: 2.8,
+              childAspectRatio: 2.45,
             ),
             itemBuilder: (context, index) {
               return _buildToolButton(context, tools[index], isDark);
@@ -1080,14 +1350,10 @@ class _LabScreenState extends ConsumerState<LabScreen> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {
-          if (tool.route != null) {
-            Navigator.pushNamed(context, tool.route!);
-          }
-        },
+        onTap: () => _openTool(context, tool),
         borderRadius: BorderRadius.circular(AppTheme.radiusL),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: isDark ? AppTheme.darkSurface : _cardColor,
             borderRadius: BorderRadius.circular(AppTheme.radiusL),
@@ -1114,7 +1380,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                 child: Text(
                   tool.label,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: isDark
                             ? AppTheme.darkTextPrimary
                             : AppTheme.textPrimary,
@@ -1122,6 +1388,12 @@ class _LabScreenState extends ConsumerState<LabScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color:
+                    isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary,
+                size: 18,
               ),
             ],
           ),
@@ -1132,14 +1404,12 @@ class _LabScreenState extends ConsumerState<LabScreen> {
 
   // ─── DOCUMENT TOOLS ───────────────────────────────────────────────────────────
 
-  Widget _buildDocumentToolsSection(BuildContext context, bool isDark) {
-    final docTools = [
-      _LabToolData(icon: Icons.swap_horiz_rounded, label: 'File Converter', route: '/file-converter'),
-      _LabToolData(icon: Icons.folder_zip_rounded, label: 'Zip / Unzip', route: '/zip-unzip'),
-      _LabToolData(icon: Icons.edit_square, label: 'Rename Files', route: '/batch-rename'),
-      _LabToolData(icon: Icons.visibility_rounded, label: 'Preview & Share', route: '/preview-share'),
-    ];
-
+  Widget _buildDocumentToolsSection(
+    BuildContext context,
+    bool isDark,
+    List<_LabToolData> docTools,
+  ) {
+    if (docTools.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
       child: Column(
@@ -1149,7 +1419,8 @@ class _LabScreenState extends ConsumerState<LabScreen> {
             'DOCUMENT TOOLS',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                  color:
+                      isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                 ),
           ),
           const SizedBox(height: 14),
@@ -1171,11 +1442,7 @@ class _LabScreenState extends ConsumerState<LabScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            if (tool.route != null) {
-              Navigator.pushNamed(context, tool.route!);
-            }
-          },
+          onTap: () => _openTool(context, tool),
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -1220,6 +1487,239 @@ class _LabScreenState extends ConsumerState<LabScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildUtilitiesSection(
+    BuildContext context,
+    bool isDark,
+    List<LabRecentFile> recentFiles,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Utilities',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color:
+                      isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                ),
+          ),
+          const SizedBox(height: 14),
+          _buildUtilityTile(
+            context,
+            isDark,
+            icon: Icons.cleaning_services_rounded,
+            title: 'Clean Temp Files',
+            subtitle: 'Remove leftover working files from Lab operations.',
+            onTap: () async {
+              await LabFileManager().cleanupAllTemp();
+              if (!context.mounted) return;
+              _showSnack(context, 'Temporary Lab files cleared.');
+            },
+          ),
+          _buildUtilityTile(
+            context,
+            isDark,
+            icon: Icons.layers_clear_rounded,
+            title: 'Clear Recent Outputs',
+            subtitle: recentFiles.isEmpty
+                ? 'No saved Lab outputs to remove from history.'
+                : 'Hide ${recentFiles.length} output(s) from the recent list.',
+            onTap: recentFiles.isEmpty
+                ? null
+                : () async {
+                    await ref.read(labRecentFilesProvider.notifier).clearAll();
+                    if (!context.mounted) return;
+                    _showSnack(context, 'Recent Lab history cleared.');
+                  },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUtilityTile(
+    BuildContext context,
+    bool isDark, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Future<void> Function()? onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.darkSurface : _cardColor,
+              borderRadius: BorderRadius.circular(AppTheme.radiusL),
+              border: Border.all(
+                color: isDark ? AppTheme.darkBorder : const Color(0xFFE2E8F0),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: _primaryBlue, size: 22),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? AppTheme.darkTextPrimary
+                                  : AppTheme.textPrimary,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: isDark
+                                  ? AppTheme.darkTextSecondary
+                                  : AppTheme.textSecondary,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textTertiary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openTool(BuildContext context, _LabToolData tool) {
+    if (tool.route != null) {
+      Navigator.pushNamed(context, tool.route!);
+    }
+  }
+
+  void _showLabInfo(BuildContext context, bool isDark) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'How Lab helps',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 12),
+            _buildInfoPoint('Search tools and recent outputs from one place.'),
+            _buildInfoPoint(
+                'Filter the screen by PDF, image, document, or recent files.'),
+            _buildInfoPoint(
+                'Clean temporary files and clear output history from Lab settings.'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoPoint(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 4),
+            child:
+                Icon(Icons.check_circle_rounded, size: 16, color: _primaryBlue),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text)),
+        ],
+      ),
+    );
+  }
+
+  void _showLabSettings(BuildContext context, bool isDark) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Lab Settings',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 12),
+            _buildUtilityTile(
+              context,
+              isDark,
+              icon: Icons.cleaning_services_rounded,
+              title: 'Clean Temp Files',
+              subtitle:
+                  'Remove temporary work files created during processing.',
+              onTap: () async {
+                Navigator.pop(context);
+                await LabFileManager().cleanupAllTemp();
+                if (!mounted) return;
+                _showSnack(context, 'Temporary Lab files cleared.');
+              },
+            ),
+            _buildUtilityTile(
+              context,
+              isDark,
+              icon: Icons.layers_clear_rounded,
+              title: 'Clear Recent Outputs',
+              subtitle: 'Reset the recent output carousel for this device.',
+              onTap: () async {
+                Navigator.pop(context);
+                await ref.read(labRecentFilesProvider.notifier).clearAll();
+                if (!mounted) return;
+                _showSnack(context, 'Recent Lab history cleared.');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSnack(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 }
@@ -1284,13 +1784,17 @@ class _ImageViewerScreen extends StatelessWidget {
 // ─── DATA MODELS ──────────────────────────────────────────────────────────────
 
 class _LabToolData {
+  final String id;
   final IconData icon;
   final String label;
+  final String subtitle;
   final String? route;
 
   const _LabToolData({
+    required this.id,
     required this.icon,
     required this.label,
+    required this.subtitle,
     this.route,
   });
 }

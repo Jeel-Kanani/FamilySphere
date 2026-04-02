@@ -76,9 +76,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   String _getGreetingEmoji() {
     final hour = DateTime.now().hour;
-    if (hour < 12) return '☀️';
-    if (hour < 17) return '🌤️';
-    return '🌙';
+    if (hour < 12) return 'Sunrise';
+    if (hour < 17) return 'Daytime';
+    return 'Evening';
   }
 
   @override
@@ -203,12 +203,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           height: 52,
           width: 52,
           decoration: BoxDecoration(
-            gradient: ref.watch(authProvider).user?.photoUrl == null ? AppTheme.primaryGradient : null,
-            color: ref.watch(authProvider).user?.photoUrl != null ? Colors.transparent : null,
+            gradient: ref.watch(authProvider).user?.photoUrl == null
+                ? AppTheme.primaryGradient
+                : null,
+            color: ref.watch(authProvider).user?.photoUrl != null
+                ? Colors.transparent
+                : null,
             borderRadius: BorderRadius.circular(16),
             image: ref.watch(authProvider).user?.photoUrl != null
                 ? DecorationImage(
-                    image: NetworkImage(ref.watch(authProvider).user!.photoUrl!),
+                    image:
+                        NetworkImage(ref.watch(authProvider).user!.photoUrl!),
                     fit: BoxFit.cover,
                   )
                 : null,
@@ -439,33 +444,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(20),
-                              child: m.photoUrl != null && m.photoUrl!.isNotEmpty
-                                  ? Image.network(
-                                      m.photoUrl!,
-                                      width: 40,
-                                      height: 40,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Center(
-                                        child: Text(
-                                          initials,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.bold,
+                              child:
+                                  m.photoUrl != null && m.photoUrl!.isNotEmpty
+                                      ? Image.network(
+                                          m.photoUrl!,
+                                          width: 40,
+                                          height: 40,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) => Center(
+                                            child: Text(
+                                              initials,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      : Center(
+                                          child: Text(
+                                            initials,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    )
-                                  : Center(
-                                      child: Text(
-                                        initials,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
                             ),
                           ),
                         );
@@ -684,8 +690,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               label: const Text('View All Documents'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.primaryColor,
-                side: BorderSide(
-                    color: AppTheme.primaryColor.withOpacity(0.3)),
+                side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.3)),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -720,7 +725,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
             if (recentDocs.isNotEmpty)
               GestureDetector(
-                onTap: () => Navigator.pushNamed(context, AppRoutes.recentDocuments),
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.recentDocuments),
                 child: Text(
                   'See All',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -924,8 +930,7 @@ class _HeaderIconButtonState extends State<_HeaderIconButton>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color:
-                      hasBadge ? _amber.withOpacity(0.55) : widget.border,
+                  color: hasBadge ? _amber.withOpacity(0.55) : widget.border,
                   width: hasBadge ? 1.5 : 1.0,
                 ),
               ),
@@ -1701,8 +1706,8 @@ class _DocConfirmCardState extends State<_DocConfirmCard>
                             decoration: BoxDecoration(
                               color: confidenceBg,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                  color: _amber.withOpacity(0.5)),
+                              border:
+                                  Border.all(color: _amber.withOpacity(0.5)),
                             ),
                             child: Text(
                               doc.ocrStatus == 'analyzed'

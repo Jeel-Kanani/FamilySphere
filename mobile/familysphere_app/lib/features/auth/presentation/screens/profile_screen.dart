@@ -1,3 +1,5 @@
+﻿import 'dart:math' as math;
+
 import 'package:familysphere_app/core/providers/network_status_provider.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
 import 'package:familysphere_app/core/utils/routes.dart';
@@ -116,8 +118,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor:
-            isError ? AppTheme.errorColor : AppTheme.successColor,
+        backgroundColor: isError ? AppTheme.errorColor : AppTheme.successColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusM),
         ),
@@ -151,6 +152,87 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  Future<void> _showOfflineFilesManager() async {
+    final files = await ref.read(documentProvider.notifier).getOfflineLibrary();
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Offline Files',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${files.length} saved for offline access',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 16),
+              if (files.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text('No offline files saved yet.'),
+                )
+              else
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: math.min(
+                      MediaQuery.sizeOf(context).height * 0.5,
+                      360,
+                    ),
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: files.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final file = files[index];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          file.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          '${file.fileSizeString} \\u2022 ${file.category}',
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded),
+                          onPressed: () async {
+                            await ref
+                                .read(documentProvider.notifier)
+                                .removeOfflineCopy(file);
+                            if (!context.mounted) return;
+                            Navigator.pop(context);
+                            _showSnackBar('Offline copy removed');
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
@@ -162,6 +244,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final hasPendingSync = documentState.pendingSyncJobs > 0;
     final failedEntries = documentState.syncErrorsByDocumentId.entries.toList();
     final failedPreview = failedEntries.take(2).toList();
+    final historyPreview = documentState.syncHistory.take(4).toList();
     final syncStatusText = switch (networkStatus) {
       NetworkStatus.online => 'Connected to server',
       NetworkStatus.offline => 'Using local data',
@@ -361,10 +444,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     Expanded(
                       child: Text(
                         user?.role.name.toUpperCase() ?? 'MEMBER',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
                       ),
@@ -415,10 +495,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       },
                       title: Text(
                         'Dark Theme',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyLarge
-                            ?.copyWith(
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
                       ),
@@ -508,8 +585,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           color: isDark
                               ? AppTheme.darkSurfaceVariant
                               : const Color(0xFFF8FAFC),
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.radiusM),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusM),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -579,6 +655,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ],
                       ],
                     ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: _showOfflineFilesManager,
+                        icon: const Icon(Icons.offline_pin_rounded, size: 18),
+                        label: const Text('Manage Offline Files'),
+                      ),
+                    ),
+                    if (historyPreview.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Recent sync history',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                      const SizedBox(height: 8),
+                      ...historyPreview.map(
+                        (entry) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            '\u2022 ${entry.message}',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: isDark
+                                          ? AppTheme.darkTextSecondary
+                                          : AppTheme.textSecondary,
+                                    ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

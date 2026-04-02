@@ -29,6 +29,30 @@ class DocumentSyncSnapshot {
   });
 }
 
+class SyncProcessEvent {
+  final String itemId;
+  final String action;
+  final String status;
+  final String message;
+  final String itemType;
+
+  const SyncProcessEvent({
+    required this.itemId,
+    required this.action,
+    required this.status,
+    required this.message,
+    this.itemType = 'document',
+  });
+}
+
+class SyncProcessResult {
+  final List<SyncProcessEvent> events;
+
+  const SyncProcessResult({
+    this.events = const [],
+  });
+}
+
 class DocumentSyncEngineService {
   static const int _maxRetriesBeforeFailure = 3;
   final DocumentSyncLocalDataSource _syncLocalDataSource;
@@ -419,8 +443,9 @@ class DocumentSyncEngineService {
     );
   }
 
-  Future<void> processPendingJobs(String familyId) async {
+  Future<SyncProcessResult> processPendingJobs(String familyId) async {
     final jobs = await _syncLocalDataSource.getJobsForFamily(familyId);
+    final events = <SyncProcessEvent>[];
     for (final job in jobs) {
       if (job.retryCount >= _maxRetriesBeforeFailure) {
         continue;
@@ -435,6 +460,14 @@ class DocumentSyncEngineService {
           await _processMoveJob(job);
         }
         await _syncLocalDataSource.removeJob(job.id);
+        events.add(
+          SyncProcessEvent(
+            itemId: _jobDocumentId(job),
+            action: job.type,
+            status: 'success',
+            message: _successMessage(job.type),
+          ),
+        );
       } catch (error) {
         final normalizedMessage = _normalizeSyncError(job, error);
         final terminalConflict = _isTerminalConflictError(normalizedMessage);
@@ -446,9 +479,18 @@ class DocumentSyncEngineService {
             lastError: normalizedMessage,
           ),
         );
+        events.add(
+          SyncProcessEvent(
+            itemId: _jobDocumentId(job),
+            action: job.type,
+            status: terminalConflict ? 'conflict' : 'failed',
+            message: normalizedMessage,
+          ),
+        );
         break;
       }
     }
+    return SyncProcessResult(events: events);
   }
 
   Future<void> _processUploadJob(DocumentSyncJobModel job) async {
@@ -522,5 +564,30 @@ class DocumentSyncEngineService {
           .delete(job.payload['sourcePath']?.toString());
     }
     await _syncLocalDataSource.removeJob(job.id);
+  }
+
+  String _jobDocumentId(DocumentSyncJobModel job) {
+    if (job.type == 'upload') {
+      final docJson = job.payload['document'];
+      if (docJson is Map) {
+        return docJson['_id']?.toString() ??
+            docJson['id']?.toString() ??
+            job.id;
+      }
+    }
+    return job.payload['documentId']?.toString() ?? job.id;
+  }
+
+  String _successMessage(String action) {
+    switch (action) {
+      case 'upload':
+        return 'Offline upload synced successfully.';
+      case 'move':
+        return 'Offline folder change synced successfully.';
+      case 'delete':
+        return 'Offline delete synced successfully.';
+      default:
+        return 'Sync completed successfully.';
+    }
   }
 }

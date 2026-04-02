@@ -5,6 +5,7 @@ import {
     joinFamily,
     getFamily,
     getFamilyMembers,
+    updateFamilyProfile,
     removeFamilyMember,
     updateMemberRole,
     transferOwnership,
@@ -26,6 +27,7 @@ router.post('/join', protect, joinFamily);
 router.post('/join-invite', protect, joinFamilyWithInvite);
 
 router.get('/:familyId', protect, authorize('admin', 'member', 'viewer'), getFamily);
+router.put('/:familyId', protect, authorize('admin'), updateFamilyProfile);
 router.get('/:familyId/members', protect, authorize('admin', 'member', 'viewer'), getFamilyMembers);
 router.get('/:familyId/activity', protect, authorize('admin', 'member', 'viewer'), getFamilyActivity);
 

@@ -247,6 +247,54 @@ export const getFamilyMembers = async (req: Request, res: Response) => {
     }
 };
 
+// Update family profile (admin only)
+export const updateFamilyProfile = async (req: Request, res: Response) => {
+    try {
+        const { familyId } = req.params;
+        const { name } = req.body;
+        const userId = (req as any).user?.id;
+
+        if (!userId) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        const trimmedName = typeof name === 'string' ? name.trim() : '';
+        if (!trimmedName) {
+            return res.status(400).json({ message: 'Family name is required' });
+        }
+
+        const user = await User.findById(userId);
+        if (!user || user.familyId?.toString() !== familyId) {
+            return res.status(403).json({ message: 'Not allowed' });
+        }
+
+        if (user.role !== 'admin') {
+            return res.status(403).json({ message: 'Only admins can update family profile' });
+        }
+
+        const family = await Family.findById(familyId);
+        if (!family) {
+            return res.status(404).json({ message: 'Family not found' });
+        }
+
+        family.name = trimmedName;
+        await family.save();
+
+        await logFamilyActivity({
+            familyId,
+            actorId: userId,
+            type: 'family_renamed',
+            message: `Renamed the family to "${trimmedName}"`,
+            metadata: { name: trimmedName },
+        });
+
+        return res.json(family);
+    } catch (error: any) {
+        console.error('Update family profile error:', error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+
 // Remove member (admin only)
 export const removeFamilyMember = async (req: Request, res: Response) => {
     try {

@@ -171,6 +171,17 @@ class DocumentRepositoryImpl implements DocumentRepository {
   }
 
   @override
+  Future<void> renameFolder({
+    required String folderId,
+    required String newName,
+  }) async {
+    await remoteDataSource.renameFolder(
+      folderId: folderId,
+      newName: newName,
+    );
+  }
+
+  @override
   Future<void> deleteFolder({
     required String folderId,
     String? folderName,

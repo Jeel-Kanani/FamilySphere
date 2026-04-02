@@ -359,6 +359,8 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
     final syncStatus = currentDoc.syncStatus;
     final isFailed = syncStatus == 'sync_failed';
     final isMove = syncStatus == 'pending_move';
+    final hasConflict =
+        ref.read(documentProvider.notifier).hasConflictForDocument(currentDoc.id);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -430,6 +432,17 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
+                  if (hasConflict)
+                    OutlinedButton.icon(
+                      onPressed: () => _resolveConflict(currentDoc),
+                      icon: const Icon(Icons.build_circle_outlined, size: 16),
+                      label: const Text('Resolve Conflict'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFFECACA),
+                        side: const BorderSide(color: Color(0xFFFCA5A5)),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
                   OutlinedButton.icon(
                     onPressed: () => _retryFailedSync(currentDoc),
                     icon: const Icon(Icons.refresh_rounded, size: 16),
@@ -476,6 +489,24 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to share: $e')),
+      );
+    }
+  }
+
+  Future<void> _resolveConflict(DocumentEntity currentDoc) async {
+    try {
+      await ref
+          .read(documentProvider.notifier)
+          .resolveFailedSyncConflict(currentDoc.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Conflict resolution applied')),
+      );
+      await ref.read(documentProvider.notifier).loadDocuments(forceRefresh: true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to resolve conflict: $e')),
       );
     }
   }

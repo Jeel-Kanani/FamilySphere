@@ -5,6 +5,7 @@ import {
     deleteDocument,
     getFolders,
     createFolder,
+    renameFolder,
     deleteFolder,
     moveDocumentToFolder,
     getTrashedDocuments,
@@ -37,6 +38,9 @@ router.get('/folders/:familyId', authorize('admin', 'member', 'viewer'), getFold
 
 // POST /api/documents/folders - Create custom folder (Admin & Member)
 router.post('/folders', authorize('admin', 'member'), createFolder);
+
+// PATCH /api/documents/folders/:folderId - Rename custom folder (Admin & Member)
+router.patch('/folders/:folderId', authorize('admin', 'member'), renameFolder);
 
 // DELETE /api/documents/folders/:folderId - Delete custom folder (Admin & Member)
 router.delete('/folders/:folderId', authorize('admin', 'member'), deleteFolder);

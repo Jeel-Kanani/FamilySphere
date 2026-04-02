@@ -115,4 +115,27 @@ class DocumentLocalDataSource {
       });
     }
   }
+
+  Future<List<DocumentModel>> getAllOfflineDocuments() async {
+    final box = await _openBox();
+    final Map<String, DocumentModel> unique = {};
+
+    for (final key in box.keys) {
+      final data = box.get(key);
+      if (data is! Map) continue;
+      for (final item in (data['documents'] as List<dynamic>? ?? const [])) {
+        if (item is! Map) continue;
+        final model = DocumentModel.fromJson(Map<String, dynamic>.from(item));
+        if (!model.isOfflineAvailable ||
+            model.localPath == null ||
+            model.localPath!.isEmpty) {
+          continue;
+        }
+        unique[model.id] = model;
+      }
+    }
+
+    return unique.values.toList()
+      ..sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+  }
 }

@@ -37,4 +37,45 @@ class ChatMessageEntity {
       metadata: Map<String, dynamic>.from(json['metadata'] ?? {}),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'familyId': familyId,
+      'senderId': senderId,
+      'senderName': senderName,
+      'content': content,
+      'type': type,
+      'mediaUrl': mediaUrl,
+      'status': status,
+      'createdAt': createdAt.toIso8601String(),
+      'metadata': metadata,
+    };
+  }
+
+  ChatMessageEntity copyWith({
+    String? id,
+    String? familyId,
+    String? senderId,
+    String? senderName,
+    String? content,
+    String? type,
+    String? mediaUrl,
+    String? status,
+    DateTime? createdAt,
+    Map<String, dynamic>? metadata,
+  }) {
+    return ChatMessageEntity(
+      id: id ?? this.id,
+      familyId: familyId ?? this.familyId,
+      senderId: senderId ?? this.senderId,
+      senderName: senderName ?? this.senderName,
+      content: content ?? this.content,
+      type: type ?? this.type,
+      mediaUrl: mediaUrl ?? this.mediaUrl,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      metadata: metadata ?? this.metadata,
+    );
+  }
 }

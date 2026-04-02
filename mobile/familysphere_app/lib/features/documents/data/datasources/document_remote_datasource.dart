@@ -121,6 +121,18 @@ class DocumentRemoteDataSource {
     );
   }
 
+  Future<void> renameFolder({
+    required String folderId,
+    required String newName,
+  }) async {
+    await _apiClient.patch(
+      '/api/documents/folders/$folderId',
+      data: {
+        'newName': newName,
+      },
+    );
+  }
+
   Future<void> deleteFolder({
     required String folderId,
     String? folderName,

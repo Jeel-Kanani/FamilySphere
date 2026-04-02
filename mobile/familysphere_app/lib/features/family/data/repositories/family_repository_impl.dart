@@ -50,6 +50,27 @@ class FamilyRepositoryImpl implements FamilyRepository {
   }
 
   @override
+  Future<Family> updateFamilyProfile(
+    String familyId,
+    String name,
+    String requestingUserId,
+  ) async {
+    final family = await getFamily(familyId);
+    if (family == null) throw Exception('Family not found');
+
+    if (!family.isAdmin(requestingUserId)) {
+      throw Exception('Not authorized to update family profile');
+    }
+
+    final updatedFamily = await remoteDataSource.updateFamilyProfile(
+      familyId,
+      name.trim(),
+    );
+    await localDataSource.cacheFamily(updatedFamily);
+    return updatedFamily;
+  }
+
+  @override
   Future<List<FamilyMember>> getFamilyMembers(String familyId) async {
     try {
       final members = await remoteDataSource.getFamilyMembers(familyId);
@@ -151,7 +172,13 @@ class FamilyRepositoryImpl implements FamilyRepository {
 
   @override
   Future<List<FamilyActivity>> getFamilyActivity(String familyId) async {
-    return remoteDataSource.getFamilyActivity(familyId);
+    try {
+      final activities = await remoteDataSource.getFamilyActivity(familyId);
+      await localDataSource.cacheFamilyActivity(familyId, activities);
+      return activities;
+    } catch (e) {
+      return await localDataSource.getCachedFamilyActivity(familyId);
+    }
   }
 
   @override

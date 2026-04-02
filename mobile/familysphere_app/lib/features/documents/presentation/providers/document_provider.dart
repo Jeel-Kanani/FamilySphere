@@ -10,6 +10,8 @@ import 'package:familysphere_app/features/documents/domain/usecases/download_doc
 import 'package:familysphere_app/features/documents/domain/usecases/prepare_document_for_viewing.dart';
 import 'package:familysphere_app/features/documents/data/datasources/document_local_datasource.dart';
 import 'package:familysphere_app/features/documents/data/datasources/document_sync_local_datasource.dart';
+import 'package:familysphere_app/features/documents/data/datasources/sync_history_local_datasource.dart';
+import 'package:familysphere_app/features/documents/data/models/sync_history_entry_model.dart';
 import 'package:familysphere_app/features/documents/data/repositories/document_repository_impl.dart';
 import 'package:familysphere_app/features/documents/data/datasources/document_remote_datasource.dart';
 import 'package:familysphere_app/features/documents/domain/services/document_encryption_service.dart';
@@ -29,6 +31,10 @@ final documentLocalDataSourceProvider = Provider((ref) {
 
 final documentSyncLocalDataSourceProvider = Provider((ref) {
   return DocumentSyncLocalDataSource();
+});
+
+final syncHistoryLocalDataSourceProvider = Provider((ref) {
+  return SyncHistoryLocalDataSource();
 });
 
 final documentEncryptionServiceProvider = Provider((ref) {
@@ -83,6 +89,7 @@ final prepareDocumentForViewingUseCaseProvider = Provider((ref) {
 class DocumentState {
   final List<DocumentEntity> documents;
   final List<String> folders;
+  final Map<String, List<String>> foldersByQueryCache;
   final Map<String, List<FolderEntity>> folderDetailsCache;
   final bool isLoading;
   final String? error;
@@ -96,10 +103,12 @@ class DocumentState {
   final int failedSyncJobs;
   final Map<String, String> syncErrorsByDocumentId;
   final Map<String, String> syncJobTypesByDocumentId;
+  final List<SyncHistoryEntryModel> syncHistory;
 
   const DocumentState({
     this.documents = const [],
     this.folders = const [],
+    this.foldersByQueryCache = const {},
     this.folderDetailsCache = const {},
     this.isLoading = false,
     this.error,
@@ -113,6 +122,7 @@ class DocumentState {
     this.failedSyncJobs = 0,
     this.syncErrorsByDocumentId = const {},
     this.syncJobTypesByDocumentId = const {},
+    this.syncHistory = const [],
   });
 
   factory DocumentState.initial() => const DocumentState();
@@ -120,6 +130,7 @@ class DocumentState {
   DocumentState copyWith({
     List<DocumentEntity>? documents,
     List<String>? folders,
+    Map<String, List<String>>? foldersByQueryCache,
     Map<String, List<FolderEntity>>? folderDetailsCache,
     bool? isLoading,
     String? error,
@@ -133,10 +144,12 @@ class DocumentState {
     int? failedSyncJobs,
     Map<String, String>? syncErrorsByDocumentId,
     Map<String, String>? syncJobTypesByDocumentId,
+    List<SyncHistoryEntryModel>? syncHistory,
   }) {
     return DocumentState(
       documents: documents ?? this.documents,
       folders: folders ?? this.folders,
+      foldersByQueryCache: foldersByQueryCache ?? this.foldersByQueryCache,
       folderDetailsCache: folderDetailsCache ?? this.folderDetailsCache,
       isLoading: isLoading ?? this.isLoading,
       error: error,
@@ -152,6 +165,7 @@ class DocumentState {
           syncErrorsByDocumentId ?? this.syncErrorsByDocumentId,
       syncJobTypesByDocumentId:
           syncJobTypesByDocumentId ?? this.syncJobTypesByDocumentId,
+      syncHistory: syncHistory ?? this.syncHistory,
     );
   }
 
@@ -203,6 +217,62 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
         message.contains('timed out');
   }
 
+  String _historyId(String prefix) {
+    return '$prefix-${DateTime.now().microsecondsSinceEpoch}';
+  }
+
+  Future<void> _loadSyncHistory(String familyId) async {
+    final history = await _ref
+        .read(syncHistoryLocalDataSourceProvider)
+        .getEntries(familyId);
+    state = state.copyWith(syncHistory: history);
+  }
+
+  Future<void> _recordSyncHistory({
+    required String familyId,
+    required String itemId,
+    required String action,
+    required String status,
+    required String message,
+    String itemType = 'document',
+  }) async {
+    final entry = SyncHistoryEntryModel(
+      id: _historyId('sync-history'),
+      familyId: familyId,
+      itemType: itemType,
+      itemId: itemId,
+      action: action,
+      status: status,
+      message: message,
+      createdAt: DateTime.now(),
+    );
+    await _ref.read(syncHistoryLocalDataSourceProvider).addEntry(entry);
+    await _loadSyncHistory(familyId);
+  }
+
+  Future<void> _recordSyncProcessResult(
+    String familyId,
+    SyncProcessResult result,
+  ) async {
+    if (result.events.isEmpty) return;
+    final historyDataSource = _ref.read(syncHistoryLocalDataSourceProvider);
+    for (final event in result.events) {
+      await historyDataSource.addEntry(
+        SyncHistoryEntryModel(
+          id: _historyId('sync-history'),
+          familyId: familyId,
+          itemType: event.itemType,
+          itemId: event.itemId,
+          action: event.action,
+          status: event.status,
+          message: event.message,
+          createdAt: DateTime.now(),
+        ),
+      );
+    }
+    await _loadSyncHistory(familyId);
+  }
+
   bool _matchesQuery(
     DocumentEntity document, {
     String? category,
@@ -238,6 +308,8 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
       }
       return;
     }
+
+    await _loadSyncHistory(user.familyId!);
 
     final syncSnapshot = await _syncEngine.snapshotForFamily(user.familyId!);
 
@@ -374,7 +446,8 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
     );
 
     try {
-      await _syncEngine.processPendingJobs(user.familyId!);
+      final syncResult = await _syncEngine.processPendingJobs(user.familyId!);
+      await _recordSyncProcessResult(user.familyId!, syncResult);
       final result = await _getDocuments(
         user.familyId!,
         category: category,
@@ -529,15 +602,22 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
         memberId: memberId,
       );
       final newStorageUsed = state.storageUsed + queuedDoc.sizeBytes.toInt();
-      state = state.copyWith(
-        documents: [queuedDoc, ...state.documents],
-        storageUsed: newStorageUsed,
-        lastStorageSync: DateTime.now(),
-        isLoading: false,
-        pendingSyncJobs: state.pendingSyncJobs + 1,
-        error: null,
-      );
-      for (final key in _documentsByQueryCache.keys.toList()) {
+        state = state.copyWith(
+          documents: [queuedDoc, ...state.documents],
+          storageUsed: newStorageUsed,
+          lastStorageSync: DateTime.now(),
+          isLoading: false,
+          pendingSyncJobs: state.pendingSyncJobs + 1,
+          error: null,
+        );
+        await _recordSyncHistory(
+          familyId: user.familyId!,
+          itemId: queuedDoc.id,
+          action: 'upload',
+          status: 'queued',
+          message: 'Upload saved offline and queued for sync.',
+        );
+        for (final key in _documentsByQueryCache.keys.toList()) {
         final list = _documentsByQueryCache[key];
         if (list == null) continue;
         if (_matchesQuery(
@@ -625,16 +705,23 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
           memberId: memberId,
         );
         final newStorageUsed = state.storageUsed + queuedDoc.sizeBytes.toInt();
-        state = state.copyWith(
-          documents: [queuedDoc, ...state.documents],
-          storageUsed: newStorageUsed,
-          lastStorageSync: DateTime.now(),
-          isLoading: false,
-          pendingSyncJobs: state.pendingSyncJobs + 1,
-          failedSyncJobs: state.failedSyncJobs,
-          error: null,
-        );
-        for (final key in _documentsByQueryCache.keys.toList()) {
+          state = state.copyWith(
+            documents: [queuedDoc, ...state.documents],
+            storageUsed: newStorageUsed,
+            lastStorageSync: DateTime.now(),
+            isLoading: false,
+            pendingSyncJobs: state.pendingSyncJobs + 1,
+            failedSyncJobs: state.failedSyncJobs,
+            error: null,
+          );
+          await _recordSyncHistory(
+            familyId: user.familyId!,
+            itemId: queuedDoc.id,
+            action: 'upload',
+            status: 'queued',
+            message: 'Upload saved offline and queued for sync.',
+          );
+          for (final key in _documentsByQueryCache.keys.toList()) {
           final list = _documentsByQueryCache[key];
           if (list == null) continue;
           if (_matchesQuery(
@@ -711,6 +798,13 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
           failedSyncJobs: state.failedSyncJobs,
           error: null,
         );
+        await _recordSyncHistory(
+          familyId: user.familyId!,
+          itemId: document.id,
+          action: 'delete',
+          status: 'queued',
+          message: 'Delete queued and will sync when back online.',
+        );
         return;
       }
     }
@@ -745,13 +839,20 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
               _documentsCacheAt[key] = DateTime.now();
             }
           }
-          state = state.copyWith(
-            pendingSyncJobs: state.pendingSyncJobs + 1,
-            failedSyncJobs: state.failedSyncJobs,
-            error: null,
-          );
-          return;
-        }
+            state = state.copyWith(
+              pendingSyncJobs: state.pendingSyncJobs + 1,
+              failedSyncJobs: state.failedSyncJobs,
+              error: null,
+            );
+            await _recordSyncHistory(
+              familyId: user.familyId!,
+              itemId: document.id,
+              action: 'delete',
+              status: 'queued',
+              message: 'Delete queued and will sync when back online.',
+            );
+            return;
+          }
       }
       // Revert if failed
       state = state.copyWith(
@@ -811,7 +912,8 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
     final user = _ref.read(authProvider).user;
     if (user?.familyId == null) return;
 
-    await _syncEngine.processPendingJobs(user!.familyId!);
+    final syncResult = await _syncEngine.processPendingJobs(user!.familyId!);
+    await _recordSyncProcessResult(user.familyId!, syncResult);
     final snapshot = await _syncEngine.snapshotForFamily(user.familyId!);
     state = state.copyWith(
       pendingSyncJobs: snapshot.pendingJobCount,
@@ -832,6 +934,13 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       await _syncEngine.retryFailedJobs(user!.familyId!);
+      await _recordSyncHistory(
+        familyId: user.familyId!,
+        itemId: 'all',
+        action: 'retry',
+        status: 'requested',
+        message: 'Retry requested for failed sync jobs.',
+      );
       await loadDocuments(forceRefresh: true);
     } catch (e) {
       state = state.copyWith(
@@ -849,6 +958,13 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       await _syncEngine.clearFailedJobs(user!.familyId!);
+      await _recordSyncHistory(
+        familyId: user.familyId!,
+        itemId: 'all',
+        action: 'clear_failed',
+        status: 'success',
+        message: 'Failed sync jobs cleared on this device.',
+      );
       await loadDocuments(forceRefresh: true);
     } catch (e) {
       state = state.copyWith(
@@ -920,9 +1036,17 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
       final newCache =
           Map<String, List<FolderEntity>>.from(state.folderDetailsCache);
       newCache[folderKey] = folderDetails;
-      if (!listEquals(state.folders, folders) || state.error != null) {
+      final foldersCache =
+          Map<String, List<String>>.from(state.foldersByQueryCache);
+      foldersCache[folderKey] = folders;
+      if (!listEquals(state.foldersByQueryCache[folderKey], folders) ||
+          state.error != null) {
         state = state.copyWith(
-            folders: folders, folderDetailsCache: newCache, error: null);
+          folders: folders,
+          foldersByQueryCache: foldersCache,
+          folderDetailsCache: newCache,
+          error: null,
+        );
       }
     } catch (e) {
       state = state.copyWith(error: 'Failed to load folders: $e');
@@ -937,6 +1061,16 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
     if (user == null || user.familyId == null) return null;
     final folderKey = '${user.familyId}|$category|${memberId ?? ''}';
     return state.folderDetailsCache[folderKey];
+  }
+
+  List<String> getFoldersForQuery({
+    required String category,
+    String? memberId,
+  }) {
+    final user = _ref.read(authProvider).user;
+    if (user == null || user.familyId == null) return state.folders;
+    final folderKey = '${user.familyId}|$category|${memberId ?? ''}';
+    return state.foldersByQueryCache[folderKey] ?? state.folders;
   }
 
   Future<void> createFolder({
@@ -957,6 +1091,30 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
       await loadFolders(category: category, memberId: memberId);
     } catch (e) {
       state = state.copyWith(error: 'Failed to create folder: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> renameFolder({
+    required String folderId,
+    required String newName,
+    required String category,
+    String? memberId,
+  }) async {
+    try {
+      final repository = _ref.read(documentRepositoryProvider);
+      await repository.renameFolder(
+        folderId: folderId,
+        newName: newName,
+      );
+      await loadFolders(category: category, memberId: memberId);
+      await loadDocuments(
+        category: category,
+        memberId: memberId,
+        forceRefresh: true,
+      );
+    } catch (e) {
+      state = state.copyWith(error: 'Failed to rename folder: $e');
       rethrow;
     }
   }
@@ -1037,13 +1195,20 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
             memberId: memberId,
           );
           final snapshot = await _syncEngine.snapshotForFamily(user.familyId!);
-          state = state.copyWith(
-            pendingSyncJobs: snapshot.pendingJobCount,
-            failedSyncJobs: snapshot.failedJobCount,
-            error: null,
-          );
-          return;
-        }
+            state = state.copyWith(
+              pendingSyncJobs: snapshot.pendingJobCount,
+              failedSyncJobs: snapshot.failedJobCount,
+              error: null,
+            );
+            await _recordSyncHistory(
+              familyId: user.familyId!,
+              itemId: document.id,
+              action: 'move',
+              status: 'queued',
+              message: 'Folder move queued and will sync when back online.',
+            );
+            return;
+          }
       }
 
       final repository = _ref.read(documentRepositoryProvider);
@@ -1076,13 +1241,20 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
             memberId: memberId,
           );
           final snapshot = await _syncEngine.snapshotForFamily(user.familyId!);
-          state = state.copyWith(
-            pendingSyncJobs: snapshot.pendingJobCount,
-            failedSyncJobs: snapshot.failedJobCount,
-            error: null,
-          );
-          return;
-        }
+            state = state.copyWith(
+              pendingSyncJobs: snapshot.pendingJobCount,
+              failedSyncJobs: snapshot.failedJobCount,
+              error: null,
+            );
+            await _recordSyncHistory(
+              familyId: user.familyId!,
+              itemId: document.id,
+              action: 'move',
+              status: 'queued',
+              message: 'Folder move queued and will sync when back online.',
+            );
+            return;
+          }
       }
 
       state = state.copyWith(
@@ -1118,6 +1290,13 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
         familyId: user!.familyId!,
         documentId: documentId,
       );
+      await _recordSyncHistory(
+        familyId: user.familyId!,
+        itemId: documentId,
+        action: 'retry',
+        status: 'requested',
+        message: 'Retry requested for this document.',
+      );
       await loadDocuments(forceRefresh: true);
     } catch (e) {
       state = state.copyWith(
@@ -1138,6 +1317,13 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
         familyId: user!.familyId!,
         documentId: documentId,
       );
+      await _recordSyncHistory(
+        familyId: user.familyId!,
+        itemId: documentId,
+        action: 'clear_failed',
+        status: 'success',
+        message: 'Failed sync removed for this document.',
+      );
       await loadDocuments(forceRefresh: true);
     } catch (e) {
       state = state.copyWith(
@@ -1146,6 +1332,67 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
       );
       rethrow;
     }
+  }
+
+  bool hasConflictForDocument(String documentId) {
+    final error = syncErrorForDocument(documentId)?.toLowerCase() ?? '';
+    return error.contains('conflict') ||
+        error.contains('no longer exists') ||
+        error.contains('no longer be applied');
+  }
+
+  Future<void> resolveFailedSyncConflict(String documentId) async {
+    final user = _ref.read(authProvider).user;
+    if (user?.familyId == null) return;
+    final familyId = user!.familyId!;
+
+    final syncType = syncJobTypeForDocument(documentId);
+    final syncError = syncErrorForDocument(documentId)?.toLowerCase() ?? '';
+    final document = state.documents.firstWhere(
+      (item) => item.id == documentId,
+      orElse: () => DocumentEntity(
+        id: documentId,
+        familyId: familyId,
+        title: '',
+        category: 'Shared',
+        fileUrl: '',
+        fileType: 'application/octet-stream',
+        sizeBytes: 0,
+        uploadedBy: user.id,
+        uploadedAt: DateTime.now(),
+        storagePath: '',
+      ),
+    );
+
+    if (syncType == 'move' && syncError.contains('folder no longer exists')) {
+      await _syncEngine.queueMove(
+        familyId: familyId,
+        document: document,
+        folder: 'General',
+      );
+      await _recordSyncHistory(
+        familyId: familyId,
+        itemId: documentId,
+        action: 'resolve_conflict',
+        status: 'requested',
+        message: 'Conflict resolution applied: move target changed to General.',
+      );
+      await retryFailedSyncForDocument(documentId);
+      return;
+    }
+
+    await clearFailedSyncForDocument(documentId);
+    await _recordSyncHistory(
+      familyId: familyId,
+      itemId: documentId,
+      action: 'resolve_conflict',
+      status: 'success',
+      message: 'Conflict cleared on this device.',
+    );
+  }
+
+  Future<List<DocumentEntity>> getOfflineLibrary() async {
+    return _ref.read(documentLocalDataSourceProvider).getAllOfflineDocuments();
   }
 }
 

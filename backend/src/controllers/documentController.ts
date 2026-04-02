@@ -565,6 +565,111 @@ export const moveDocumentToFolder = async (req: Request, res: Response) => {
     }
 };
 
+export const renameFolder = async (req: Request, res: Response) => {
+    try {
+        const folderId = Array.isArray(req.params.folderId)
+            ? req.params.folderId[0]
+            : req.params.folderId;
+        const { newName } = req.body;
+        const normalizedNewName = (newName || '').trim();
+
+        if (!folderId || !mongoose.Types.ObjectId.isValid(folderId)) {
+            return res.status(400).json({ message: 'Valid folderId is required' });
+        }
+
+        if (!normalizedNewName) {
+            return res.status(400).json({ message: 'newName is required' });
+        }
+
+        const folder = await VaultFolder.findById(folderId);
+        if (!folder || folder.deleted) {
+            return res.status(404).json({ message: 'Folder not found' });
+        }
+
+        const requesterFamilyId = getAuthenticatedFamilyId(req);
+        if (!requesterFamilyId || requesterFamilyId !== String(folder.familyId)) {
+            return res.status(403).json({ message: 'Not allowed to rename this folder' });
+        }
+
+        if (!canActForMember(req, folder.memberId ? String(folder.memberId) : undefined)) {
+            return res.status(403).json({ message: 'Not allowed to rename this folder' });
+        }
+
+        const oldName = folder.name;
+        const nameParts = oldName.split('/').filter(Boolean);
+        if (nameParts.length === 0) {
+            return res.status(400).json({ message: 'Folder name is invalid' });
+        }
+
+        const parentPath = nameParts.length > 1 ? nameParts.slice(0, -1).join('/') : '';
+        const nextFullName = parentPath ? `${parentPath}/${normalizedNewName}` : normalizedNewName;
+
+        if (oldName.toLowerCase() === nextFullName.toLowerCase()) {
+            return res.status(200).json({ message: 'Folder name unchanged', folder });
+        }
+
+        const existing = await VaultFolder.findOne({
+            _id: { $ne: folder._id },
+            familyId: folder.familyId,
+            category: folder.category,
+            memberId: folder.memberId || undefined,
+            deleted: false,
+            name: {
+                $regex: `^${escapeRegex(nextFullName)}$`,
+                $options: 'i',
+            },
+        });
+        if (existing) {
+            return res.status(409).json({ message: 'A folder with that name already exists' });
+        }
+
+        const oldPrefix = `${oldName}/`;
+        const descendantFolders = await VaultFolder.find({
+            familyId: folder.familyId,
+            category: folder.category,
+            ...(folder.memberId ? { memberId: folder.memberId } : {}),
+            deleted: false,
+            name: { $regex: `^${escapeRegex(oldPrefix)}` },
+        });
+
+        for (const child of descendantFolders) {
+            child.name = child.name.replace(oldPrefix, `${nextFullName}/`);
+            await child.save();
+        }
+
+        const relatedDocuments = await Document.find({
+            familyId: folder.familyId,
+            category: folder.category,
+            deleted: false,
+            ...(folder.memberId ? { memberId: folder.memberId } : {}),
+            $or: [
+                { folder: oldName },
+                { folder: { $regex: `^${escapeRegex(oldPrefix)}` } },
+            ],
+        });
+
+        for (const doc of relatedDocuments) {
+            doc.folder = doc.folder === oldName
+                ? nextFullName
+                : doc.folder.replace(oldPrefix, `${nextFullName}/`);
+            await doc.save();
+        }
+
+        folder.name = nextFullName;
+        await folder.save();
+
+        res.status(200).json({
+            message: 'Folder renamed successfully',
+            folder,
+        });
+    } catch (error: any) {
+        if (error?.code === 11000) {
+            return res.status(409).json({ message: 'A folder with that name already exists' });
+        }
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const deleteFolder = async (req: Request, res: Response) => {
     try {
         const { folderId } = req.params;

@@ -61,6 +61,12 @@ abstract class DocumentRepository {
     String? memberId,
   });
 
+  /// Rename an existing custom folder
+  Future<void> renameFolder({
+    required String folderId,
+    required String newName,
+  });
+
   /// Delete a custom folder
   ///
   /// [folderId] - ID of the folder to delete

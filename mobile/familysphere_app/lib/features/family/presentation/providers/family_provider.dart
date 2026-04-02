@@ -387,6 +387,30 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
     }
   }
 
+  Future<void> updateFamilyName(String name) async {
+    final user = _ref.read(authProvider).user;
+    final family = state.family;
+    if (user == null || family == null) return;
+
+    state = state.copyWith(isUpdatingSettings: true, error: null);
+    try {
+      final updatedFamily = await _ref.read(familyRepositoryProvider).updateFamilyProfile(
+            family.id,
+            name,
+            user.id,
+          );
+
+      state = state.copyWith(
+        family: updatedFamily,
+        isUpdatingSettings: false,
+      );
+      await refreshActivity();
+    } catch (e) {
+      state = state.copyWith(isUpdatingSettings: false, error: e.toString());
+      rethrow;
+    }
+  }
+
   Future<void> removeMember(String memberId) async {
     final user = _ref.read(authProvider).user;
     final family = state.family;

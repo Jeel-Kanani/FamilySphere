@@ -50,6 +50,18 @@ class FamilyRemoteDataSource {
     }
   }
 
+  /// Update family profile details
+  Future<FamilyModel> updateFamilyProfile(String familyId, String name) async {
+    final response = await _apiClient.put(
+      '/api/families/$familyId',
+      data: {
+        'name': name,
+      },
+    );
+
+    return FamilyModel.fromJson(response.data);
+  }
+
   /// Get all family members with their details
   Future<List<FamilyMemberModel>> getFamilyMembers(String familyId) async {
     final response = await _apiClient.get('/api/families/$familyId/members');

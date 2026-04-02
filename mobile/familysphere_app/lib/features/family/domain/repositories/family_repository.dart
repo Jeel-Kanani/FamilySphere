@@ -31,6 +31,13 @@ abstract class FamilyRepository {
   /// Returns Family or null if not found
   Future<Family?> getFamily(String familyId);
 
+  /// Update family profile details such as display name
+  Future<Family> updateFamilyProfile(
+    String familyId,
+    String name,
+    String requestingUserId,
+  );
+
   /// Get all members of a family
   /// 
   /// [familyId] - ID of the family

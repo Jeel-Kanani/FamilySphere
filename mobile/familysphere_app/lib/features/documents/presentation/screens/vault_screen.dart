@@ -116,6 +116,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
               _buildStatsRow(context, documents),
               const SizedBox(height: 16),
 
+              _buildVaultOverview(documents),
+              const SizedBox(height: 16),
+
               // Storage Card with better design
               _buildStorageCard(context, storageUsedStr, storageLimitStr,
                   progress, lastStorageSync),
@@ -403,6 +406,10 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
 
   Widget _buildStatsRow(BuildContext context, List documents) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final folderCount = documents
+        .map((doc) => '${doc.category}|${(doc.folder as String?)?.split('/').first ?? 'General'}')
+        .toSet()
+        .length;
 
     return Row(
       children: [
@@ -422,12 +429,83 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
             context,
             icon: Icons.folder_open_rounded,
             label: 'Folders',
-            value: '22', // Assuming custom folders or categories
+            value: folderCount.toString(),
             color: const Color(0xFF10B981),
             isDark: isDark,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildVaultOverview(List documents) {
+    final sharedCount = _getDocCountByCategory(documents, 'Shared');
+    final personalCount = _getDocCountByCategory(documents, 'Personal');
+    final privateCount = _getDocCountByCategory(documents, 'Private');
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        _buildOverviewChip(
+          label: 'Shared',
+          value: '$sharedCount docs',
+          color: const Color(0xFF0EA5E9),
+        ),
+        _buildOverviewChip(
+          label: 'Personal',
+          value: '$personalCount docs',
+          color: const Color(0xFF10B981),
+        ),
+        _buildOverviewChip(
+          label: 'Private',
+          value: '$privateCount docs',
+          color: const Color(0xFFF97316),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOverviewChip({
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -823,6 +901,17 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppTheme.textSecondary,
                         ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    documentCount == 0
+                        ? 'Start organizing this space'
+                        : '$documentCount item${documentCount == 1 ? '' : 's'} ready',
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
               ),

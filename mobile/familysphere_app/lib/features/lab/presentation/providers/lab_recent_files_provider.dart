@@ -9,8 +9,8 @@ class LabRecentFile {
   final String filePath;
   final String fileName;
   final int sizeBytes;
-  final String toolId;     // e.g. 'merge_pdf', 'compress_pdf'
-  final String toolLabel;  // e.g. 'Merge PDF', 'Compress PDF'
+  final String toolId; // e.g. 'merge_pdf', 'compress_pdf'
+  final String toolLabel; // e.g. 'Merge PDF', 'Compress PDF'
   final DateTime createdAt;
 
   const LabRecentFile({
@@ -118,14 +118,14 @@ class LabRecentFilesStorage {
   Future<void> updateFilePath(String oldPath, String newPath) async {
     final box = await _openBox();
     final entries = _readEntries(box);
-    
+
     // Find the entry with the old path
     final index = entries.indexWhere((e) => e.filePath == oldPath);
     if (index != -1) {
       // Update the file path and file name
       final oldEntry = entries[index];
       final newFileName = newPath.split(Platform.pathSeparator).last;
-      
+
       final updatedEntry = LabRecentFile(
         filePath: newPath,
         fileName: newFileName,
@@ -134,9 +134,9 @@ class LabRecentFilesStorage {
         toolLabel: oldEntry.toolLabel,
         createdAt: oldEntry.createdAt,
       );
-      
+
       entries[index] = updatedEntry;
-      
+
       await box.put(
         'entries',
         entries.map((e) => e.toJson()).toList(),
@@ -198,5 +198,10 @@ class LabRecentFilesNotifier extends StateNotifier<List<LabRecentFile>> {
   Future<void> updateFilePath(String oldPath, String newPath) async {
     await _storage.updateFilePath(oldPath, newPath);
     state = await _storage.getRecentFiles();
+  }
+
+  Future<void> clearAll() async {
+    await _storage.clearAll();
+    state = [];
   }
 }

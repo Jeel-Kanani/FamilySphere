@@ -6,6 +6,7 @@ import 'package:familysphere_app/features/auth/presentation/screens/profile_scre
 import 'package:familysphere_app/features/auth/presentation/screens/family_setup_screen.dart';
 import 'package:familysphere_app/features/family/presentation/screens/family_details_screen.dart';
 import 'package:familysphere_app/features/family/presentation/screens/invite_member_screen.dart';
+import 'package:familysphere_app/features/family/presentation/screens/family_settings_screen.dart';
 import 'package:familysphere_app/features/home/presentation/screens/main_navigation_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/document_list_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/add_document_screen.dart';
@@ -57,6 +58,7 @@ class AppRoutes {
   static const String joinSuccess = '/join-success';
   static const String home = '/home';
   static const String familyDetails = '/family-details';
+  static const String familySettings = '/family-settings';
   static const String inviteMember = '/invite-member';
   static const String documents = '/documents';
   static const String addDocument = '/add-document';
@@ -135,17 +137,34 @@ class AppRoutes {
       case familyDetails:
         return MaterialPageRoute(builder: (_) => const FamilyDetailsScreen());
 
+      case familySettings:
+        return MaterialPageRoute(builder: (_) => const FamilySettingsScreen());
+
       case inviteMember:
         return MaterialPageRoute(builder: (_) => const InviteMemberScreen());
 
       case documents:
         final args = settings.arguments;
         String? category;
+        String? folder;
+        String? memberId;
+        List<String> path = const [];
         if (args is Map && args['category'] is String) {
           category = args['category'] as String;
+          folder = args['folder'] as String?;
+          memberId = args['memberId'] as String?;
+          final dynamic rawPath = args['path'];
+          if (rawPath is List) {
+            path = rawPath.whereType<String>().toList();
+          }
         }
         return MaterialPageRoute(
-          builder: (_) => DocumentListScreen(initialCategory: category),
+          builder: (_) => DocumentListScreen(
+            initialCategory: category,
+            initialFolder: folder,
+            initialMemberId: memberId,
+            initialPath: path,
+          ),
         );
       
       case recentDocuments:
@@ -297,14 +316,29 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const FamilyChatScreen());
 
       case folderDetails:
-      case memberDocs:
-      case privateLocker:
-        // Placeholder for missing screens to allow compilation
+        final args = settings.arguments as Map?;
         return MaterialPageRoute(
-          builder: (_) => Scaffold(
-            appBar: AppBar(title: const Text('Coming Soon')),
-            body: const Center(child: Text('This feature is coming soon!')),
+          builder: (_) => DocumentListScreen(
+            initialCategory: args?['category'] as String?,
+            initialFolder: args?['folder'] as String?,
+            initialMemberId: args?['memberId'] as String?,
+            initialPath: (args?['path'] is List)
+                ? (args!['path'] as List).whereType<String>().toList()
+                : const [],
           ),
+        );
+
+      case memberDocs:
+        return MaterialPageRoute(
+          builder: (_) => DocumentListScreen(
+            initialCategory: 'Shared',
+            initialMemberId: (settings.arguments as Map?)?['memberId'] as String?,
+          ),
+        );
+
+      case privateLocker:
+        return MaterialPageRoute(
+          builder: (_) => const DocumentListScreen(initialCategory: 'Private'),
         );
 
       default:

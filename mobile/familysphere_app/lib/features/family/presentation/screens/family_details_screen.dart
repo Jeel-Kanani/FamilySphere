@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
-import 'package:familysphere_app/features/family/domain/entities/family.dart' as family_entity;
+import 'package:familysphere_app/core/utils/routes.dart';
+import 'package:familysphere_app/features/family/domain/entities/family.dart'
+    as family_entity;
 import 'package:familysphere_app/features/family/domain/entities/family_activity.dart';
 import 'package:familysphere_app/features/family/domain/entities/family_member.dart';
 import 'package:familysphere_app/features/family/presentation/providers/family_provider.dart';
@@ -11,7 +13,8 @@ class FamilyDetailsScreen extends ConsumerStatefulWidget {
   const FamilyDetailsScreen({super.key});
 
   @override
-  ConsumerState<FamilyDetailsScreen> createState() => _FamilyDetailsScreenState();
+  ConsumerState<FamilyDetailsScreen> createState() =>
+      _FamilyDetailsScreenState();
 }
 
 class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
@@ -55,9 +58,11 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
                 children: [
                   _buildAdminBanner(isAdmin, isDark),
                   const SizedBox(height: 24),
-                  _buildSectionHeader(context, 'Family Members', '${familyState.members.length} total'),
+                  _buildSectionHeader(context, 'Family Members',
+                      '${familyState.members.length} total'),
                   const SizedBox(height: 16),
-                   _buildMembersList(familyState.members, family, user?.id, isDark, isAdmin),
+                  _buildMembersList(
+                      familyState.members, family, user?.id, isDark, isAdmin),
                   const SizedBox(height: 32),
                   _buildSectionHeader(context, 'Recent Activity', 'View all'),
                   const SizedBox(height: 16),
@@ -81,7 +86,8 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
     );
   }
 
-  Widget _buildSliverAppBar(BuildContext context, family_entity.Family family, bool isAdmin, bool isDark) {
+  Widget _buildSliverAppBar(BuildContext context, family_entity.Family family,
+      bool isAdmin, bool isDark) {
     return SliverAppBar(
       expandedHeight: 200,
       pinned: true,
@@ -126,12 +132,13 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
         ),
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.settings_outlined),
-          onPressed: () {
-            // TODO: Family Settings
-          },
-        ),
+        if (isAdmin)
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () {
+              Navigator.pushNamed(context, AppRoutes.familySettings);
+            },
+          ),
       ],
     );
   }
@@ -147,7 +154,8 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.shield_rounded, color: AppTheme.primaryColor, size: 20),
+          const Icon(Icons.shield_rounded,
+              color: AppTheme.primaryColor, size: 20),
           const SizedBox(width: 12),
           const Text(
             'Admin View',
@@ -159,7 +167,7 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
           const Spacer(),
           TextButton(
             onPressed: () {
-              // TODO: Manage permissions
+              Navigator.pushNamed(context, AppRoutes.familySettings);
             },
             child: const Text('Manage Permissions'),
           ),
@@ -168,7 +176,8 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
     );
   }
 
-  Widget _buildSectionHeader(BuildContext context, String title, String subtitle) {
+  Widget _buildSectionHeader(
+      BuildContext context, String title, String subtitle) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -184,7 +193,12 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
     );
   }
 
-  Widget _buildMembersList(List<FamilyMember> members, family_entity.Family family, String? currentUserId, bool isDark, bool isAdmin) {
+  Widget _buildMembersList(
+      List<FamilyMember> members,
+      family_entity.Family family,
+      String? currentUserId,
+      bool isDark,
+      bool isAdmin) {
     return Column(
       children: members.map((member) {
         final isMe = member.userId == currentUserId;
@@ -218,37 +232,47 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
                     Row(
                       children: [
                         Text(
-                          isMe ? '${member.displayName} (You)' : member.displayName,
+                          isMe
+                              ? '${member.displayName} (You)'
+                              : member.displayName,
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         if (isMemberAdmin) ...[
                           const SizedBox(width: 6),
-                          const Icon(Icons.verified_user_rounded, color: AppTheme.primaryColor, size: 14),
+                          const Icon(Icons.verified_user_rounded,
+                              color: AppTheme.primaryColor, size: 14),
                         ],
                         if (isMemberViewer) ...[
                           const SizedBox(width: 6),
-                          const Icon(Icons.visibility_rounded, color: AppTheme.textTertiary, size: 14),
+                          const Icon(Icons.visibility_rounded,
+                              color: AppTheme.textTertiary, size: 14),
                         ],
                       ],
                     ),
                     Text(
                       isMemberAdmin
                           ? 'Family Admin'
-                          : (isMemberViewer ? 'Family Viewer' : 'Family Member'),
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textTertiary),
+                          : (isMemberViewer
+                              ? 'Family Viewer'
+                              : 'Family Member'),
+                      style: const TextStyle(
+                          fontSize: 12, color: AppTheme.textTertiary),
                     ),
                   ],
                 ),
               ),
-              if (!isMe && isAdmin) // Using the outer isAdmin which checks if the current user is admin
+              if (!isMe &&
+                  isAdmin) // Using the outer isAdmin which checks if the current user is admin
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert_rounded),
                   onSelected: (value) => _handleMemberAction(value, member),
                   itemBuilder: (context) => [
-                    const PopupMenuItem(value: 'role', child: Text('Change Role')),
+                    const PopupMenuItem(
+                        value: 'role', child: Text('Change Role')),
                     const PopupMenuItem(
                       value: 'remove',
-                      child: Text('Remove Member', style: TextStyle(color: AppTheme.errorColor)),
+                      child: Text('Remove Member',
+                          style: TextStyle(color: AppTheme.errorColor)),
                     ),
                   ],
                 ),
@@ -294,7 +318,8 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(32.0),
-          child: Text('No recent activity', style: TextStyle(color: AppTheme.textTertiary)),
+          child: Text('No recent activity',
+              style: TextStyle(color: AppTheme.textTertiary)),
         ),
       );
     }
@@ -341,7 +366,8 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
                     const SizedBox(height: 4),
                     Text(
                       _formatDateTime(activity.createdAt),
-                      style: const TextStyle(fontSize: 11, color: AppTheme.textTertiary),
+                      style: const TextStyle(
+                          fontSize: 11, color: AppTheme.textTertiary),
                     ),
                   ],
                 ),
@@ -396,12 +422,16 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Remove Member?'),
-          content: Text('Are you sure you want to remove ${member.displayName} from the family?'),
+          content: Text(
+              'Are you sure you want to remove ${member.displayName} from the family?'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel')),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Remove', style: TextStyle(color: AppTheme.errorColor)),
+              child: const Text('Remove',
+                  style: TextStyle(color: AppTheme.errorColor)),
             ),
           ],
         ),
@@ -418,30 +448,40 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.errorColor),
+              SnackBar(
+                  content: Text('Error: $e'),
+                  backgroundColor: AppTheme.errorColor),
             );
           }
         }
       }
     } else if (action == 'role') {
       final isNowAdmin = member.role == FamilyRole.admin;
-      final newRole = isNowAdmin ? FamilyRole.member.name : FamilyRole.admin.name;
-      
+      final newRole =
+          isNowAdmin ? FamilyRole.member.name : FamilyRole.admin.name;
+
       final confirm = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Change Role?'),
-          content: Text('Make ${member.displayName} a ${isNowAdmin ? 'Member' : 'Admin'}?'),
+          content: Text(
+              'Make ${member.displayName} a ${isNowAdmin ? 'Member' : 'Admin'}?'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirm')),
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel')),
+            TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Confirm')),
           ],
         ),
       );
 
       if (confirm == true) {
         try {
-          await ref.read(familyProvider.notifier).changeMemberRole(member.userId, newRole);
+          await ref
+              .read(familyProvider.notifier)
+              .changeMemberRole(member.userId, newRole);
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Role updated for ${member.displayName}')),
@@ -450,7 +490,9 @@ class _FamilyDetailsScreenState extends ConsumerState<FamilyDetailsScreen> {
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.errorColor),
+              SnackBar(
+                  content: Text('Error: $e'),
+                  backgroundColor: AppTheme.errorColor),
             );
           }
         }
