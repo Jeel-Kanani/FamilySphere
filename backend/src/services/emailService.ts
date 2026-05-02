@@ -1,23 +1,46 @@
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
 /**
- * Email service using Resend HTTP API.
- * Works on Render free tier (uses HTTPS port 443, not SMTP ports).
+ * Email service using SMTP (Gmail).
  *
  * Required env vars:
- *   RESEND_API_KEY  – API key from https://resend.com/api-keys
- *   RESEND_FROM     – Sender address (e.g. "onboarding@resend.dev" for testing)
+ *   SMTP_HOST    – SMTP server host (e.g., smtp.gmail.com)
+ *   SMTP_PORT    – SMTP port (usually 587 for TLS)
+ *   SMTP_USER    – Email address
+ *   SMTP_PASS    – App password or email password
+ *   SMTP_FROM    – Sender address (e.g., "FamilySphere <kananijeeel00@gmail.com>")
  */
 
-const getResendClient = (): Resend | null => {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) return null;
-    return new Resend(apiKey);
+let transporter: nodemailer.Transporter | null = null;
+
+const getTransporter = (): nodemailer.Transporter | null => {
+    if (transporter) return transporter;
+
+    const host = process.env.SMTP_HOST;
+    const port = process.env.SMTP_PORT;
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+
+    if (!host || !port || !user || !pass) {
+        return null;
+    }
+
+    transporter = nodemailer.createTransport({
+        host,
+        port: parseInt(port, 10),
+        secure: parseInt(port, 10) === 465, // Use TLS for 587, SSL for 465
+        auth: {
+            user,
+            pass,
+        },
+    });
+
+    return transporter;
 };
 
 export const sendEmailOtp = async (to: string, code: string) => {
-    const resend = getResendClient();
-    const from = process.env.RESEND_FROM || 'FamilySphere <onboarding@resend.dev>';
+    const transporter = getTransporter();
+    const from = process.env.SMTP_FROM || 'FamilySphere <noreply@familysphere.com>';
     const subject = 'FamilySphere verification code';
     const text = `Your FamilySphere verification code is: ${code}. It expires in 10 minutes.`;
     const html = `
@@ -31,30 +54,31 @@ export const sendEmailOtp = async (to: string, code: string) => {
         </div>
     `;
 
-    if (!resend) {
-        // Fallback for dev when Resend isn't configured
+    if (!transporter) {
+        // Fallback for dev when SMTP isn't configured
         // eslint-disable-next-line no-console
         console.log(`[Email OTP] ${to} -> ${code}`);
         return;
     }
 
-    const { error } = await resend.emails.send({
-        from,
-        to,
-        subject,
-        text,
-        html,
-    });
-
-    if (error) {
-        console.error('[OTP] Resend API error:', error.message);
-        throw new Error(`Email send failed: ${error.message}`);
+    try {
+        await transporter.sendMail({
+            from,
+            to,
+            subject,
+            text,
+            html,
+        });
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('[OTP] SMTP error:', errorMessage);
+        throw new Error(`Email send failed: ${errorMessage}`);
     }
 };
 
 export const sendFamilyInviteEmail = async (to: string, inviterName: string, familyName: string, inviteUrl: string) => {
-    const resend = getResendClient();
-    const from = process.env.RESEND_FROM || 'FamilySphere <onboarding@resend.dev>';
+    const transporter = getTransporter();
+    const from = process.env.SMTP_FROM || 'FamilySphere <noreply@familysphere.com>';
     const subject = `Join ${familyName} on FamilySphere`;
     const text = `${inviterName} has invited you to join their family "${familyName}" on FamilySphere. Use this link: ${inviteUrl}`;
     const html = `
@@ -69,22 +93,23 @@ export const sendFamilyInviteEmail = async (to: string, inviterName: string, fam
         </div>
     `;
 
-    if (!resend) {
+    if (!transporter) {
         // eslint-disable-next-line no-console
         console.log(`[Email Invite] ${to} -> ${inviteUrl}`);
         return;
     }
 
-    const { error } = await resend.emails.send({
-        from,
-        to,
-        subject,
-        text,
-        html,
-    });
-
-    if (error) {
-        console.error('[Invite] Resend API error:', error.message);
-        throw new Error(`Invitation email failed: ${error.message}`);
+    try {
+        await transporter.sendMail({
+            from,
+            to,
+            subject,
+            text,
+            html,
+        });
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('[Invite] SMTP error:', errorMessage);
+        throw new Error(`Invitation email failed: ${errorMessage}`);
     }
 };
