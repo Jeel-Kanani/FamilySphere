@@ -311,7 +311,7 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
 
     await _loadSyncHistory(user.familyId!);
 
-    final syncSnapshot = await _syncEngine.snapshotForFamily(user.familyId!);
+    var syncSnapshot = await _syncEngine.snapshotForFamily(user.familyId!);
 
     final queryKey =
         '${user.familyId}|${category ?? ''}|${folder ?? ''}|${memberId ?? ''}';
@@ -448,6 +448,7 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
     try {
       final syncResult = await _syncEngine.processPendingJobs(user.familyId!);
       await _recordSyncProcessResult(user.familyId!, syncResult);
+      syncSnapshot = await _syncEngine.snapshotForFamily(user.familyId!);
       final result = await _getDocuments(
         user.familyId!,
         category: category,

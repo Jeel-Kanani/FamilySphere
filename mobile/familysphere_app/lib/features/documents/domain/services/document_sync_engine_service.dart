@@ -508,6 +508,7 @@ class DocumentSyncEngineService {
       extension: job.payload['extension']?.toString() ?? 'bin',
     );
 
+    var uploadSucceeded = false;
     try {
       await _remoteDataSource.uploadDocument(
         file: File(tempPath),
@@ -519,9 +520,17 @@ class DocumentSyncEngineService {
         folder: job.payload['folder']?.toString(),
         memberId: job.payload['memberId']?.toString(),
       );
+      uploadSucceeded = true;
     } finally {
       await _offlineFileStorageService.delete(tempPath);
-      await _offlineFileStorageService.delete(sourcePath);
+    }
+
+    if (uploadSucceeded) {
+      try {
+        await _offlineFileStorageService.delete(sourcePath);
+      } catch (_) {
+        // Do not turn a successful sync into a retry because local cleanup failed.
+      }
     }
   }
 

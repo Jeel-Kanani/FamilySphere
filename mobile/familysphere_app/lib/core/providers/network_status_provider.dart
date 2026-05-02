@@ -59,7 +59,7 @@ class NetworkStatusNotifier extends StateNotifier<NetworkStatus> {
     HttpClient? client;
     try {
       client = HttpClient()..connectionTimeout = const Duration(seconds: 3);
-      final uri = Uri.parse('${ApiConfig.baseUrl}/api/health');
+      final uri = Uri.parse('${ApiConfig.baseUrl}/ping');
       final request = await client.getUrl(uri).timeout(
             const Duration(seconds: 3),
           );
@@ -67,7 +67,7 @@ class NetworkStatusNotifier extends StateNotifier<NetworkStatus> {
             const Duration(seconds: 3),
           );
       await response.drain<void>();
-      return response.statusCode >= 200 && response.statusCode < 500;
+      return response.statusCode >= 200 && response.statusCode < 400;
     } catch (_) {
       return false;
     } finally {

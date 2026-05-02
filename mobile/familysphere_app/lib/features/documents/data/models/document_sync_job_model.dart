@@ -1,4 +1,6 @@
 class DocumentSyncJobModel {
+  static const Object _noChange = Object();
+
   final String id;
   final String familyId;
   final String type; // upload | delete | move
@@ -50,7 +52,7 @@ class DocumentSyncJobModel {
     Map<String, dynamic>? payload,
     DateTime? createdAt,
     int? retryCount,
-    String? lastError,
+    Object? lastError = _noChange,
   }) {
     return DocumentSyncJobModel(
       id: id ?? this.id,
@@ -59,7 +61,9 @@ class DocumentSyncJobModel {
       payload: payload ?? this.payload,
       createdAt: createdAt ?? this.createdAt,
       retryCount: retryCount ?? this.retryCount,
-      lastError: lastError ?? this.lastError,
+      lastError: identical(lastError, _noChange)
+          ? this.lastError
+          : lastError as String?,
     );
   }
 }
