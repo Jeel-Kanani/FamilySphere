@@ -551,20 +551,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 onTap: () => Navigator.pushNamed(context, AppRoutes.documents),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _QuickActionCard(
-                icon: Icons.auto_awesome_rounded,
-                label: 'Intel',
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1D4ED8), Color(0xFF38BDF8)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                onTap: () =>
-                    Navigator.pushNamed(context, AppRoutes.intelligence),
-              ),
-            ),
           ],
         ),
       ],

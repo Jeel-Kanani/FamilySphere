@@ -220,6 +220,12 @@ class DocumentRepositoryImpl implements DocumentRepository {
         return document.localPath!;
       }
 
+      if (document.id.startsWith('local-doc-')) {
+        throw Exception(
+          'Sync copy is missing on this device. Clear failed sync and upload the document again.',
+        );
+      }
+
       final response = await http.get(Uri.parse(document.fileUrl));
       if (response.statusCode == 200) {
         final filePath = await offlineFileStorageService.saveEncryptedBytes(
@@ -263,6 +269,12 @@ class DocumentRepositoryImpl implements DocumentRepository {
           documentId: document.id,
           fileName: document.title,
           extension: _resolvedExtension(document),
+        );
+      }
+
+      if (document.id.startsWith('local-doc-')) {
+        throw Exception(
+          'Sync copy is missing on this device. Clear failed sync and upload the document again.',
         );
       }
 

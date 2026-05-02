@@ -18,6 +18,15 @@ class DocumentSyncLocalDataSource {
     await box.delete(jobId);
   }
 
+  Future<DocumentSyncJobModel?> getJob(String jobId) async {
+    final box = await _openBox();
+    final data = box.get(jobId);
+    if (data is! Map) {
+      return null;
+    }
+    return DocumentSyncJobModel.fromJson(Map<String, dynamic>.from(data));
+  }
+
   Future<List<DocumentSyncJobModel>> getJobsForFamily(String familyId) async {
     final box = await _openBox();
     return box.values

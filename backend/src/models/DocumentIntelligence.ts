@@ -217,9 +217,8 @@ const DocumentIntelligenceSchema = new Schema(
 );
 
 // Index for fast lookup by document and family
-DocumentIntelligenceSchema.index({ documentId: 1 });
 DocumentIntelligenceSchema.index({ familyId: 1 });
-DocumentIntelligenceSchema.index({ 'classification.doc_type': 1 });
+DocumentIntelligenceSchema.index({ 'classification.document_type': 1 });
 DocumentIntelligenceSchema.index({ tags: 1 });
 DocumentIntelligenceSchema.index({ 'importance.criticality': 1 });
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:familysphere_app/features/auth/domain/entities/user.dart';
@@ -236,18 +237,31 @@ class AuthRemoteDataSource {
     }
   }
 
+  Future<void> _bestEffortServerLogout(String? token) async {
+    try {
+      await _apiClient
+          .post(
+            ApiConfig.logoutEndpoint,
+            options: Options(
+              headers: token != null && token.isNotEmpty
+                  ? {'Authorization': 'Bearer $token'}
+                  : null,
+              sendTimeout: const Duration(seconds: 2),
+              receiveTimeout: const Duration(seconds: 2),
+            ),
+          )
+          .timeout(const Duration(seconds: 2));
+    } catch (_) {
+      // Ignore logout network failures. Local sign-out should stay instant.
+    }
+  }
+
   /// Sign out user
   Future<void> signOut() async {
     try {
-      // Best-effort server logout (token revocation)
-      try {
-        await _apiClient.post(ApiConfig.logoutEndpoint);
-      } catch (_) {
-        // Ignore network/server errors and still clear local session
-      }
-
-      // Clear all user data from secure storage
+      final token = await _tokenService.getToken();
       await _tokenService.clearUserData();
+      unawaited(_bestEffortServerLogout(token));
     } catch (e) {
       throw Exception('Sign out failed: ${e.toString()}');
     }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:familysphere_app/features/home/presentation/screens/home_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/vault_screen.dart';
 import 'package:familysphere_app/features/home/presentation/screens/tracker_screen.dart';
-import 'package:familysphere_app/features/intelligence/presentation/screens/intelligence_hub_screen.dart';
 import 'package:familysphere_app/features/lab/presentation/screens/lab_screen.dart';
 import 'package:familysphere_app/features/auth/presentation/screens/profile_screen.dart';
 import 'package:familysphere_app/core/theme/app_theme.dart';
@@ -20,7 +19,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _screens = [
     const HomeScreen(),
     const VaultScreen(),
-    const IntelligenceHubScreen(),
     const TrackerScreen(),
     const LabScreen(),
     const ProfileScreen(),
@@ -87,11 +85,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   icon: Icon(Icons.shield_rounded),
                   activeIcon: Icon(Icons.shield_rounded),
                   label: 'Vault',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.auto_awesome_rounded),
-                  activeIcon: Icon(Icons.auto_awesome_rounded),
-                  label: 'Intel',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.analytics_rounded),

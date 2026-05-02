@@ -38,7 +38,6 @@ import 'package:familysphere_app/features/auth/presentation/screens/phone_login_
 import 'package:familysphere_app/features/auth/presentation/screens/otp_verification_screen.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/admin_engine_dashboard.dart';
 import 'package:familysphere_app/features/documents/presentation/screens/recent_documents_screen.dart';
-import 'package:familysphere_app/features/intelligence/presentation/screens/intelligence_hub_screen.dart';
 import 'package:familysphere_app/features/hub/presentation/screens/family_hub_screen.dart';
 import 'package:familysphere_app/features/hub/presentation/screens/family_feed_screen.dart';
 import 'package:familysphere_app/features/hub/presentation/screens/add_post_screen.dart';
@@ -90,7 +89,6 @@ class AppRoutes {
   static const String batchRename = '/batch-rename';
   static const String previewShare = '/preview-share';
   static const String adminEngineDashboard = '/admin/engine-dashboard';
-  static const String intelligence = '/intelligence';
   static const String hub = '/hub';
   static const String feed = '/feed';
   static const String addPost = '/add-post';
@@ -299,9 +297,6 @@ class AppRoutes {
 
       case adminEngineDashboard:
         return MaterialPageRoute(builder: (_) => const AdminEngineDashboard());
-
-      case intelligence:
-        return MaterialPageRoute(builder: (_) => const IntelligenceHubScreen());
 
       case hub:
         return MaterialPageRoute(builder: (_) => const FamilyHubScreen());

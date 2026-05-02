@@ -55,6 +55,7 @@ class SyncProcessResult {
 
 class DocumentSyncEngineService {
   static const int _maxRetriesBeforeFailure = 3;
+  final Map<String, Future<SyncProcessResult>> _activeSyncs = {};
   final DocumentSyncLocalDataSource _syncLocalDataSource;
   final DocumentRemoteDataSource _remoteDataSource;
   final OfflineFileStorageService _offlineFileStorageService;
@@ -108,7 +109,9 @@ class DocumentSyncEngineService {
         normalized.contains('not allowed') ||
         normalized.contains('not authorized') ||
         normalized.contains('forbidden') ||
-        normalized.contains('unauthorized');
+        normalized.contains('unauthorized') ||
+        normalized.contains('offline document copy is missing') ||
+        normalized.contains('sync copy is missing');
   }
 
   String _normalizeSyncError(DocumentSyncJobModel job, Object error) {
@@ -127,6 +130,9 @@ class DocumentSyncEngineService {
         }
         return 'Move conflict: this change can no longer be applied on the server.';
       case 'upload':
+        if (message.toLowerCase().contains('offline document copy is missing')) {
+          return 'Sync copy is missing on this device. Clear failed sync and upload the document again.';
+        }
         return 'Upload conflict: this pending upload is no longer allowed for the current account or family.';
       case 'delete':
         return 'Delete conflict: this delete request can no longer be applied from this device.';
@@ -384,7 +390,13 @@ class DocumentSyncEngineService {
     var failedJobCount = 0;
 
     for (final job in jobs) {
-      final isFailed = job.retryCount >= _maxRetriesBeforeFailure;
+      final sourcePath = job.payload['sourcePath']?.toString();
+      final missingUploadSource = job.type == 'upload' &&
+          (sourcePath == null ||
+              sourcePath.isEmpty ||
+              !await _offlineFileStorageService.exists(sourcePath));
+      final isFailed =
+          job.retryCount >= _maxRetriesBeforeFailure || missingUploadSource;
       if (isFailed) {
         failedJobCount++;
       }
@@ -397,8 +409,11 @@ class DocumentSyncEngineService {
           if (isFailed) {
             failedDocumentIds.add(uploadDocument.id);
             syncJobTypesByDocumentId[uploadDocument.id] = job.type;
-            if ((job.lastError ?? '').trim().isNotEmpty) {
-              syncErrorsByDocumentId[uploadDocument.id] = job.lastError!.trim();
+            final resolvedError = missingUploadSource
+                ? 'Sync copy is missing on this device. Clear failed sync and upload the document again.'
+                : (job.lastError ?? '').trim();
+            if (resolvedError.isNotEmpty) {
+              syncErrorsByDocumentId[uploadDocument.id] = resolvedError;
             }
           }
           pendingUploads.add(
@@ -444,6 +459,24 @@ class DocumentSyncEngineService {
   }
 
   Future<SyncProcessResult> processPendingJobs(String familyId) async {
+    final inFlight = _activeSyncs[familyId];
+    if (inFlight != null) {
+      return inFlight;
+    }
+
+    final future = _processPendingJobsInternal(familyId);
+    _activeSyncs[familyId] = future;
+
+    try {
+      return await future;
+    } finally {
+      if (identical(_activeSyncs[familyId], future)) {
+        _activeSyncs.remove(familyId);
+      }
+    }
+  }
+
+  Future<SyncProcessResult> _processPendingJobsInternal(String familyId) async {
     final jobs = await _syncLocalDataSource.getJobsForFamily(familyId);
     final events = <SyncProcessEvent>[];
     for (final job in jobs) {
@@ -469,6 +502,12 @@ class DocumentSyncEngineService {
           ),
         );
       } catch (error) {
+        final existingJob = await _syncLocalDataSource.getJob(job.id);
+        if (existingJob == null) {
+          // The job was already cleared by another successful flow.
+          continue;
+        }
+
         final normalizedMessage = _normalizeSyncError(job, error);
         final terminalConflict = _isTerminalConflictError(normalizedMessage);
         await _syncLocalDataSource.saveJob(
@@ -498,6 +537,10 @@ class DocumentSyncEngineService {
     final docJson = job.payload['document'];
     if (sourcePath == null || docJson is! Map) {
       throw Exception('Upload sync job is malformed.');
+    }
+
+    if (!await _offlineFileStorageService.exists(sourcePath)) {
+      throw Exception('Offline document copy is missing.');
     }
 
     final localDoc = DocumentModel.fromJson(Map<String, dynamic>.from(docJson));

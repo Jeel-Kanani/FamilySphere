@@ -30,7 +30,9 @@ class _RecentDocumentsScreenState extends ConsumerState<RecentDocumentsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     // Sort by date descending (should already be done by provider, but ensuring here)
-    final docs = [...documentsState.documents];
+    final docs = documentsState.documents
+        .where((doc) => !doc.id.startsWith('local-doc-'))
+        .toList();
     docs.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
 
     return Scaffold(

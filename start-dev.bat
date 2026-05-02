@@ -10,20 +10,25 @@ echo.
 
 :: ── 1. Get the real WiFi/LAN IP (skip WSL 172.x and VirtualBox 192.168.56.x) ──
 set PC_IP=
+
+:: Prefer 10.x addresses first (common phone + hotspot / LAN setup)
 for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4 Address"') do (
-    for /f "tokens=1" %%b in ("%%a") do (
-        set CANDIDATE=%%b
-        if not "%%b"=="172" (
-            echo %%b | findstr /r "^10\. ^192\.168\. ^172\." >nul 2>&1
-            if "%%b" neq "" set PC_IP=%%b
-        )
-    )
-)
-:: Pick 10.x address specifically (most likely real WiFi)
-for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4 Address"') do (
-    for /f "tokens=1" %%b in ("%%a") do (
+    for /f "tokens=* delims= " %%b in ("%%a") do (
         echo %%b | findstr /r "^10\." >nul 2>&1
         if not errorlevel 1 set PC_IP=%%b
+    )
+)
+
+:: Fallback to 192.168.x, but never use VirtualBox host-only 192.168.56.x
+if "%PC_IP%"=="" (
+    for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4 Address"') do (
+        for /f "tokens=* delims= " %%b in ("%%a") do (
+            echo %%b | findstr /r "^192\.168\." >nul 2>&1
+            if not errorlevel 1 (
+                echo %%b | findstr /b /c:"192.168.56." >nul 2>&1
+                if errorlevel 1 set PC_IP=%%b
+            )
+        )
     )
 )
 if "%PC_IP%"=="" (
@@ -42,9 +47,15 @@ echo       Redis started on port 6379
 echo.
 
 :: ── 3. Start Backend (override REDIS_URL to local Redis, not Redis Cloud) ──
-echo  [2/2] Starting Backend (npm run dev)...
-start "Backend Server" cmd /k "cd /d %~dp0backend && set REDIS_URL=redis://localhost:6379 && npm run dev"
-echo       Backend started on http://localhost:5000
+netstat -ano | findstr /r /c:":5000 .*LISTENING" >nul 2>&1
+if %errorlevel%==0 (
+    echo  [2/2] Backend already running on http://localhost:5000
+    echo       Skipping duplicate start to avoid EADDRINUSE
+) else (
+    echo  [2/2] Starting Backend (npm run dev)...
+    start "Backend Server" cmd /k "cd /d %~dp0backend && set REDIS_URL=redis://localhost:6379 && npm run dev"
+    echo       Backend started on http://localhost:5000
+)
 echo.
 
 :: ── 4. Save IP to a temp file for flutter-local.bat to read ───────────────
