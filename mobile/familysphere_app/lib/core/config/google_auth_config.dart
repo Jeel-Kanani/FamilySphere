@@ -1,5 +1,4 @@
 class GoogleAuthConfig {
-  // TODO: Set your Google OAuth Web Client ID here
-  static const String webClientId = '806870586097-qlgq0fm3c03ink7khc8hfe1n52mig2tn.apps.googleusercontent.com';
+  static const String webClientId = '967736331876-ve92tp7l0ao891vpqkqu0o95vam74q46.apps.googleusercontent.com';
 
 }

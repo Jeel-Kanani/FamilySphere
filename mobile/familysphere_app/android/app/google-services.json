@@ -7,12 +7,25 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:967736331876:android:5ea300adb5ffae6aa19971",
+        "mobilesdk_app_id": "1:967736331876:android:ab40e4235beeffe3a19971",
         "android_client_info": {
           "package_name": "com.example.familysphere_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "967736331876-n9u76f17tj41mq2pib9akrcpvhvjhlhh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.familysphere_app",
+            "certificate_hash": "b31a27acfcc0dd6b63870be196a7c645d50f2c32"
+          }
+        },
+        {
+          "client_id": "967736331876-ve92tp7l0ao891vpqkqu0o95vam74q46.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDkd3rTCg0ICILrYJ_flLVVE0837gif-OA"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "967736331876-ve92tp7l0ao891vpqkqu0o95vam74q46.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
