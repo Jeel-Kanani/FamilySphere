@@ -31,25 +31,21 @@ initScheduler();
 
 // Phase 4 — Only start the BullMQ worker when Redis is reachable.
 // Falls back to direct (synchronous) OCR processing in documentController.
-// Emergency Demo Bypass: Forcibly disable Redis queue to prevent ECONNRESET errors
-appState.ocrQueueEnabled = false;
-console.log('[Server] 🚨 EMERGENCY: AI/Redis Queue forcibly disabled for demonstration.');
-/*
 checkRedisWithRetries().then((available) => {
     appState.ocrQueueEnabled = available;
     if (available) {
         startOcrWorker();
+        console.log('[Server] ✅ Redis connected - OCR queue enabled');
     } else {
         const host = (redisConnectionOptions as any).host || '127.0.0.1';
         const port = (redisConnectionOptions as any).port || 6379;
         console.warn(
-            `[Server] Redis not available at ${host}:${port} — OCR queue disabled. ` +
+            `[Server] ⚠️  Redis not available at ${host}:${port} — OCR queue disabled. ` +
             'Documents will be processed synchronously.\n' +
             '[Server] To enable the queue: start Redis, then restart the server.'
         );
     }
 });
-*/
 
 const app = express();
 const httpServer = createServer(app);
@@ -63,7 +59,28 @@ app.use((req, res, next) => {
 });
 
 app.use(morgan('dev'));
-app.use(cors());
+
+// CORS configuration - allow frontend origins
+const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'https://familysphere.onrender.com',
+    process.env.FRONTEND_URL,
+].filter(Boolean);
+
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, Postman, etc.)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin) || origin.includes('localhost')) {
+            callback(null, true);
+        } else {
+            callback(null, true); // Allow all for now, can restrict later
+        }
+    },
+    credentials: true,
+}));
+
 app.use(helmet());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));

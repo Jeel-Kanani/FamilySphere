@@ -1,0 +1,53 @@
+services:
+  # Backend API Service
+  - type: web
+    name: familysphere-backend
+    env: node
+    region: singapore
+    plan: free
+    buildCommand: cd backend && npm install && npm run build
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.1
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      # MongoDB Connection (set in Render dashboard)
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      # Google OAuth
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      # Cloudinary
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      # SMTP Email
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: OTP_SECRET
+        sync: false
+      # Redis (Render Redis or external)
+      - key: REDIS_URL
+        sync: false
+      # Gemini AI
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OCR_CONCURRENCY
+        value: 1
+    healthCheckPath: /api/health
