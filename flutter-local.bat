@@ -28,6 +28,12 @@ echo  Hot restart: press 'R'
 echo  Quit: press 'q'
 echo.
 
+set JAVA_HOME=D:\jdk-17
+set PATH=D:\jdk-17\bin;D:\flutter\bin;C:\Users\kanan\AppData\Local\Microsoft\WinGet\Packages\Google.PlatformTools_Microsoft.Winget.Source_8wekyb3d8bbwe\platform-tools;%PATH%
 cd /d %~dp0mobile\familysphere_app
 
-flutter run --dart-define=API_BASE_URL=http://%PC_IP%:5000 -d V2202
+if "%1"=="" (
+    flutter run --dart-define=API_BASE_URL=http://%PC_IP%:5000 -d RZCX92TKJ0X
+) else (
+    flutter run --dart-define=API_BASE_URL=http://%PC_IP%:5000 -d %1
+)
