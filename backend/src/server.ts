@@ -21,31 +21,14 @@ import hubRoutes from './routes/hubRoutes';
 import chatRoutes from './routes/chatRoutes';
 
 import { initScheduler } from './services/scheduler';
-import { startOcrWorker } from './workers/ocrWorker';
-import { ocrQueue } from './queues/ocrQueue';
-import { isRedisAvailable, checkRedisWithRetries, redisConnectionOptions } from './config/redis';
 import { appState } from './config/appState';
 
 connectDB();
 initScheduler();
 
-// Phase 4 — Only start the BullMQ worker when Redis is reachable.
-// Falls back to direct (synchronous) OCR processing in documentController.
-checkRedisWithRetries().then((available) => {
-    appState.ocrQueueEnabled = available;
-    if (available) {
-        startOcrWorker();
-        console.log('[Server] ✅ Redis connected - OCR queue enabled');
-    } else {
-        const host = (redisConnectionOptions as any).host || '127.0.0.1';
-        const port = (redisConnectionOptions as any).port || 6379;
-        console.warn(
-            `[Server] ⚠️  Redis not available at ${host}:${port} — OCR queue disabled. ` +
-            'Documents will be processed synchronously.\n' +
-            '[Server] To enable the queue: start Redis, then restart the server.'
-        );
-    }
-});
+// Redis/Queue disabled - OCR processes synchronously (faster for small loads)
+appState.ocrQueueEnabled = false;
+console.log('[Server] ℹ️  OCR queue disabled - processing documents synchronously');
 
 const app = express();
 const httpServer = createServer(app);
@@ -89,38 +72,26 @@ app.get('/ping', (req, res) => {
     res.status(200).send('FamilySphere is awake!');
 });
 
-// Health endpoint for Render: reports Mongo, Redis reachability, and queue flag
+// Health endpoint for Render: reports Mongo status
 app.get('/api/health', async (req, res) => {
     const mongoState = mongoose.connection.readyState === 1 ? 'up' : 'down';
-    let redisState: 'up' | 'down' = 'down';
-    try {
-        const reachable = await isRedisAvailable();
-        redisState = reachable ? 'up' : 'down';
-    } catch (err) {
-        redisState = 'down';
-    }
 
     res.status(200).json({
         status: 'ok',
         mongo: mongoState,
-        redis: redisState,
-        ocrQueueEnabled: appState.ocrQueueEnabled,
+        ocrMode: 'synchronous',
         timestamp: new Date().toISOString(),
     });
 });
 
-// Real-time Queue Stats
+// Queue stats disabled (synchronous OCR mode)
 app.get('/api/health/queues', async (req, res) => {
-    try {
-        const counts = await ocrQueue.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed');
-        res.status(200).json({
-            queue: 'ocr',
-            counts,
-            timestamp: new Date().toISOString(),
-        });
-    } catch (err: any) {
-        res.status(500).json({ error: 'Failed to fetch queue stats', details: err.message });
-    }
+    res.status(200).json({
+        queue: 'disabled',
+        mode: 'synchronous',
+        message: 'OCR processes documents synchronously - no queue',
+        timestamp: new Date().toISOString(),
+    });
 });
 
 app.use('/api/auth', authRoutes);

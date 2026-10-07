@@ -9,10 +9,10 @@ class ApiConfig {
   static const String _productionUrl = 'https://familysphere.onrender.com'; 
   static const String _overrideBaseUrl = String.fromEnvironment('API_BASE_URL');
   
-  // Current environment
-  static const bool _isProduction = true;
-  static const bool _isIOS = false; 
-  static const bool _isPhysicalDevice = true; // Use true for your physical phone
+  // Current environment - FORCE PRODUCTION MODE
+  static const bool _isProduction = true; // ALWAYS USE PRODUCTION
+  static const bool _isIOS = false;
+  static const bool _isPhysicalDevice = false; // Set false to ignore local IP
   
   // Get base URL based on platform and environment
   static String get baseUrl {
