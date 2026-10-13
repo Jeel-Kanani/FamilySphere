@@ -8,10 +8,10 @@ echo   FamilySphere - Starting Local Dev
 echo  ====================================
 echo.
 
-REM ── 1. Get the real WiFi/LAN IP (skip WSL 172.x and VirtualBox 192.168.56.x) ──
+:: ── 1. Get the real WiFi/LAN IP (skip WSL 172.x and VirtualBox 192.168.56.x) ──
 set PC_IP=
 
-REM Prefer 10.x addresses first (common phone + hotspot / LAN setup)
+:: Prefer 10.x addresses first (common phone + hotspot / LAN setup)
 for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4 Address"') do (
     for /f "tokens=* delims= " %%b in ("%%a") do (
         echo %%b | findstr /r "^10\." >nul 2>&1
@@ -19,7 +19,7 @@ for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4 Address"') do (
     )
 )
 
-REM Fallback to 192.168.x, but never use VirtualBox host-only 192.168.56.x
+:: Fallback to 192.168.x, but never use VirtualBox host-only 192.168.56.x
 if "%PC_IP%"=="" (
     for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4 Address"') do (
         for /f "tokens=* delims= " %%b in ("%%a") do (
@@ -39,26 +39,26 @@ echo  PC IP detected: %PC_IP%
 echo  Flutter will connect to: http://%PC_IP%:5000
 echo.
 
-REM ── 2. Start Redis (local Windows Redis) ──────────────────────────────────
+:: ── 2. Start Redis (local Windows Redis) ──────────────────────────────────
 echo  [1/2] Starting Redis...
 start "Redis Server" /min cmd /c "cd /d %~dp0redis && redis-server.exe redis.windows.conf"
-ping 127.0.0.1 -n 3 >nul
+timeout /t 2 /nobreak >nul
 echo       Redis started on port 6379
 echo.
 
-REM ── 3. Start Backend (override REDIS_URL to local Redis, not Redis Cloud) ──
+:: ── 3. Start Backend (override REDIS_URL to local Redis, not Redis Cloud) ──
 netstat -ano | findstr /r /c:":5000 .*LISTENING" >nul 2>&1
 if %errorlevel%==0 (
     echo  [2/2] Backend already running on http://localhost:5000
     echo       Skipping duplicate start to avoid EADDRINUSE
 ) else (
-    echo  [2/2] Starting Backend [npm run dev]...
+    echo  [2/2] Starting Backend (npm run dev)...
     start "Backend Server" cmd /k "cd /d %~dp0backend && set REDIS_URL=redis://localhost:6379 && npm run dev"
     echo       Backend started on http://localhost:5000
 )
 echo.
 
-REM ── 4. Save IP to a temp file for flutter-local.bat to read ───────────────
+:: ── 4. Save IP to a temp file for flutter-local.bat to read ───────────────
 echo %PC_IP%> %~dp0.dev-ip.txt
 
 echo  ====================================

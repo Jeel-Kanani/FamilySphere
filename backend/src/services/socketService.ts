@@ -4,25 +4,10 @@ import { Server as HttpServer } from 'http';
 let io: Server;
 
 export const initSocket = (server: HttpServer) => {
-  const allowedOrigins = [
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'https://familysphere.onrender.com',
-    process.env.FRONTEND_URL,
-  ].filter(Boolean);
-
   io = new Server(server, {
     cors: {
-      origin: (origin, callback) => {
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin) || origin?.includes('localhost')) {
-          callback(null, true);
-        } else {
-          callback(null, true); // Allow all for now
-        }
-      },
+      origin: '*', // Allow all origins for local dev
       methods: ['GET', 'POST'],
-      credentials: true,
     },
   });
 

@@ -21,14 +21,35 @@ import hubRoutes from './routes/hubRoutes';
 import chatRoutes from './routes/chatRoutes';
 
 import { initScheduler } from './services/scheduler';
+import { startOcrWorker } from './workers/ocrWorker';
+import { ocrQueue } from './queues/ocrQueue';
+import { isRedisAvailable, checkRedisWithRetries, redisConnectionOptions } from './config/redis';
 import { appState } from './config/appState';
 
 connectDB();
 initScheduler();
 
-// Redis/Queue disabled - OCR processes synchronously (faster for small loads)
+// Phase 4 — Only start the BullMQ worker when Redis is reachable.
+// Falls back to direct (synchronous) OCR processing in documentController.
+// Emergency Demo Bypass: Forcibly disable Redis queue to prevent ECONNRESET errors
 appState.ocrQueueEnabled = false;
-console.log('[Server] ℹ️  OCR queue disabled - processing documents synchronously');
+console.log('[Server] 🚨 EMERGENCY: AI/Redis Queue forcibly disabled for demonstration.');
+/*
+checkRedisWithRetries().then((available) => {
+    appState.ocrQueueEnabled = available;
+    if (available) {
+        startOcrWorker();
+    } else {
+        const host = (redisConnectionOptions as any).host || '127.0.0.1';
+        const port = (redisConnectionOptions as any).port || 6379;
+        console.warn(
+            `[Server] Redis not available at ${host}:${port} — OCR queue disabled. ` +
+            'Documents will be processed synchronously.\n' +
+            '[Server] To enable the queue: start Redis, then restart the server.'
+        );
+    }
+});
+*/
 
 const app = express();
 const httpServer = createServer(app);
@@ -42,28 +63,7 @@ app.use((req, res, next) => {
 });
 
 app.use(morgan('dev'));
-
-// CORS configuration - allow frontend origins
-const allowedOrigins = [
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'https://familysphere.onrender.com',
-    process.env.FRONTEND_URL,
-].filter(Boolean);
-
-app.use(cors({
-    origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps, Postman, etc.)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin) || origin.includes('localhost')) {
-            callback(null, true);
-        } else {
-            callback(null, true); // Allow all for now, can restrict later
-        }
-    },
-    credentials: true,
-}));
-
+app.use(cors());
 app.use(helmet());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
@@ -72,26 +72,38 @@ app.get('/ping', (req, res) => {
     res.status(200).send('FamilySphere is awake!');
 });
 
-// Health endpoint for Render: reports Mongo status
+// Health endpoint for Render: reports Mongo, Redis reachability, and queue flag
 app.get('/api/health', async (req, res) => {
     const mongoState = mongoose.connection.readyState === 1 ? 'up' : 'down';
+    let redisState: 'up' | 'down' = 'down';
+    try {
+        const reachable = await isRedisAvailable();
+        redisState = reachable ? 'up' : 'down';
+    } catch (err) {
+        redisState = 'down';
+    }
 
     res.status(200).json({
         status: 'ok',
         mongo: mongoState,
-        ocrMode: 'synchronous',
+        redis: redisState,
+        ocrQueueEnabled: appState.ocrQueueEnabled,
         timestamp: new Date().toISOString(),
     });
 });
 
-// Queue stats disabled (synchronous OCR mode)
+// Real-time Queue Stats
 app.get('/api/health/queues', async (req, res) => {
-    res.status(200).json({
-        queue: 'disabled',
-        mode: 'synchronous',
-        message: 'OCR processes documents synchronously - no queue',
-        timestamp: new Date().toISOString(),
-    });
+    try {
+        const counts = await ocrQueue.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed');
+        res.status(200).json({
+            queue: 'ocr',
+            counts,
+            timestamp: new Date().toISOString(),
+        });
+    } catch (err: any) {
+        res.status(500).json({ error: 'Failed to fetch queue stats', details: err.message });
+    }
 });
 
 app.use('/api/auth', authRoutes);

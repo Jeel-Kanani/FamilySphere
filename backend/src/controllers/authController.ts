@@ -88,17 +88,11 @@ const sendEmailOtpController = async (req: AuthRequest, res: Response) => {
         try {
             await sendEmailOtp(normalizedEmail, code);
         } catch (emailError: any) {
-            console.error('[OTP] Email send failed (falling back to console):', emailError.message);
+            console.error('[OTP] Email send failed:', emailError.message);
+            // OTP is still saved in DB; user can retry or use devOtp in non-production
         }
 
-        console.log(`[OTP GENERATED] Email: ${normalizedEmail} | Code: ${code}`);
-
-        const responsePayload: any = { message: 'OTP sent to email' };
-        if (process.env.NODE_ENV !== 'production') {
-            responsePayload.devOtp = code;
-        }
-
-        return res.json(responsePayload);
+        return res.json({ message: 'OTP sent to email' });
     } catch (error: any) {
         return res.status(500).json({ message: error.message || 'Server error' });
     }

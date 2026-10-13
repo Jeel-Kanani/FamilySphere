@@ -39,8 +39,6 @@ pnpm-debug.log*
 *.temp
 temp/
 tmp/
-.dev-ip.txt
-*.rdb
 
 # Build outputs
 dist/

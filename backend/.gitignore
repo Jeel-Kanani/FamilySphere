@@ -9,7 +9,7 @@ pnpm-debug.log*
 # package-lock.json
 yarn.lock
 
-# Build outputs (Note: dist/ is built on Render, so it's ignored locally)
+# Build outputs
 dist/
 build/
 *.js.map
