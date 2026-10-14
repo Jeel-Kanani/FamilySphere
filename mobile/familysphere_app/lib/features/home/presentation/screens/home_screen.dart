@@ -299,6 +299,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   // ────────────────────────────────────────────────────────────
+  //  Notification Panel
+  // ────────────────────────────────────────────────────────────
+  void _showNotificationPanel(
+    BuildContext context,
+    List<DocumentEntity> pendingDocs,
+    bool isDark,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _NotificationPanel(
+        pendingDocs: pendingDocs,
+        isDark: isDark,
+        onAllConfirmed: () {
+          ref.read(documentProvider.notifier).loadDocuments();
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────
   //  Notion-Style Workspace Switcher Bottom Sheet
   // ────────────────────────────────────────────────────────────
   void _showWorkspaceSwitcher(BuildContext context, FamilyState familyState, bool isDark) {
@@ -649,6 +672,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ],
         ),
       ),
+    );
   }
 
   // ────────────────────────────────────────────────────────────
