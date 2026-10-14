@@ -90,7 +90,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     final displayName = user?.displayName ?? 'User';
     final firstName = displayName.split(' ').first;
-    final familyName = familyState.family?.name ?? '$displayName Family';
+    final workspaceName = familyState.family?.name ?? '$displayName Workspace';
     final memberCount = familyState.members.length;
     final docCount = documentsState.documents.length;
     final storageUsed = documentsState.storageUsed;
@@ -113,18 +113,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Section 0: Header ──
+              // ── Section 0: Notion Workspace Header ──
               _animatedSection(
                 index: 0,
-                child: _buildHeader(context, firstName, cardBg, border, textP,
-                    textS, isDark, documentsState),
+                child: _buildHeader(context, firstName, workspaceName, familyState,
+                    cardBg, border, textP, textS, isDark, documentsState),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
 
-              // ── Section 1: Family Overview Card ──
+              // ── Section 1: Workspace Overview Card ──
               _animatedSection(
                 index: 1,
-                child: _buildFamilyCard(context, familyName, memberCount,
+                child: _buildWorkspaceCard(context, workspaceName, memberCount,
                     familyState, textP, cardBg, isDark),
               ),
               const SizedBox(height: 24),
@@ -181,11 +181,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   // ────────────────────────────────────────────────────────────
-  //  0 · Header
+  //  0 · Notion-Style Workspace Header
   // ────────────────────────────────────────────────────────────
   Widget _buildHeader(
       BuildContext context,
       String firstName,
+      String workspaceName,
+      FamilyState familyState,
       Color cardBg,
       Color border,
       Color textP,
@@ -196,63 +198,78 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         .where((d) =>
             d.ocrStatus == 'needs_confirmation' || d.ocrStatus == 'analyzed')
         .length;
+
     return Row(
       children: [
-        // Gradient avatar or Profile Picture
-        Container(
-          height: 52,
-          width: 52,
-          decoration: BoxDecoration(
-            gradient: ref.watch(authProvider).user?.photoUrl == null
-                ? AppTheme.primaryGradient
-                : null,
-            color: ref.watch(authProvider).user?.photoUrl != null
-                ? Colors.transparent
-                : null,
-            borderRadius: BorderRadius.circular(16),
-            image: ref.watch(authProvider).user?.photoUrl != null
-                ? DecorationImage(
-                    image:
-                        NetworkImage(ref.watch(authProvider).user!.photoUrl!),
-                    fit: BoxFit.cover,
-                  )
-                : null,
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.primaryColor.withValues(alpha: 0.3),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: ref.watch(authProvider).user?.photoUrl == null
-              ? const Icon(Icons.home_rounded, color: Colors.white, size: 26)
-              : null,
-        ),
-        const SizedBox(width: 14),
+        // Workspace Switcher Pill (Notion-style)
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${_getGreeting()} ${_getGreetingEmoji()}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: textS,
-                      fontWeight: FontWeight.w500,
-                    ),
+          child: InkWell(
+            onTap: () => _showWorkspaceSwitcher(context, familyState, isDark),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: border),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
-              const SizedBox(height: 2),
-              Text(
-                firstName,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: textP,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
+              child: Row(
+                children: [
+                  Container(
+                    height: 36,
+                    width: 36,
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(10),
                     ),
+                    child: const Center(
+                      child: Icon(Icons.workspaces_rounded, color: Colors.white, size: 20),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                workspaceName,
+                                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                      color: textP,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: textS),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${familyState.members.length} members • Workspace',
+                          style: TextStyle(color: textS, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
+        const SizedBox(width: 10),
         _HeaderIconButton(
           icon: Icons.hub_outlined,
           cardBg: cardBg,
@@ -260,7 +277,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           textP: textP,
           onTap: () => Navigator.pushNamed(context, AppRoutes.hub),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         _HeaderIconButton(
           icon: Icons.notifications_none_rounded,
           cardBg: cardBg,
@@ -282,34 +299,143 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   // ────────────────────────────────────────────────────────────
-  //  Notification Panel
+  //  Notion-Style Workspace Switcher Bottom Sheet
   // ────────────────────────────────────────────────────────────
-  void _showNotificationPanel(
-    BuildContext context,
-    List<DocumentEntity> pendingDocs,
-    bool isDark,
-  ) {
+  void _showWorkspaceSwitcher(BuildContext context, FamilyState familyState, bool isDark) {
+    final workspace = familyState.family;
+    final inviteCode = workspace?.inviteCode ?? 'CODE';
+
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _NotificationPanel(
-        pendingDocs: pendingDocs,
-        isDark: isDark,
-        onAllConfirmed: () {
-          ref.read(documentProvider.notifier).loadDocuments();
-          Navigator.pop(context);
-        },
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Workspaces',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Active',
+                    style: TextStyle(
+                      color: AppTheme.primaryColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Current Workspace Card
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.5), width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.workspaces_rounded, color: Colors.white, size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          workspace?.name ?? 'My Workspace',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Invite Code: $inviteCode',
+                          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.check_circle_rounded, color: AppTheme.primaryColor),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Divider(),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.add_business_rounded, color: AppTheme.primaryColor),
+              title: const Text('Create New Workspace', style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('Add a project, team, or personal hub', style: TextStyle(fontSize: 12)),
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.pushNamed(context, '/family-setup');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.group_add_rounded, color: AppTheme.secondaryColor),
+              title: const Text('Join with Invite Code', style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('Enter code or scan workspace QR', style: TextStyle(fontSize: 12)),
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.pushNamed(context, '/join-family');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings_suggest_rounded, color: AppTheme.textSecondary),
+              title: const Text('Workspace Settings & Members', style: TextStyle(fontWeight: FontWeight.w600)),
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.pushNamed(context, AppRoutes.familyDetails);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
 
   // ────────────────────────────────────────────────────────────
-  //  1 · Family Overview Card
+  //  1 · Workspace Overview Card (Notion Style)
   // ────────────────────────────────────────────────────────────
-  Widget _buildFamilyCard(
+  Widget _buildWorkspaceCard(
       BuildContext context,
-      String familyName,
+      String workspaceName,
       int memberCount,
       FamilyState familyState,
       Color textP,
@@ -342,15 +468,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Family name + arrow
+            // Workspace name + arrow
             Row(
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              'WORKSPACE',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       Text(
-                        familyName,
+                        workspaceName,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -358,9 +505,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '$memberCount ${memberCount == 1 ? 'member' : 'members'}',
+                        '$memberCount ${memberCount == 1 ? 'member' : 'members'} • Shared Hub',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.white.withOpacity(0.8),
+                              color: Colors.white.withValues(alpha: 0.8),
                             ),
                       ),
                     ],
@@ -369,7 +516,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
+                    color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
@@ -392,7 +539,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white.withOpacity(0.7),
+                      color: Colors.white.withValues(alpha: 0.7),
                     ),
                   ),
                 ),
@@ -402,13 +549,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.12),
+                  color: Colors.white.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  'Invite your family members',
+                  'Invite team members to this workspace',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withOpacity(0.85),
+                        color: Colors.white.withValues(alpha: 0.85),
                       ),
                 ),
               )
@@ -448,27 +595,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                   m.photoUrl != null && m.photoUrl!.isNotEmpty
                                       ? Image.network(
                                           m.photoUrl!,
-                                          width: 40,
-                                          height: 40,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => Center(
-                                            child: Text(
-                                              initials,
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
                                         )
                                       : Center(
                                           child: Text(
                                             initials,
                                             style: const TextStyle(
                                               color: Colors.white,
-                                              fontSize: 13,
                                               fontWeight: FontWeight.bold,
+                                              fontSize: 14,
                                             ),
                                           ),
                                         ),
@@ -479,19 +614,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ),
                   ),
                   const Spacer(),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      'Manage',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
+                  // Invite Button
+                  GestureDetector(
+                    onTap: () =>
+                        Navigator.pushNamed(context, AppRoutes.familyDetails),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: const [
+                          Icon(Icons.person_add_rounded,
+                              color: Colors.white, size: 16),
+                          SizedBox(width: 6),
+                          Text(
+                            'Invite',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -499,7 +649,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ],
         ),
       ),
-    );
   }
 
   // ────────────────────────────────────────────────────────────

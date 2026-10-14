@@ -42,7 +42,7 @@ class _JoinSuccessScreenState extends ConsumerState<JoinSuccessScreen> {
                 ),
                 const SizedBox(height: 32),
                 const Text(
-                  'Welcome to the Family!',
+                  'Welcome to the Workspace!',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -55,12 +55,12 @@ class _JoinSuccessScreenState extends ConsumerState<JoinSuccessScreen> {
                   'You have successfully joined',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  family?.name ?? 'your family',
+                  family?.name ?? 'your workspace',
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,

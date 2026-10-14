@@ -77,9 +77,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               backgroundColor: Colors.transparent,
               items: const [
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.home_rounded),
-                  activeIcon: Icon(Icons.home_rounded),
-                  label: 'Home',
+                  icon: Icon(Icons.workspaces_outlined),
+                  activeIcon: Icon(Icons.workspaces_rounded),
+                  label: 'Workspace',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.shield_rounded),
