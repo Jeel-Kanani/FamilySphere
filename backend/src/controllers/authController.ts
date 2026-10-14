@@ -396,23 +396,50 @@ const googleAuth = async (req: AuthRequest, res: Response) => {
         }
         const googleClient = new OAuth2Client(googleClientIds[0]);
 
-        const { idToken } = req.body;
-        if (!idToken || typeof idToken !== 'string') {
-            return res.status(400).json({ message: 'idToken is required' });
+        const { idToken, accessToken } = req.body;
+        if (!idToken && !accessToken) {
+            return res.status(400).json({ message: 'idToken or accessToken is required' });
         }
 
-        const ticket = await googleClient.verifyIdToken({
-            idToken,
-            audience: googleClientIds,
-        });
+        let email: string | undefined;
+        let name: string | undefined;
+        let picture: string | undefined;
 
-        const payload = ticket.getPayload();
-        if (!payload?.email) {
-            return res.status(401).json({ message: 'Invalid Google token' });
+        if (idToken && typeof idToken === 'string') {
+            const ticket = await googleClient.verifyIdToken({
+                idToken,
+                audience: googleClientIds,
+            });
+
+            const payload = ticket.getPayload();
+            if (!payload?.email) {
+                return res.status(401).json({ message: 'Invalid Google token' });
+            }
+
+            email = normalizeEmail(payload.email);
+            name = payload.name || email.split('@')[0];
+            picture = payload.picture;
+        } else if (accessToken && typeof accessToken === 'string') {
+            // Web flow: fetch profile using Google's userinfo endpoint
+            const userinfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                headers: { Authorization: `Bearer ${accessToken}` },
+            });
+            if (!userinfoRes.ok) {
+                return res.status(401).json({ message: 'Failed to verify Google access token' });
+            }
+            const profile = (await userinfoRes.json()) as any;
+            if (!profile?.email || (profile.email_verified !== true && profile.email_verified !== 'true')) {
+                return res.status(401).json({ message: 'Google email not verified' });
+            }
+
+            email = normalizeEmail(profile.email);
+            name = profile.name || email.split('@')[0];
+            picture = profile.picture;
         }
 
-        const email = normalizeEmail(payload.email);
-        const name = payload.name || email.split('@')[0];
+        if (!email) {
+            return res.status(401).json({ message: 'Could not obtain email from Google' });
+        }
 
         let user = await User.findOne({ email });
         if (!user) {
@@ -421,6 +448,7 @@ const googleAuth = async (req: AuthRequest, res: Response) => {
                 name,
                 email,
                 password: randomPassword,
+                profilePicture: picture,
             });
         }
 

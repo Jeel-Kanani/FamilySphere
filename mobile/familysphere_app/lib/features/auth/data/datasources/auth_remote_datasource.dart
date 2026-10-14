@@ -363,14 +363,17 @@ class AuthRemoteDataSource {
 
       final auth = await account.authentication;
       final idToken = auth.idToken;
-      if (idToken == null) {
-        throw Exception('Failed to retrieve Google ID token');
+      final accessToken = auth.accessToken;
+
+      if (idToken == null && accessToken == null) {
+        throw Exception('Failed to retrieve Google authentication credentials');
       }
 
       final response = await _apiClient.post(
         '/api/auth/google',
         data: {
-          'idToken': idToken,
+          if (idToken != null) 'idToken': idToken,
+          if (accessToken != null) 'accessToken': accessToken,
         },
       );
 

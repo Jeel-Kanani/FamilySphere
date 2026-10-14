@@ -12,7 +12,20 @@
           "package_name": "com.example.familysphere_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "967736331876-n9u76f17tj41mq2pib9akrcpvhvjhlhh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.familysphere_app",
+            "certificate_hash": "b31a27acfcc0dd6b6387dbe196a7c645d50f2c32"
+          }
+        },
+        {
+          "client_id": "967736331876-ve92tp7l0ao891vpqkqu0o95vam74q46.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDkd3rTCg0ICILrYJ_flLVVE0837gif-OA"
