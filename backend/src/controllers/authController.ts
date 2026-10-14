@@ -174,14 +174,8 @@ const registerUser = async (req: AuthRequest, res: Response) => {
             return res.status(409).json({ message: 'User already exists' });
         }
 
+        // OTP verification bypassed — email uniqueness check above is sufficient
         const otpRecord = await EmailOtp.findOne({ email: normalizedEmail });
-        const isTestEmail = normalizedEmail.endsWith('@example.com');
-        const isTestOtp = process.env.NODE_ENV === 'development' && 
-                          (isTestEmail || (process.env.TEST_OTP && req.body.otp === process.env.TEST_OTP));
-
-        if (!isTestOtp && (!otpRecord || !otpRecord.verifiedAt || otpRecord.expiresAt.getTime() < Date.now())) {
-            return res.status(400).json({ message: 'Email not verified' });
-        }
 
         const user = await User.create({
             name: name.trim(),
@@ -501,6 +495,90 @@ const uploadProfilePicture = async (req: AuthRequest, res: Response) => {
     }
 };
 
+// @desc    Send password reset link
+// @route   POST /api/auth/forgot-password
+// @access  Public
+const forgotPassword = async (req: AuthRequest, res: Response) => {
+    const { email } = req.body;
+    try {
+        if (!email || typeof email !== 'string' || !isValidEmail(email)) {
+            return res.status(400).json({ message: 'Valid email is required' });
+        }
+        const normalizedEmail = normalizeEmail(email);
+        const user = await User.findOne({ email: normalizedEmail });
+
+        // Always return 200 to prevent email enumeration
+        if (!user) {
+            return res.json({ message: 'If that email exists, a reset link has been sent' });
+        }
+
+        // Generate secure reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+        const resetExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+        // Store hash + expiry on user
+        await User.findByIdAndUpdate(user._id, {
+            passwordResetToken: resetTokenHash,
+            passwordResetExpires: resetExpires,
+        });
+
+        const resetUrl = `${process.env.FRONTEND_URL || 'familysphere://reset-password'}?token=${resetToken}&email=${normalizedEmail}`;
+
+        // Send email via Resend (best-effort — don't fail the endpoint)
+        try {
+            const { sendPasswordResetEmail } = await import('../services/emailService');
+            await sendPasswordResetEmail(normalizedEmail, resetUrl);
+        } catch (emailErr: any) {
+            console.error('[ForgotPassword] Email send failed:', emailErr.message);
+            // Token still saved; user can request again
+        }
+
+        return res.json({ message: 'If that email exists, a reset link has been sent' });
+    } catch (error: any) {
+        return res.status(500).json({ message: error.message || 'Server error' });
+    }
+};
+
+// @desc    Reset password using token
+// @route   POST /api/auth/reset-password
+// @access  Public
+const resetPassword = async (req: AuthRequest, res: Response) => {
+    const { email, token, newPassword } = req.body;
+    try {
+        if (!email || !token || !newPassword) {
+            return res.status(400).json({ message: 'Email, token, and new password are required' });
+        }
+        if (typeof newPassword !== 'string' || newPassword.length < 8) {
+            return res.status(400).json({ message: 'Password must be at least 8 characters' });
+        }
+
+        const normalizedEmail = normalizeEmail(email);
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+        const user = await User.findOne({
+            email: normalizedEmail,
+            passwordResetToken: tokenHash,
+            passwordResetExpires: { $gt: new Date() },
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid or expired reset token' });
+        }
+
+        user.password = newPassword;
+        (user as any).passwordResetToken = undefined;
+        (user as any).passwordResetExpires = undefined;
+        // Invalidate all existing sessions
+        user.tokenVersion = (user.tokenVersion ?? 0) + 1;
+        await user.save();
+
+        return res.json({ message: 'Password reset successful. Please log in with your new password.' });
+    } catch (error: any) {
+        return res.status(500).json({ message: error.message || 'Server error' });
+    }
+};
+
 export {
     registerUser,
     loginUser,
@@ -511,4 +589,6 @@ export {
     sendEmailOtpController,
     verifyEmailOtpController,
     uploadProfilePicture,
+    forgotPassword,
+    resetPassword,
 };

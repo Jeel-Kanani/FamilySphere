@@ -91,3 +91,41 @@ export const sendFamilyInviteEmail = async (
 
     console.log(`[Invite] Email sent via Resend to ${to}`);
 };
+
+export const sendPasswordResetEmail = async (to: string, resetUrl: string) => {
+    const resend = getResend();
+    const from = process.env.RESEND_FROM || 'FamilySphere <onboarding@resend.dev>';
+
+    if (!resend) {
+        console.log(`[Password Reset - DEV FALLBACK] ${to} -> ${resetUrl}`);
+        return;
+    }
+
+    const { error } = await resend.emails.send({
+        from,
+        to,
+        subject: 'FamilySphere — Reset Your Password',
+        html: `
+            <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
+                <h2 style="color: #2563EB; margin-bottom: 24px;">FamilySphere</h2>
+                <p style="font-size: 16px; color: #333;">We received a request to reset your password.</p>
+                <div style="margin: 32px 0;">
+                    <a href="${resetUrl}" target="_blank"
+                       style="background: #2563EB; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">
+                        Reset Password
+                    </a>
+                </div>
+                <p style="font-size: 14px; color: #666;">This link expires in <strong>15 minutes</strong>. If you didn't request a reset, you can safely ignore this email.</p>
+                <p style="font-size: 12px; color: #999;">Or copy this link: ${resetUrl}</p>
+            </div>
+        `,
+        text: `Reset your FamilySphere password here: ${resetUrl} (expires in 15 minutes)`,
+    });
+
+    if (error) {
+        console.error('[PasswordReset] Resend error:', error);
+        throw new Error(`Password reset email failed: ${error.message}`);
+    }
+
+    console.log(`[PasswordReset] Email sent via Resend to ${to}`);
+};

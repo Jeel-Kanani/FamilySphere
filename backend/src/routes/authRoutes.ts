@@ -9,6 +9,8 @@ import {
     sendEmailOtpController,
     verifyEmailOtpController,
     uploadProfilePicture,
+    forgotPassword,
+    resetPassword,
 } from '../controllers/authController';
 import { protect } from '../middleware/authMiddleware';
 import { upload } from '../config/cloudinary';
@@ -20,6 +22,8 @@ router.post('/send-email-otp', sendEmailOtpController);
 router.post('/verify-email-otp', verifyEmailOtpController);
 router.post('/login', loginUser);
 router.post('/google', googleAuth);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 router.post('/logout', protect, logoutUser);
 router.get('/me', protect, getCurrentUser);
 router.put('/profile', protect, updateProfile);

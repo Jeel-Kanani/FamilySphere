@@ -10,6 +10,8 @@ export interface IUser extends Document {
     tokenVersion?: number;
     profilePicture?: string;
     phoneNumber?: string;
+    passwordResetToken?: string;
+    passwordResetExpires?: Date;
     matchPassword(enteredPassword: string): Promise<boolean>;
 }
 
@@ -46,6 +48,12 @@ const userSchema = new mongoose.Schema<IUser>({
     },
     phoneNumber: {
         type: String,
+    },
+    passwordResetToken: {
+        type: String,
+    },
+    passwordResetExpires: {
+        type: Date,
     },
 }, {
     timestamps: true,
