@@ -19,6 +19,7 @@ import adminRoutes from './routes/adminRoutes';
 import intelligenceRoutes from './routes/intelligenceRoutes';
 import hubRoutes from './routes/hubRoutes';
 import chatRoutes from './routes/chatRoutes';
+import workspaceRoutes from './routes/workspaceRoutes';
 
 import { initScheduler } from './services/scheduler';
 import { startOcrWorker } from './workers/ocrWorker';
@@ -115,6 +116,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/intelligence', intelligenceRoutes);
 app.use('/api/hub', hubRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/workspaces', workspaceRoutes);
 
 const PORT = process.env.PORT || 5000;
 

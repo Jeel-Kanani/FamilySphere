@@ -6,6 +6,19 @@ const familySchema = new Schema({
         required: true,
         trim: true
     },
+    workspaceType: {
+        type: String,
+        enum: ['team', 'project', 'vault', 'household', 'general'],
+        default: 'team'
+    },
+    icon: {
+        type: String,
+        default: '🏢'
+    },
+    description: {
+        type: String,
+        default: ''
+    },
     createdBy: {
         type: Schema.Types.ObjectId,
         ref: 'User',

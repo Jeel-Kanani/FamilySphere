@@ -75,46 +75,48 @@ class _FamilySetupScreenState extends ConsumerState<FamilySetupScreen>
               Text('New Workspace', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Choose a template:',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: _templates.map((tpl) {
-                  final isSelected = _selectedTemplate == tpl['name'];
-                  return ChoiceChip(
-                    label: Text(tpl['name']!, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : null)),
-                    selected: isSelected,
-                    selectedColor: AppTheme.primaryColor,
-                    onSelected: (val) {
-                      if (val) {
-                        setDialogState(() {
-                          _selectedTemplate = tpl['name']!;
-                        });
-                      }
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _createNameController,
-                decoration: InputDecoration(
-                  labelText: 'Workspace Name',
-                  hintText: _templates.firstWhere((t) => t['name'] == _selectedTemplate)['hint'],
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: const Icon(Icons.edit_outlined),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Choose a template:',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
                 ),
-                textCapitalization: TextCapitalization.words,
-              ),
-            ],
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: _templates.map((tpl) {
+                    final isSelected = _selectedTemplate == tpl['name'];
+                    return ChoiceChip(
+                      label: Text(tpl['name']!, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : null)),
+                      selected: isSelected,
+                      selectedColor: AppTheme.primaryColor,
+                      onSelected: (val) {
+                        if (val) {
+                          setDialogState(() {
+                            _selectedTemplate = tpl['name']!;
+                          });
+                        }
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _createNameController,
+                  decoration: InputDecoration(
+                    labelText: 'Workspace Name',
+                    hintText: _templates.firstWhere((t) => t['name'] == _selectedTemplate)['hint'],
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    prefixIcon: const Icon(Icons.edit_outlined),
+                  ),
+                  textCapitalization: TextCapitalization.words,
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
@@ -144,66 +146,83 @@ class _FamilySetupScreenState extends ConsumerState<FamilySetupScreen>
             ? const Center(child: CircularProgressIndicator())
             : FadeTransition(
                 opacity: _fadeAnimation,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(height: 32),
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.workspaces_rounded,
-                            size: 40,
-                            color: AppTheme.primaryColor,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                        child: IntrinsicHeight(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const SizedBox(height: 24),
+                                Center(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.workspaces_rounded,
+                                      size: 38,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Setup Your Workspace',
+                                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 24,
+                                      ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Create a collaborative space for shared documents, encrypted vault notes, and team intelligence.',
+                                  style: TextStyle(
+                                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 32),
+                                _buildActionCard(
+                                  context,
+                                  title: 'Create a Workspace',
+                                  desc: 'Start a new hub with shared folders & vaults',
+                                  icon: Icons.add_business_rounded,
+                                  color: AppTheme.primaryColor,
+                                  onTap: _showCreateDialog,
+                                ),
+                                const SizedBox(height: 14),
+                                _buildActionCard(
+                                  context,
+                                  title: 'Join a Workspace',
+                                  desc: 'Enter an invite code or scan a workspace QR',
+                                  icon: Icons.group_add_rounded,
+                                  color: AppTheme.secondaryColor,
+                                  onTap: () => Navigator.pushNamed(context, '/join-family'),
+                                ),
+                                const Spacer(),
+                                const SizedBox(height: 24),
+                                TextButton(
+                                  onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
+                                  child: const Text('Continue to Dashboard', style: TextStyle(color: AppTheme.textTertiary)),
+                                ),
+                                const SizedBox(height: 8),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'Setup Your Workspace',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Create a collaborative space for shared documents, encrypted vault notes, and team intelligence.',
-                        style: TextStyle(
-                          color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-                          fontSize: 14,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 48),
-                      _buildActionCard(
-                        context,
-                        title: 'Create a Workspace',
-                        desc: 'Start a new hub with shared folders & vaults',
-                        icon: Icons.add_business_rounded,
-                        color: AppTheme.primaryColor,
-                        onTap: _showCreateDialog,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildActionCard(
-                        context,
-                        title: 'Join a Workspace',
-                        desc: 'Enter an invite code or scan a workspace QR',
-                        icon: Icons.group_add_rounded,
-                        color: AppTheme.secondaryColor,
-                        onTap: () => Navigator.pushNamed(context, '/join-family'),
-                      ),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
-                        child: const Text('Continue to Dashboard', style: TextStyle(color: AppTheme.textTertiary)),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
       ),

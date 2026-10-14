@@ -12,6 +12,11 @@ export interface IUser extends Document {
     phoneNumber?: string;
     passwordResetToken?: string;
     passwordResetExpires?: Date;
+    workspaces?: Array<{
+        workspaceId: mongoose.Types.ObjectId;
+        role: 'admin' | 'member' | 'viewer';
+        joinedAt: Date;
+    }>;
     matchPassword(enteredPassword: string): Promise<boolean>;
 }
 
@@ -39,6 +44,11 @@ const userSchema = new mongoose.Schema<IUser>({
         type: String,
         enum: ['admin', 'member', 'viewer'],
     },
+    workspaces: [{
+        workspaceId: { type: Schema.Types.ObjectId, ref: 'Family' },
+        role: { type: String, enum: ['admin', 'member', 'viewer'], default: 'member' },
+        joinedAt: { type: Date, default: Date.now },
+    }],
     tokenVersion: {
         type: Number,
         default: 0,
